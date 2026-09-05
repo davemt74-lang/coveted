@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$user) {
 
 $interestOptions = coveted_invite_event_interest_options();
 $selectedInterests = coveted_invite_normalize_interests((array)($_POST['event_interests'] ?? []));
+$postedCity = array_key_exists('city_id', $_POST) ? (string)$_POST['city_id'] : '';
 
 coveted_page_start('Request an Invite');
 ?>
@@ -81,16 +82,17 @@ coveted_page_start('Request an Invite');
                     </label>
                     <label>
                         City
-                        <select name="city_id">
-                            <option value="0">Other / not listed</option>
+                        <select name="city_id" required data-city-select>
+                            <option value="" disabled <?= $postedCity === '' ? 'selected' : '' ?>>Choose your city</option>
                             <?php foreach ($cities as $city): ?>
-                                <option value="<?= (int)$city['id'] ?>" <?= (int)($_POST['city_id'] ?? 0) === (int)$city['id'] ? 'selected' : '' ?>><?= coveted_e(coveted_city_label($city)) ?></option>
+                                <option value="<?= (int)$city['id'] ?>" <?= $postedCity !== '' && (int)$postedCity === (int)$city['id'] ? 'selected' : '' ?>><?= coveted_e(coveted_city_label($city)) ?></option>
                             <?php endforeach; ?>
+                            <option value="0" <?= $postedCity === '0' ? 'selected' : '' ?>>Other / not listed</option>
                         </select>
                     </label>
-                    <label class="cv-invite-grid-wide">
-                        If your city is not listed
-                        <input name="city_other" maxlength="180" placeholder="City, State / Region" value="<?= coveted_e((string)($_POST['city_other'] ?? '')) ?>">
+                    <label class="cv-invite-grid-wide" data-city-other <?= $postedCity === '0' ? '' : 'hidden' ?>>
+                        Your city
+                        <input name="city_other" maxlength="180" placeholder="City, State / Region" value="<?= coveted_e((string)($_POST['city_other'] ?? '')) ?>" <?= $postedCity === '0' ? 'required' : '' ?> data-city-other-input>
                     </label>
                 </div>
             </div>
