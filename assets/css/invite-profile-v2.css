@@ -1,0 +1,242 @@
+/* Invite profile expansion + legal pages */
+.cv-invite-choice-stack {
+    display: grid;
+    gap: 24px;
+}
+
+.cv-invite-choice-title {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--muted-strong);
+    font-size: 12px;
+    font-weight: 760;
+}
+
+.cv-invite-note-label,
+.cv-invite-choice-stack > label {
+    display: grid;
+    gap: 8px;
+    color: var(--muted-strong);
+    font-size: 12px;
+    font-weight: 740;
+}
+
+.cv-invite-note-label small {
+    color: var(--muted);
+    font-weight: 560;
+}
+
+.cv-invite-note-label textarea,
+.cv-invite-choice-stack > label input {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    padding: 12px 13px;
+    font: inherit;
+}
+
+.cv-invite-gender-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.cv-invite-gender-grid label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 54px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.cv-invite-gender-grid label:hover {
+    border-color: var(--line-strong);
+    background: #fafafa;
+}
+
+.cv-invite-gender-grid input {
+    width: 18px;
+    height: 18px;
+    accent-color: #111;
+}
+
+.cv-invite-gender-grid span {
+    font-size: 13px;
+    font-weight: 720;
+}
+
+.cv-invite-request-submit a {
+    color: inherit;
+    font-weight: 740;
+}
+
+.cv-crm-profile-meta {
+    display: grid;
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+}
+
+.cv-crm-profile-row {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    font-size: 11px;
+}
+
+.cv-crm-profile-row > strong {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.cv-crm-profile-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.cv-crm-profile-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 6px 9px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--ink);
+    font-size: 10px;
+    font-weight: 720;
+    text-decoration: none;
+}
+
+.cv-crm-profile-links a:hover {
+    border-color: #111;
+}
+
+.cv-legal-page {
+    width: min(920px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 64px 0 96px;
+}
+
+.cv-legal-page-head {
+    margin-bottom: 34px;
+}
+
+.cv-legal-page-head h1 {
+    margin: 10px 0 12px;
+    font-size: clamp(42px, 7vw, 72px);
+    line-height: .98;
+    letter-spacing: -.055em;
+}
+
+.cv-legal-page-head p {
+    color: var(--muted-strong);
+    line-height: 1.6;
+}
+
+.cv-legal-document {
+    display: grid;
+    gap: 30px;
+    padding: 34px;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #fff;
+}
+
+.cv-legal-document section {
+    display: grid;
+    gap: 10px;
+}
+
+.cv-legal-document h2 {
+    margin: 0;
+    font-size: 21px;
+    letter-spacing: -.025em;
+}
+
+.cv-legal-document p,
+.cv-legal-document li {
+    margin: 0;
+    color: var(--muted-strong);
+    line-height: 1.7;
+}
+
+.cv-legal-document ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.cv-legal-document a {
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.cv-legal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 24px 0 34px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.cv-legal-footer nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.cv-legal-footer a {
+    color: var(--muted-strong);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.cv-landing-footer nav a.cv-legal-link {
+    opacity: .8;
+}
+
+@media (max-width: 720px) {
+    .cv-invite-gender-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-crm-profile-row {
+        grid-template-columns: 1fr;
+        gap: 5px;
+    }
+
+    .cv-legal-page {
+        width: min(100% - 24px, 920px);
+        padding: 38px 0 64px;
+    }
+
+    .cv-legal-document {
+        padding: 24px 20px;
+    }
+
+    .cv-legal-footer {
+        width: min(100% - 24px, 1180px);
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

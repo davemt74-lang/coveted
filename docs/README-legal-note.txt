@@ -1,0 +1,1 @@
+Privacy Policy and Terms of Service pages are product-ready starter terms for Coveted's current invite-led service. They should be reviewed by qualified counsel before relying on them as final jurisdiction-specific legal documents.

@@ -4,17 +4,24 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $paths = [
     'app/invite_crm.php',
+    'app/invite_profile.php',
     'request-invite.php',
     'activate.php',
     'admin/crm.php',
     'admin/cities.php',
     'app/admin_ui.php',
     'auth.php',
+    'privacy.php',
+    'terms.php',
     'assets/css/invite-crm-v2.css',
+    'assets/css/invite-profile-v2.css',
     'assets/css/coveted.css',
     'assets/js/invite-crm-v2.js',
+    'assets/js/invite-profile-v2.js',
+    'assets/js/legal-footer.js',
     'assets/js/coveted.js',
     'database/migrations/20260905_invite_crm_cities.sql',
+    'database/migrations/20260905_invite_profile_legal.sql',
     'database/README.md',
 ];
 
@@ -45,17 +52,14 @@ foreach ([
     'CREATE TABLE IF NOT EXISTS user_activation_tokens',
     "'private_dinners' => 'Private dinners'",
     "'mystery_events' => 'Mystery events'",
-    "'artist_sessions' => 'Live music & artist sessions'",
     "status = 'converted'",
     "VALUES (?, ?, ?, ?, 'invited')",
-    "status = 'active'",
     'source_ip_hash',
     'idx_invite_requests_ip_created',
     "hash('sha256', 'invite-request|' . \$ip)",
     'INTERVAL 24 HOUR',
     "INSERT INTO profiles (user_id,city,interests_json)",
     "['suspended', 'deleted']",
-    "UPDATE user_activation_tokens SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND used_at IS NULL",
 ] as $fragment) {
     if (!str_contains($data, $fragment)) {
         fwrite(STDERR, "Invite CRM data contract missing: {$fragment}\n");
@@ -63,16 +67,48 @@ foreach ([
     }
 }
 
+$profile = $files['app/invite_profile.php'];
+foreach ([
+    'function coveted_invite_goal_options',
+    'function coveted_invite_source_options',
+    'function coveted_invite_gender_options',
+    'function coveted_invite_profile_validate_input',
+    'function coveted_invite_profile_save',
+    'function coveted_invite_profile_apply_to_user',
+    'CREATE TABLE IF NOT EXISTS invite_request_profiles',
+    'CREATE TABLE IF NOT EXISTS user_profile_intake',
+    'social_links_json',
+    'gender_key',
+    'source_keys_json',
+    "strtolower((string)(\$parts['scheme'] ?? '')) !== 'https'",
+] as $fragment) {
+    if (!str_contains($profile, $fragment)) {
+        fwrite(STDERR, "Invite profile contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
 $public = $files['request-invite.php'];
 foreach ([
     'coveted_require_csrf();',
-    'coveted_invite_request_submit($_POST, $pdo)',
+    'coveted_invite_profile_validate_input($_POST)',
+    'coveted_invite_request_submit($baseInput, $pdo)',
+    'coveted_invite_profile_save($requestPublicId, $profileInput, $pdo)',
+    '$pdo->beginTransaction();',
     'name="city_id"',
     'name="city_other"',
     'data-city-select',
-    'data-city-other',
     'name="event_interests[]"',
-    'Interested in events',
+    'name="goals[]"',
+    'name="sources[]"',
+    'name="personal_website"',
+    'name="business_website"',
+    'name="instagram"',
+    'name="linkedin"',
+    'name="gender"',
+    'data-gender-self',
+    'href="/terms.php"',
+    'href="/privacy.php"',
     'Request an Invite',
     'name="company"',
 ] as $fragment) {
@@ -91,13 +127,15 @@ foreach ([
     'coveted_require_system_admin()',
     'coveted_invite_request_update',
     'coveted_invite_request_convert',
+    'coveted_invite_profile_apply_to_user',
+    'coveted_invite_profile_details_map',
     'Convert to User',
     'One-time activation link',
+    'LOOKING FOR',
+    'Gender',
+    'Links',
     'name="city_id"',
     'name="interest"',
-    'All event interests',
-    'city_name',
-    'event_interests_json',
 ] as $fragment) {
     if (!str_contains($crm, $fragment)) {
         fwrite(STDERR, "Admin Invite CRM contract missing: {$fragment}\n");
@@ -151,21 +189,36 @@ foreach (['/admin/crm.php', "'Invite CRM'", '/admin/cities.php', "'Cities'"] as 
 
 $cssIndex = $files['assets/css/coveted.css'];
 $jsIndex = $files['assets/js/coveted.js'];
-foreach (['invite-crm-v2.css', 'Request an Invite', 'a[href="/auth.php?action=register"]'] as $fragment) {
+foreach (['invite-crm-v2.css', 'invite-profile-v2.css', 'Request an Invite', 'a[href="/auth.php?action=register"]'] as $fragment) {
     if (!str_contains($cssIndex, $fragment)) {
         fwrite(STDERR, "Invite-led CSS entrypoint contract missing: {$fragment}\n");
         exit(1);
     }
 }
-if (!str_contains($jsIndex, 'invite-crm-v2.js')) {
-    fwrite(STDERR, "Invite CRM interaction script is not loaded by the canonical JS entrypoint.\n");
-    exit(1);
+foreach (['invite-crm-v2.js', 'invite-profile-v2.js', 'legal-footer.js'] as $fragment) {
+    if (!str_contains($jsIndex, $fragment)) {
+        fwrite(STDERR, "Canonical JS entrypoint missing: {$fragment}\n");
+        exit(1);
+    }
 }
 
-$js = $files['assets/js/invite-crm-v2.js'];
-foreach (['data-dialog-open', "link.href = '/request-invite.php'", 'data-city-select', 'showModal'] as $fragment) {
-    if (!str_contains($js, $fragment)) {
-        fwrite(STDERR, "Invite CRM interaction contract missing: {$fragment}\n");
+$legalJs = $files['assets/js/legal-footer.js'];
+foreach (['/privacy.php', '/terms.php', '.cv-landing-footer nav', 'cv-legal-footer'] as $fragment) {
+    if (!str_contains($legalJs, $fragment)) {
+        fwrite(STDERR, "Legal footer contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
+foreach (['Privacy Policy', 'Gender information', 'social or website links'] as $fragment) {
+    if (!str_contains($files['privacy.php'], $fragment)) {
+        fwrite(STDERR, "Privacy policy missing: {$fragment}\n");
+        exit(1);
+    }
+}
+foreach (['Terms of Service', 'Invite-led membership', 'Community conduct'] as $fragment) {
+    if (!str_contains($files['terms.php'], $fragment)) {
+        fwrite(STDERR, "Terms page missing: {$fragment}\n");
         exit(1);
     }
 }
@@ -178,10 +231,18 @@ foreach (['CREATE TABLE IF NOT EXISTS cities', 'CREATE TABLE IF NOT EXISTS invit
     }
 }
 
+$profileMigration = $files['database/migrations/20260905_invite_profile_legal.sql'];
+foreach (['CREATE TABLE IF NOT EXISTS invite_request_profiles', 'CREATE TABLE IF NOT EXISTS user_profile_intake', 'social_links_json', 'gender_key'] as $fragment) {
+    if (!str_contains($profileMigration, $fragment)) {
+        fwrite(STDERR, "Invite profile migration contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
 $databaseReadme = $files['database/README.md'];
 if (!str_contains($databaseReadme, 'database/migrations/') || !str_contains($databaseReadme, 'filename order')) {
     fwrite(STDERR, "Database deployment documentation must include additive migrations.\n");
     exit(1);
 }
 
-echo "Invite CRM + city contract OK\n";
+echo "Invite CRM + city + profile + legal contract OK\n";
