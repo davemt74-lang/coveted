@@ -16,7 +16,7 @@ coveted_page_start('Privacy Policy');
     <article class="cv-legal-document">
         <section>
             <h2>1. Information you provide</h2>
-            <p>When you request an invite, create or activate an account, join groups, RSVP, attend events, claim benefits, or use other Coveted features, you may provide information such as your name, email address, phone number, city, event interests, social or website links, profile information, messages, RSVP choices, attendance activity, and reward activity.</p>
+            <p>When you request an invite, join the Coveted newsletter, create or activate an account, join groups, RSVP, attend events, claim benefits, or use other Coveted features, you may provide information such as your name, email address, phone number, city, event interests, social or website links, profile information, messages, RSVP choices, attendance activity, and reward activity.</p>
             <p>Gender information on the invite request is optional. If you choose to provide it, Coveted uses it for internal membership review and community planning. It is not published from your invite request by default.</p>
         </section>
 
@@ -29,6 +29,7 @@ coveted_page_start('Privacy Policy');
             <h2>3. How we use information</h2>
             <ul>
                 <li>Review invite requests and determine membership or event fit.</li>
+                <li>Manage newsletter subscriptions and send requested Coveted updates.</li>
                 <li>Create and administer member accounts and access permissions.</li>
                 <li>Operate invitations, groups, events, attendance, reconnect features, rewards, and local benefits.</li>
                 <li>Match members with relevant cities, communities, businesses, artists, and experiences.</li>
@@ -39,7 +40,7 @@ coveted_page_start('Privacy Policy');
 
         <section>
             <h2>4. When information is shared</h2>
-            <p>Coveted does not make invite-request information public. Information may be shared with authorized Coveted administrators and, when necessary to deliver an experience, with approved hosts, venues, businesses, artists, or service providers that need the information for that specific purpose. We may also disclose information when required by law or to protect the rights, safety, and security of Coveted or others.</p>
+            <p>Coveted does not make invite-request or newsletter-signup information public. Information may be shared with authorized Coveted administrators and, when necessary to deliver an experience or communication, with approved hosts, venues, businesses, artists, or service providers that need the information for that specific purpose. We may also disclose information when required by law or to protect the rights, safety, and security of Coveted or others.</p>
         </section>
 
         <section>
@@ -49,7 +50,7 @@ coveted_page_start('Privacy Policy');
 
         <section>
             <h2>6. Data retention</h2>
-            <p>Coveted keeps information for as long as it is reasonably needed to operate the service, maintain membership and event records, meet legal or security obligations, resolve disputes, and preserve legitimate audit history. Invite requests that are declined or never converted may be retained for operational history and abuse prevention, subject to applicable law.</p>
+            <p>Coveted keeps information for as long as it is reasonably needed to operate the service, maintain membership and event records, manage requested communications, meet legal or security obligations, resolve disputes, and preserve legitimate audit history. Invite requests or newsletter records that are declined, unsubscribed, or never converted may be retained for operational history and abuse prevention, subject to applicable law.</p>
         </section>
 
         <section>
@@ -59,7 +60,7 @@ coveted_page_start('Privacy Policy');
 
         <section>
             <h2>8. Your choices</h2>
-            <p>You may choose not to provide optional profile information, including gender and social links. You may request access to, correction of, or deletion of personal information where applicable. Some records may be retained where necessary for security, legal compliance, event history, fraud prevention, or legitimate operational purposes.</p>
+            <p>You may choose not to provide optional profile information, including gender and social links. Newsletter subscribers may opt out of future newsletter emails using the unsubscribe option provided with those communications. You may request access to, correction of, or deletion of personal information where applicable. Some records may be retained where necessary for security, legal compliance, event history, fraud prevention, or legitimate operational purposes.</p>
         </section>
 
         <section>
