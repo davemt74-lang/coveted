@@ -1,0 +1,7 @@
+Coveted Admin Experience V4
+Built: 2026-09-04
+Base repository SHA: ecc85c70e662af18ec38be42bb6efff9836c2087
+
+This package contains a local UI/product-experience build layered on the base SHA.
+It was not committed to GitHub in this session because the GitHub connector became unavailable.
+No config.php is included. No schema migration is required.
