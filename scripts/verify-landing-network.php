@@ -107,11 +107,13 @@ foreach (['admin/cities.php', 'request-invite.php'] as $relative) {
 $js = $files['assets/js/landing-network-v2.js'];
 foreach ([
     "fetch('/api/landing-network.php'",
-    'hero.after(...sections)',
+    "section.setAttribute('aria-label', 'Coveted cities')",
+    "name.className = 'cv-landing-city-name'",
+    'hero.after(buildCitySection(payload.cities))',
+    "landing.querySelector('.cv-landing-app')",
+    'appSection.after(statsSection)',
     'data-count-target',
     'IntersectionObserver',
-    'data-city-prev',
-    'data-city-next',
 ] as $fragment) {
     if (!str_contains($js, $fragment)) {
         fwrite(STDERR, "Landing network JS contract missing: {$fragment}\n");
@@ -119,20 +121,35 @@ foreach ([
     }
 }
 
+foreach (['COVETED CITIES', 'Find your city.', 'A growing network of real-world gatherings', 'data-city-prev', 'data-city-next', 'city.region'] as $forbidden) {
+    if (str_contains($js, $forbidden)) {
+        fwrite(STDERR, "Simplified city strip must not include: {$forbidden}\n");
+        exit(1);
+    }
+}
+
 $css = $files['assets/css/landing-network-v2.css'];
-foreach (['.cv-landing-city-strip', '.cv-landing-city-track', '.cv-landing-network-stats', '.cv-landing-stat-grid'] as $fragment) {
+foreach ([
+    '.cv-landing-city-strip',
+    '.cv-landing-city-track',
+    '.cv-landing-city-name',
+    'color: rgba(17,17,17,.42)',
+    'font-size: clamp(14px, 1.45vw, 19px)',
+    '.cv-landing-network-stats',
+    '.cv-landing-stat-grid',
+] as $fragment) {
     if (!str_contains($css, $fragment)) {
         fwrite(STDERR, "Landing network CSS contract missing: {$fragment}\n");
         exit(1);
     }
 }
 
-if (!str_contains($files['assets/css/coveted.css'], 'landing-network-v2.css')) {
-    fwrite(STDERR, "Canonical CSS entrypoint does not load landing network styles.\n");
+if (!str_contains($files['assets/css/coveted.css'], 'landing-network-v2-layout-20260905')) {
+    fwrite(STDERR, "Canonical CSS entrypoint does not load the revised landing network styles.\n");
     exit(1);
 }
-if (!str_contains($files['assets/js/coveted.js'], 'landing-network-v2.js')) {
-    fwrite(STDERR, "Canonical JS entrypoint does not load landing network script.\n");
+if (!str_contains($files['assets/js/coveted.js'], 'landing-network-v2-layout-20260905')) {
+    fwrite(STDERR, "Canonical JS entrypoint does not load the revised landing network script.\n");
     exit(1);
 }
 

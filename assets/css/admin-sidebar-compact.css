@@ -1,0 +1,46 @@
+/* Keep the desktop Admin navigation compact enough to fit without a visible scrollbar. */
+@media (min-width: 981px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar {
+        padding-top: 14px;
+        padding-bottom: 10px;
+        overflow-y: auto;
+        scrollbar-width: none;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-brand {
+        min-height: 40px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav {
+        gap: 7px;
+        margin-top: 10px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group {
+        gap: 0;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-label {
+        padding-bottom: 2px;
+        line-height: 1;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav a {
+        min-height: 28px;
+        padding-top: 2px;
+        padding-bottom: 2px;
+        line-height: 1;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar-footer {
+        padding-top: 8px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar-footer a {
+        line-height: 1.1;
+    }
+}
