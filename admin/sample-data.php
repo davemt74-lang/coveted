@@ -23,17 +23,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $action = trim((string)($_POST['action'] ?? ''));
         $enabled = (string)($_POST['enabled'] ?? '0') === '1';
-        $settingMap = [
-            'set_member_sample_data' => COVETED_SETTING_MEMBER_SAMPLE_DATA,
-            'set_landing_city_strip' => COVETED_SETTING_LANDING_CITY_STRIP,
-            'set_landing_network_stats' => COVETED_SETTING_LANDING_NETWORK_STATS,
-        ];
-        if (!isset($settingMap[$action])) {
-            throw new InvalidArgumentException('Unsupported sample data action.');
+
+        if ($action === 'set_member_sample_data') {
+            coveted_site_setting_set_bool(COVETED_SETTING_MEMBER_SAMPLE_DATA, $enabled, $admin, $pdo);
+            coveted_redirect('/admin/sample-data.php?saved=1');
+        }
+        if ($action === 'set_landing_city_strip') {
+            coveted_site_setting_set_bool(COVETED_SETTING_LANDING_CITY_STRIP, $enabled, $admin, $pdo);
+            coveted_redirect('/admin/sample-data.php?saved=1');
+        }
+        if ($action === 'set_landing_network_stats') {
+            coveted_site_setting_set_bool(COVETED_SETTING_LANDING_NETWORK_STATS, $enabled, $admin, $pdo);
+            coveted_redirect('/admin/sample-data.php?saved=1');
         }
 
-        coveted_site_setting_set_bool($settingMap[$action], $enabled, $admin, $pdo);
-        coveted_redirect('/admin/sample-data.php?saved=1');
+        throw new InvalidArgumentException('Unsupported sample data action.');
     } catch (InvalidArgumentException $e) {
         $error = $e->getMessage();
     } catch (Throwable $e) {
