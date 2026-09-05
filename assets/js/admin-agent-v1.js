@@ -138,6 +138,7 @@
     const makeMessage = (entry) => {
         const article = document.createElement('article');
         article.className = `cv-admin-agent-message is-${entry.role}`;
+        if (entry.pending) article.dataset.pending = '1';
         if (entry.role === 'action' && entry.ok === false) article.classList.add('is-failed');
 
         const label = document.createElement('span');
@@ -534,7 +535,6 @@
         const id = pending
             && pending.threadRef === threadRef
             && pending.message === trimmed
-            && pending.provider === provider.value
             && typeof pending.requestId === 'string'
             ? pending.requestId
             : requestId();
@@ -570,11 +570,11 @@
                 throw new Error(data?.error || `Request failed (${response.status}).`);
             }
 
-            setPendingRequest(null);
             const returnedRef = String(data.thread?.public_id || threadRef);
             const returnedTitle = String(data.thread?.title || currentThreadTitle || 'New Chat');
             setThreadUi(returnedRef, returnedTitle, true);
             await loadThread(returnedRef, false);
+            setPendingRequest(null);
             setBusy(false, defaultStatus());
             input?.focus();
         } catch (error) {
@@ -593,13 +593,25 @@
         }
     };
 
+    const restorePendingDraft = () => {
+        const pending = getPendingRequest();
+        if (!pending || pending.threadRef !== currentThreadRef || typeof pending.message !== 'string') return;
+        if (input && input.value.trim() === '') {
+            input.value = pending.message;
+            resizeInput();
+        }
+        if (status) status.textContent = 'Interrupted request ready to retry safely';
+    };
+
     loadEphemeralState();
     render(false);
     resizeInput();
     setBusy(false, defaultStatus());
 
     if (currentThreadRef && threadStorageReady) {
-        loadThread(currentThreadRef, false).catch((error) => {
+        loadThread(currentThreadRef, false).then(() => {
+            restorePendingDraft();
+        }).catch((error) => {
             setThreadUi('', 'New Chat', false);
             conversationMessages = [];
             render(false);
