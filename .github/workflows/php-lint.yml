@@ -46,3 +46,6 @@ jobs:
 
       - name: Verify event authority contract
         run: php scripts/verify-event-authority.php
+
+      - name: Verify member sample-data contract
+        run: php scripts/verify-member-sample-data.php

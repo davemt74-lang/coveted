@@ -6,6 +6,7 @@ require_once __DIR__ . '/app/rewards.php';
 require_once __DIR__ . '/app/member_home.php';
 require_once __DIR__ . '/app/site_settings.php';
 require_once __DIR__ . '/app/sample_data.php';
+require_once __DIR__ . '/app/member_home_v2.php';
 
 $user = coveted_current_user();
 $landingEventsEnabled = false;
@@ -95,9 +96,7 @@ if (!$user):
                 <?php foreach ($landingEvents as $event): ?>
                     <?php
                     $eventType = (string)$event['event_type'];
-                    $eventTitle = $eventType === 'mystery'
-                        ? 'Mystery gathering'
-                        : (string)$event['title'];
+                    $eventTitle = $eventType === 'mystery' ? 'Mystery gathering' : (string)$event['title'];
                     $eventTypeLabel = ucwords(str_replace('_', ' ', $eventType));
                     if (!empty($event['is_sample'])) {
                         $eventTypeLabel = 'Preview · ' . $eventTypeLabel;
@@ -234,179 +233,149 @@ exit;
 endif;
 
 $pdo = coveted_db();
-$userId = (int)$user['id'];
-
-$eventStmt = $pdo->prepare(
-    "SELECT e.public_id, e.title, e.event_type, e.audience, e.timezone, e.starts_at, e.location_visibility, e.status, er.response
-     FROM event_rsvps er
-     JOIN events e ON e.id = er.event_id
-     WHERE er.user_id = ?
-       AND er.response = 'attending'
-       AND e.status IN ('published','closed')
-       AND e.starts_at >= NOW()
-     ORDER BY e.starts_at
-     LIMIT 1"
-);
-$eventStmt->execute([$userId]);
-$nextEvent = $eventStmt->fetch();
-$mysteryReveal = coveted_member_home_mystery_reveal($userId);
-
-$inviteStmt = $pdo->prepare(
-    "SELECT ei.public_id, e.title, e.timezone, e.starts_at
-     FROM event_invitations ei
-     JOIN events e ON e.id = ei.event_id
-     WHERE ei.user_id = ?
-       AND ei.status = 'pending'
-       AND e.status = 'published'
-       AND e.starts_at > NOW()
-     ORDER BY e.starts_at
-     LIMIT 1"
-);
-$inviteStmt->execute([$userId]);
-$nextInvite = $inviteStmt->fetch();
-
-$benefitStmt = $pdo->prepare(
-    "SELECT
-        ri.public_id,
-        ri.status,
-        rt.title,
-        rt.description,
-        rt.reward_type,
-        rt.value_text
-     FROM reward_issuances ri
-     JOIN reward_templates rt ON rt.id = ri.reward_template_id
-     WHERE ri.user_id = ?
-       AND ri.status NOT IN ('cancelled','expired')
-       AND (ri.expires_at IS NULL OR ri.expires_at > NOW())
-     ORDER BY ri.issued_at DESC, ri.id DESC
-     LIMIT 1"
-);
-$benefitStmt->execute([$userId]);
-$benefit = $benefitStmt->fetch();
-
-$summaryStmt = $pdo->prepare(
-    "SELECT
-        (SELECT COUNT(*)
-         FROM event_rsvps er
-         JOIN events e ON e.id = er.event_id
-         WHERE er.user_id = ?
-           AND er.response = 'attending'
-           AND e.status IN ('published','closed')
-           AND e.starts_at >= NOW()) AS upcoming_events,
-        (SELECT COUNT(*)
-         FROM event_invitations ei
-         JOIN events e ON e.id = ei.event_id
-         WHERE ei.user_id = ?
-           AND ei.status = 'pending'
-           AND e.status = 'published'
-           AND e.starts_at > NOW()) AS pending_invitations,
-        (SELECT COUNT(*)
-         FROM reward_issuances ri
-         WHERE ri.user_id = ?
-           AND ri.status NOT IN ('cancelled','expired')
-           AND (ri.expires_at IS NULL OR ri.expires_at > NOW())) AS active_benefits,
-        (SELECT COUNT(*)
-         FROM group_memberships gm
-         WHERE gm.user_id = ?
-           AND gm.membership_status = 'active') AS active_groups"
-);
-$summaryStmt->execute([$userId, $userId, $userId, $userId]);
-$summary = $summaryStmt->fetch() ?: [
-    'upcoming_events' => 0,
-    'pending_invitations' => 0,
-    'active_benefits' => 0,
-    'active_groups' => 0,
-];
+$home = coveted_member_home_v2_data($user, $pdo);
+$nextEvent = $home['next_event'];
+$invitation = $home['invitation'];
+$groups = $home['groups'];
+$benefits = $home['benefits'];
+$reconnects = $home['reconnects'];
 ?>
-<section class="cv-page-heading cv-home-heading">
-    <span class="cv-eyebrow">HOME</span>
-    <h1>Good to see you, <?= coveted_e($user['display_name']) ?>.</h1>
-    <p>Only what matters before and after you show up.</p>
-</section>
+<div class="cv-member-home-v2">
+    <section class="cv-member-home-intro">
+        <div>
+            <span class="cv-eyebrow">HOME</span>
+            <h1>Good to see you, <?= coveted_e((string)$user['display_name']) ?>.</h1>
+            <p>Your next gathering, the people around it and what is waiting afterward.</p>
+        </div>
+        <?php if ($home['sample_mode']): ?>
+            <a class="cv-member-preview-pill" href="/admin/sample-data.php">Sample data · ON</a>
+        <?php endif; ?>
+    </section>
 
-<section class="cv-stat-grid cv-home-stats" aria-label="Member summary">
-    <a class="cv-card cv-stat" href="/events.php">
-        <strong><?= (int)$summary['upcoming_events'] ?></strong>
-        <span>Upcoming events</span>
-    </a>
-    <a class="cv-card cv-stat" href="/invitations.php">
-        <strong><?= (int)$summary['pending_invitations'] ?></strong>
-        <span>Invitations</span>
-    </a>
-    <a class="cv-card cv-stat" href="/benefits.php">
-        <strong><?= (int)$summary['active_benefits'] ?></strong>
-        <span>Active benefits</span>
-    </a>
-    <a class="cv-card cv-stat" href="/groups.php">
-        <strong><?= (int)$summary['active_groups'] ?></strong>
-        <span>Groups</span>
-    </a>
-</section>
-
-<section class="cv-home-grid">
-    <article class="cv-card cv-feature-card">
-        <span class="cv-kicker">NEXT</span>
-
-        <?php if ($nextEvent): ?>
-            <h2><?= coveted_e($nextEvent['title']) ?></h2>
-            <p><?= coveted_e(coveted_event_format($nextEvent, 'D, M j · g:i A')) ?></p>
-            <div class="cv-tag-row">
-                <span class="cv-pill"><?= $nextEvent['event_type'] === 'mystery' ? 'Mystery gathering' : 'Upcoming gathering' ?></span>
-                <?php if ($nextEvent['status'] === 'closed'): ?>
-                    <span class="cv-pill">RSVP closed</span>
-                <?php endif; ?>
-                <?php if ($nextEvent['audience'] === 'invitation_only'): ?>
-                    <span class="cv-pill">Invitation only</span>
+    <section class="cv-member-home-primary" aria-label="Your next move">
+        <article class="cv-member-event-hero <?= empty($nextEvent['image']) ? 'is-image-empty' : '' ?>">
+            <?php if ($nextEvent && !empty($nextEvent['image'])): ?>
+                <img src="<?= coveted_e((string)$nextEvent['image']) ?>" alt="" loading="eager" decoding="async">
+            <?php endif; ?>
+            <div class="cv-member-event-shade" aria-hidden="true"></div>
+            <div class="cv-member-event-copy">
+                <span class="cv-member-overline">YOUR NEXT MOVE</span>
+                <?php if ($nextEvent): ?>
+                    <h2><?= coveted_e((string)$nextEvent['title']) ?></h2>
+                    <p><?= coveted_e(coveted_event_format($nextEvent, 'D, M j · g:i A')) ?></p>
+                    <div class="cv-member-event-meta">
+                        <?php if (!empty($nextEvent['location'])): ?><span><?= coveted_e((string)$nextEvent['location']) ?></span><?php endif; ?>
+                        <?php if (!empty($nextEvent['group'])): ?><span><?= coveted_e((string)$nextEvent['group']) ?></span><?php endif; ?>
+                    </div>
+                    <a href="/events.php">View gathering <span aria-hidden="true">→</span></a>
+                <?php else: ?>
+                    <h2>Something worth showing up for will land here.</h2>
+                    <p>Accept an invitation and your next gathering becomes the center of Home.</p>
+                    <a href="/invitations.php">Check invitations <span aria-hidden="true">→</span></a>
                 <?php endif; ?>
             </div>
-            <a class="cv-text-link" href="/events.php">View event →</a>
-        <?php else: ?>
-            <h2>No upcoming RSVP yet.</h2>
-            <p>Your next gathering will appear here when you accept an invitation.</p>
-            <a class="cv-text-link" href="/invitations.php">View invitations →</a>
-        <?php endif; ?>
-    </article>
-
-    <?php if ($mysteryReveal): ?>
-        <article class="cv-card">
-            <span class="cv-kicker">MYSTERY REVEAL</span>
-            <h3><?= coveted_e($mysteryReveal['title'] ?: ucfirst(str_replace('_', ' ', (string)$mysteryReveal['reveal_type']))) ?></h3>
-            <p><?= nl2br(coveted_e(mb_strimwidth((string)$mysteryReveal['content'], 0, 260, '…'))) ?></p>
-            <a class="cv-text-link" href="/event.php?event=<?= coveted_e(rawurlencode((string)$mysteryReveal['event_public_id'])) ?>">View gathering →</a>
         </article>
+
+        <aside class="cv-member-next-stack">
+            <article class="cv-member-quiet-card">
+                <span class="cv-member-overline cv-member-overline-dark">INVITATION</span>
+                <?php if ($invitation): ?>
+                    <h3><?= coveted_e((string)$invitation['title']) ?></h3>
+                    <p><?= coveted_e(coveted_event_format($invitation, 'D, M j · g:i A')) ?></p>
+                    <?php if (!empty($invitation['group'])): ?><small><?= coveted_e((string)$invitation['group']) ?></small><?php endif; ?>
+                    <a href="/invitations.php">Respond <span aria-hidden="true">→</span></a>
+                <?php else: ?>
+                    <h3>You're caught up.</h3>
+                    <p>New invitations will appear here when someone puts your name on the list.</p>
+                    <a href="/invitations.php">Invitations <span aria-hidden="true">→</span></a>
+                <?php endif; ?>
+            </article>
+
+            <article class="cv-member-rule-card">
+                <span class="cv-member-overline">THE COVETED RULE</span>
+                <h3>When you arrive, the app disappears.</h3>
+                <p>Use Coveted for where, when and RSVP. Use the gathering for people.</p>
+            </article>
+        </aside>
+    </section>
+
+    <section class="cv-member-home-section">
+        <div class="cv-member-home-section-head">
+            <div><span class="cv-eyebrow">YOUR CIRCLES</span><h2>Groups that are moving.</h2></div>
+            <a href="/groups.php">All groups <span aria-hidden="true">→</span></a>
+        </div>
+        <div class="cv-member-image-grid cv-member-image-grid-three">
+            <?php if (!$groups): ?>
+                <article class="cv-member-empty-panel"><h3>Your groups will appear here.</h3><p>Membership should feel like belonging, not another dashboard counter.</p></article>
+            <?php endif; ?>
+            <?php foreach ($groups as $group): ?>
+                <a class="cv-member-image-card" href="/groups.php">
+                    <div class="cv-member-image-card-media">
+                        <?php if (!empty($group['image'])): ?><img src="<?= coveted_e((string)$group['image']) ?>" alt="" loading="lazy" decoding="async"><?php endif; ?>
+                    </div>
+                    <div class="cv-member-image-card-copy">
+                        <h3><?= coveted_e((string)$group['name']) ?></h3>
+                        <p><?= (int)($group['members'] ?? 0) ?> members<?php if (!empty($group['next'])): ?> · Next: <?= coveted_e((string)$group['next']) ?><?php endif; ?></p>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <section class="cv-member-home-split">
+        <div class="cv-member-home-section">
+            <div class="cv-member-home-section-head">
+                <div><span class="cv-eyebrow">FOR YOU</span><h2>Benefits waiting.</h2></div>
+                <a href="/benefits.php">All benefits <span aria-hidden="true">→</span></a>
+            </div>
+            <div class="cv-member-benefit-list">
+                <?php if (!$benefits): ?>
+                    <article class="cv-member-empty-panel"><h3>Nothing to redeem yet.</h3><p>Benefits unlock from the things you actually attend.</p></article>
+                <?php endif; ?>
+                <?php foreach ($benefits as $benefit): ?>
+                    <a class="cv-member-benefit-card" href="/benefits.php">
+                        <div class="cv-member-benefit-media"><?php if (!empty($benefit['image'])): ?><img src="<?= coveted_e((string)$benefit['image']) ?>" alt="" loading="lazy" decoding="async"><?php endif; ?></div>
+                        <div><span><?= coveted_e((string)($benefit['status'] ?? 'Available')) ?></span><h3><?= coveted_e((string)$benefit['title']) ?></h3><p><?= coveted_e((string)($benefit['value'] ?? 'Member benefit')) ?></p></div>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <div class="cv-member-home-section">
+            <div class="cv-member-home-section-head">
+                <div><span class="cv-eyebrow">RECONNECT</span><h2>People worth keeping.</h2></div>
+                <a href="/reconnect.php">Reconnect <span aria-hidden="true">→</span></a>
+            </div>
+            <?php if (!$reconnects): ?>
+                <article class="cv-member-empty-panel"><h3>People you meet will show up here.</h3><p>Reconnect is built from shared real-world experiences, not follower suggestions.</p></article>
+            <?php else: ?>
+                <div class="cv-member-people-grid">
+                    <?php foreach ($reconnects as $person): ?>
+                        <a href="/reconnect.php" class="cv-member-person-card">
+                            <img src="<?= coveted_e((string)$person['image']) ?>" alt="" loading="lazy" decoding="async">
+                            <div><strong><?= coveted_e((string)$person['name']) ?></strong><span><?= coveted_e((string)$person['context']) ?></span></div>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </section>
+
+    <?php if (count($home['events']) > 1): ?>
+        <section class="cv-member-home-section cv-member-home-upcoming">
+            <div class="cv-member-home-section-head">
+                <div><span class="cv-eyebrow">COMING UP</span><h2>Keep a little room on the calendar.</h2></div>
+                <a href="/events.php">All events <span aria-hidden="true">→</span></a>
+            </div>
+            <div class="cv-member-image-grid cv-member-image-grid-three">
+                <?php foreach ($home['events'] as $event): ?>
+                    <a class="cv-member-image-card" href="/events.php">
+                        <div class="cv-member-image-card-media"><?php if (!empty($event['image'])): ?><img src="<?= coveted_e((string)$event['image']) ?>" alt="" loading="lazy" decoding="async"><?php endif; ?></div>
+                        <div class="cv-member-image-card-copy"><span><?= coveted_e(coveted_event_format($event, 'D, M j')) ?></span><h3><?= coveted_e((string)$event['title']) ?></h3><p><?= coveted_e((string)($event['location'] ?? $event['group'] ?? 'Coveted gathering')) ?></p></div>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        </section>
     <?php endif; ?>
-
-    <article class="cv-card">
-        <span class="cv-kicker">INVITATION</span>
-
-        <?php if ($nextInvite): ?>
-            <h3><?= coveted_e($nextInvite['title']) ?></h3>
-            <p><?= coveted_e(coveted_event_format($nextInvite, 'D, M j · g:i A')) ?></p>
-            <a class="cv-text-link" href="/invitations.php">Respond →</a>
-        <?php else: ?>
-            <h3>You're caught up.</h3>
-            <p>New invitations will appear here.</p>
-        <?php endif; ?>
-    </article>
-
-    <article class="cv-card">
-        <span class="cv-kicker">FOR YOU</span>
-
-        <?php if ($benefit): ?>
-            <h3><?= coveted_e($benefit['title']) ?></h3>
-            <p><?= coveted_e($benefit['value_text'] ?: ($benefit['description'] ?: 'A Coveted member benefit is waiting for you.')) ?></p>
-            <a class="cv-text-link" href="/benefits.php">View benefit →</a>
-        <?php else: ?>
-            <h3>Your benefits will live here.</h3>
-            <p>Gifts, music, access and partner rewards are unlocked through the things you actually attend.</p>
-            <a class="cv-text-link" href="/benefits.php">Benefits →</a>
-        <?php endif; ?>
-    </article>
-
-    <article class="cv-card cv-offline-card">
-        <span class="cv-kicker">THE COVETED RULE</span>
-        <h3>When you arrive, the app disappears.</h3>
-        <p>Use Coveted for where, when and RSVP. Use the gathering for people.</p>
-    </article>
-</section>
+</div>
 <?php coveted_page_end(); ?>
