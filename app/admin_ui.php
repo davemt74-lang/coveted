@@ -8,26 +8,27 @@ require_once __DIR__ . '/admin_onboarding.php';
  *
  * @return array{users:int,groups:int,events:int,businesses:int,artists:int,pending_requests:int}
  */
+function coveted_admin_ui_safe_count(PDO $pdo, string $sql, string $label): int
+{
+    try {
+        return (int)$pdo->query($sql)->fetchColumn();
+    } catch (Throwable $e) {
+        error_log('Coveted Admin count unavailable [' . $label . ']: ' . $e->getMessage());
+        return 0;
+    }
+}
+
 function coveted_admin_ui_counts(?PDO $pdo = null): array
 {
     $pdo ??= coveted_db();
-    $row = $pdo->query(
-        "SELECT
-            (SELECT COUNT(*) FROM users WHERE status <> 'deleted') AS users,
-            (SELECT COUNT(*) FROM social_groups WHERE status <> 'archived') AS groups,
-            (SELECT COUNT(*) FROM events WHERE status <> 'cancelled') AS events,
-            (SELECT COUNT(*) FROM businesses WHERE status <> 'archived') AS businesses,
-            (SELECT COUNT(*) FROM artist_profiles WHERE status <> 'archived') AS artists,
-            (SELECT COUNT(*) FROM role_requests WHERE status = 'pending') AS pending_requests"
-    )->fetch() ?: [];
 
     return [
-        'users' => (int)($row['users'] ?? 0),
-        'groups' => (int)($row['groups'] ?? 0),
-        'events' => (int)($row['events'] ?? 0),
-        'businesses' => (int)($row['businesses'] ?? 0),
-        'artists' => (int)($row['artists'] ?? 0),
-        'pending_requests' => (int)($row['pending_requests'] ?? 0),
+        'users' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM users WHERE status <> 'deleted'", 'users'),
+        'groups' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM social_groups WHERE status <> 'archived'", 'groups'),
+        'events' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM events WHERE status <> 'cancelled'", 'events'),
+        'businesses' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM businesses WHERE status <> 'archived'", 'businesses'),
+        'artists' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM artist_profiles WHERE status <> 'archived'", 'artists'),
+        'pending_requests' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM role_requests WHERE status = 'pending'", 'pending_requests'),
     ];
 }
 
