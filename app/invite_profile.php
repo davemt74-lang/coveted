@@ -175,6 +175,10 @@ function coveted_invite_profile_validate_input(array $input): array
 /** @param array{goals:array<int,string>,sources:array<int,string>,gender:string,gender_self:string,links:array<string,string>,note:string} $data */
 function coveted_invite_profile_save(string $requestPublicId, array $data, ?PDO $pdo = null): void
 {
+    if ($requestPublicId === 'accepted') {
+        return;
+    }
+
     $pdo ??= coveted_db();
     coveted_invite_profile_ensure_schema($pdo);
 
