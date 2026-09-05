@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
+require_once dirname(__DIR__) . '/app/admin_agent_actions.php';
 require_once dirname(__DIR__) . '/app/site_branding.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -50,7 +51,7 @@ try {
         $history = [];
     }
 
-    $messages = [];
+    $dialogue = [];
     foreach ($history as $entry) {
         if (!is_array($entry)) {
             continue;
@@ -58,32 +59,139 @@ try {
         $role = strtolower(trim((string)($entry['role'] ?? '')));
         $content = trim((string)($entry['content'] ?? ''));
         if (in_array($role, ['user', 'assistant'], true) && $content !== '') {
-            $messages[] = ['role' => $role, 'content' => $content];
+            $dialogue[] = ['role' => $role, 'content' => $content];
         }
     }
+    $dialogue = array_slice($dialogue, -20);
+    $dialogue[] = ['role' => 'user', 'content' => $message];
 
-    // Keep enough conversation continuity while reserving space for the
-    // server-generated live context and the current user message. The provider
-    // service retains at most 24 messages, so this clamp guarantees that the
-    // canonical Admin context cannot be pushed out by a custom/long client.
-    $messages = array_slice($messages, -20);
+    $autonomous = coveted_admin_agent_autonomous_actions_enabled(coveted_db());
+    $executedActions = [];
+    $visibleChunks = [];
+    $providerResult = null;
+    $totalActionCount = 0;
+    $maxRounds = $autonomous ? 3 : 1;
+    $maxActions = 8;
+    $brain = [];
 
-    // Refresh the brain for every request. This makes the Agent state-aware
-    // without caching or duplicating product state: once an Admin fixes an
-    // opportunity, the next message sees the updated canonical records.
+    for ($round = 0; $round < $maxRounds; $round++) {
+        // Refresh canonical state on every reasoning/action round. The context
+        // is rebuilt for each provider call so it can never be pushed out by
+        // long client history or action-result messages.
+        $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin));
+        $callMessages = [
+            [
+                'role' => 'user',
+                'content' => coveted_admin_agent_context_message($brain),
+            ],
+            [
+                'role' => 'user',
+                'content' => coveted_admin_agent_action_protocol_message($autonomous),
+            ],
+            ...array_slice($dialogue, -20),
+        ];
+
+        $providerResult = coveted_ai_chat($admin, $provider, $callMessages);
+        $rawText = (string)$providerResult['text'];
+        $visibleText = coveted_admin_agent_strip_action_requests($rawText);
+        if ($visibleText !== '') {
+            $visibleChunks[] = $visibleText;
+        }
+
+        try {
+            $requests = coveted_admin_agent_extract_action_requests($rawText);
+        } catch (InvalidArgumentException $e) {
+            $executedActions[] = [
+                'action' => 'action_protocol',
+                'label' => 'Action request rejected',
+                'ok' => false,
+                'message' => $e->getMessage(),
+                'entity_ref' => '',
+            ];
+            break;
+        }
+
+        if (!$autonomous || !$requests) {
+            break;
+        }
+
+        $roundResults = [];
+        foreach ($requests as $request) {
+            if ($totalActionCount >= $maxActions) {
+                $roundResults[] = [
+                    'action' => 'action_limit',
+                    'label' => 'Autonomous action limit',
+                    'ok' => false,
+                    'message' => 'The bounded autonomous action limit was reached for this request.',
+                    'entity_ref' => '',
+                ];
+                break;
+            }
+
+            $totalActionCount++;
+            try {
+                $actionResult = coveted_admin_agent_execute_action($admin, $request);
+            } catch (Throwable $e) {
+                $definition = coveted_admin_agent_action_registry()[$request['action']] ?? [];
+                $actionResult = [
+                    'action' => (string)$request['action'],
+                    'label' => (string)($definition['label'] ?? $request['action']),
+                    'ok' => false,
+                    'message' => mb_substr($e->getMessage(), 0, 500),
+                    'entity_ref' => '',
+                ];
+            }
+            $roundResults[] = $actionResult;
+            $executedActions[] = $actionResult;
+        }
+
+        if (!$roundResults) {
+            break;
+        }
+
+        $feedback = array_map(
+            static fn(array $result): array => [
+                'action' => (string)$result['action'],
+                'ok' => !empty($result['ok']),
+                'message' => (string)$result['message'],
+                'entity_ref' => (string)($result['entity_ref'] ?? ''),
+            ],
+            $roundResults
+        );
+
+        $dialogue[] = [
+            'role' => 'assistant',
+            'content' => $visibleText !== '' ? $visibleText : 'I am executing the requested Coveted Admin actions.',
+        ];
+        $dialogue[] = [
+            'role' => 'user',
+            'content' => "TRUSTED COVETED SERVER ACTION RESULTS:\n"
+                . coveted_json($feedback)
+                . "\nContinue the System Admin's goal using these real results. You may issue another allowlisted action only if it is necessary. Do not repeat a successful action.",
+        ];
+    }
+
+    if ($providerResult === null) {
+        throw new RuntimeException('The Admin Agent did not return a provider response.');
+    }
+
+    if (!$visibleChunks) {
+        $visibleChunks[] = $executedActions
+            ? 'The requested Coveted Admin actions were processed.'
+            : 'The Admin Agent completed the request.';
+    }
+
+    // Re-read state once more so readiness/opportunity counts returned to the
+    // browser reflect any actions that completed during this same request.
     $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin));
-    array_unshift($messages, [
-        'role' => 'user',
-        'content' => coveted_admin_agent_context_message($brain),
-    ]);
-    $messages[] = ['role' => 'user', 'content' => $message];
 
-    $result = coveted_ai_chat($admin, $provider, $messages);
     echo coveted_json([
         'ok' => true,
-        'provider' => $result['provider'],
-        'model' => $result['model'],
-        'text' => $result['text'],
+        'provider' => $providerResult['provider'],
+        'model' => $providerResult['model'],
+        'text' => trim(implode("\n\n", $visibleChunks)),
+        'autonomous_actions' => $autonomous,
+        'actions' => $executedActions,
         'readiness' => (int)($brain['readiness']['percent'] ?? 0),
         'opportunity_count' => count((array)($brain['opportunities'] ?? [])),
     ]);
