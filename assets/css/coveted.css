@@ -19,6 +19,7 @@
 @import url("./public-mobile-header-v2.css?v=public-mobile-header-v2-20260905");
 @import url("./invite-crm-v2.css?v=invite-crm-v2-20260905");
 @import url("./invite-profile-v2.css?v=invite-profile-v2-20260905");
+@import url("/site-branding.css.php?v=site-branding-v1");
 
 /* Invite-led public access: legacy register links still redirect server-side,
    but never present themselves as open self-signup while JS is loading. */
