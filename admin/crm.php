@@ -107,8 +107,8 @@ coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
 <div class="cv-admin-page-head">
     <div>
         <span class="cv-eyebrow">PEOPLE · CRM</span>
-        <h1>Invite requests</h1>
-        <p>Review public interest, qualify people by city and event fit, then convert approved submissions into Coveted member accounts.</p>
+        <h1>People CRM</h1>
+        <p>Review invite requests and newsletter signups, qualify people by city and event fit, then convert the right submissions into Coveted member accounts.</p>
     </div>
     <a class="cv-button cv-button-soft" href="/request-invite.php" target="_blank" rel="noopener">Open Public Form</a>
 </div>
@@ -171,7 +171,7 @@ coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
 
 <section class="cv-crm-list">
     <?php if (!$requests): ?>
-        <div class="cv-card cv-empty"><h3>No CRM records here.</h3><p>Change the filters or wait for new public invite requests.</p></div>
+        <div class="cv-card cv-empty"><h3>No CRM records here.</h3><p>Change the filters or wait for new invite requests and newsletter signups.</p></div>
     <?php endif; ?>
 
     <?php foreach ($requests as $request): ?>
@@ -183,6 +183,7 @@ coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
         } catch (Throwable) {
             $interestKeys = [];
         }
+        $isNewsletter = trim((string)($request['how_heard'] ?? '')) === 'Newsletter signup';
         $cityLabel = trim((string)$request['city_other']);
         if (!empty($request['city_name'])) {
             $cityLabel = (string)$request['city_name'];
@@ -201,29 +202,34 @@ coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
             $genderLabel = trim((string)$detail['gender_self_description']);
         }
         ?>
-        <article class="cv-admin-panel cv-crm-record">
+        <article class="cv-admin-panel cv-crm-record<?= $isNewsletter ? ' is-newsletter' : '' ?>">
             <div class="cv-crm-record-main">
                 <div class="cv-crm-record-head">
                     <div>
                         <div class="cv-tag-row">
                             <span class="cv-status"><?= coveted_e(ucfirst((string)$request['status'])) ?></span>
+                            <?php if ($isNewsletter): ?><span class="cv-pill">Newsletter</span><?php endif; ?>
                             <span class="cv-pill"><?= coveted_e($cityLabel !== '' ? $cityLabel : 'City not provided') ?></span>
                         </div>
                         <h2><?= coveted_e((string)$request['full_name']) ?></h2>
                         <p><?= coveted_e((string)$request['email']) ?><?php if (!empty($request['phone'])): ?> · <?= coveted_e((string)$request['phone']) ?><?php endif; ?></p>
                     </div>
                     <div class="cv-crm-record-date">
-                        <span>REQUESTED</span>
+                        <span><?= $isNewsletter ? 'SIGNED UP' : 'REQUESTED' ?></span>
                         <strong><?= coveted_e(coveted_utc_datetime((string)$request['created_at'])->setTimezone(coveted_timezone())->format('M j')) ?></strong>
                         <small><?= coveted_e(coveted_utc_datetime((string)$request['created_at'])->setTimezone(coveted_timezone())->format('Y')) ?></small>
                     </div>
                 </div>
 
-                <div class="cv-crm-interest-row">
-                    <?php foreach ($interestKeys as $key): ?>
-                        <span><?= coveted_e($interestOptions[$key] ?? $key) ?></span>
-                    <?php endforeach; ?>
-                </div>
+                <?php if ($interestKeys): ?>
+                    <div class="cv-crm-interest-row">
+                        <?php foreach ($interestKeys as $key): ?>
+                            <span><?= coveted_e($interestOptions[$key] ?? $key) ?></span>
+                        <?php endforeach; ?>
+                    </div>
+                <?php elseif ($isNewsletter): ?>
+                    <div class="cv-crm-interest-row"><span>Email newsletter</span></div>
+                <?php endif; ?>
 
                 <?php if ($goalKeys): ?>
                     <div class="cv-crm-copy">
@@ -236,11 +242,11 @@ coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
 
                 <?php if (!empty($detail['additional_note'])): ?>
                     <div class="cv-crm-copy"><span>ADDITIONAL NOTE</span><p><?= nl2br(coveted_e((string)$detail['additional_note'])) ?></p></div>
-                <?php elseif (!empty($request['message'])): ?>
+                <?php elseif (!empty($request['message']) && !$isNewsletter): ?>
                     <div class="cv-crm-copy"><span>ADDITIONAL NOTE</span><p><?= nl2br(coveted_e((string)$request['message'])) ?></p></div>
                 <?php endif; ?>
 
-                <?php if ($sourceKeys || $genderLabel !== '' || $socialLinks): ?>
+                <?php if ($sourceKeys || !empty($request['how_heard']) || $genderLabel !== '' || $socialLinks): ?>
                     <div class="cv-crm-profile-meta">
                         <?php if ($sourceKeys): ?>
                             <div class="cv-crm-profile-row"><strong>Source</strong><span><?= coveted_e(implode(', ', array_values(array_filter(array_map(static fn(string $key): ?string => $sourceOptions[$key] ?? null, $sourceKeys))))) ?></span></div>
@@ -294,7 +300,7 @@ coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
                         <input type="hidden" name="action" value="crm_convert">
                         <input type="hidden" name="request_id" value="<?= (int)$request['id'] ?>">
                         <button class="cv-button cv-button-primary" type="submit">Convert to User</button>
-                        <small>Name, email, city, event interests and submitted profile details will carry into the member intake record.</small>
+                        <small><?= $isNewsletter ? 'Name, email and city will carry into the member record if you decide to convert this subscriber.' : 'Name, email, city, event interests and submitted profile details will carry into the member intake record.' ?></small>
                     </form>
                 <?php else: ?>
                     <div class="cv-crm-converted-state">
