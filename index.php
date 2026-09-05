@@ -4,8 +4,33 @@ declare(strict_types=1);
 require_once __DIR__ . '/app/events.php';
 require_once __DIR__ . '/app/rewards.php';
 require_once __DIR__ . '/app/member_home.php';
+require_once __DIR__ . '/app/site_settings.php';
 
 $user = coveted_current_user();
+$landingEventsEnabled = false;
+$landingEvents = [];
+
+if (!$user) {
+    $landingPdo = coveted_db();
+    $landingEventsEnabled = coveted_site_setting_bool(COVETED_SETTING_LANDING_EVENTS, false, $landingPdo);
+
+    if ($landingEventsEnabled) {
+        try {
+            $landingEvents = $landingPdo->query(
+                "SELECT e.public_id, e.title, e.event_type, e.timezone, e.starts_at
+                 FROM events e
+                 WHERE e.status = 'published'
+                   AND e.audience = 'group'
+                   AND e.starts_at >= UTC_TIMESTAMP()
+                 ORDER BY e.starts_at ASC
+                 LIMIT 4"
+            )->fetchAll();
+        } catch (Throwable $e) {
+            error_log('Coveted landing events unavailable: ' . $e->getMessage());
+            $landingEvents = [];
+        }
+    }
+}
 
 coveted_page_start('Home', 'Home');
 
@@ -34,10 +59,49 @@ if (!$user):
             </div>
         </div>
 
-        <a class="cv-landing-scroll" href="#membership" aria-label="Explore the Coveted experience">
+        <a class="cv-landing-scroll" href="<?= $landingEventsEnabled ? '#upcoming-events' : '#membership' ?>" aria-label="Explore the Coveted experience">
             <span>DISCOVER</span><span aria-hidden="true">↓</span>
         </a>
     </section>
+
+    <?php if ($landingEventsEnabled): ?>
+        <section class="cv-landing-intro" id="upcoming-events" aria-labelledby="cv-upcoming-events-title">
+            <div class="cv-landing-intro-grid">
+                <div class="cv-landing-section-head">
+                    <span class="cv-landing-overline cv-landing-overline-dark">UPCOMING</span>
+                    <h2 id="cv-upcoming-events-title">Worth showing up for.</h2>
+                </div>
+                <div class="cv-landing-intro-copy">
+                    <p>A look at what is coming next. Full details stay inside Coveted for members and invited guests.</p>
+                </div>
+            </div>
+
+            <div class="cv-landing-principles" aria-label="Upcoming Coveted events">
+                <?php if (!$landingEvents): ?>
+                    <article>
+                        <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="7" width="22" height="20" rx="2"></rect><path d="M10 4v6M22 4v6M5 13h22"></path></svg>
+                        <h3>New gatherings are being planned.</h3>
+                        <p>Check back soon for the next Coveted experience.</p>
+                    </article>
+                <?php endif; ?>
+
+                <?php foreach ($landingEvents as $event): ?>
+                    <?php
+                    $eventType = (string)$event['event_type'];
+                    $eventTitle = $eventType === 'mystery'
+                        ? 'Mystery gathering'
+                        : (string)$event['title'];
+                    $eventTypeLabel = ucwords(str_replace('_', ' ', $eventType));
+                    ?>
+                    <article>
+                        <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="7" width="22" height="20" rx="2"></rect><path d="M10 4v6M22 4v6M5 13h22"></path></svg>
+                        <h3><?= coveted_e($eventTitle) ?></h3>
+                        <p><?= coveted_e(coveted_event_format($event, 'D, M j · g:i A')) ?><br><?= coveted_e($eventTypeLabel) ?></p>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </section>
+    <?php endif; ?>
 
     <section class="cv-landing-intro" id="membership">
         <div class="cv-landing-intro-grid">
