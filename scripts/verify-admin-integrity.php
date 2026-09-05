@@ -7,10 +7,11 @@ $uiPath = $root . '/app/admin_ui.php';
 $cssIndexPath = $root . '/assets/css/coveted.css';
 $cssPath = $root . '/assets/css/admin-v2.css';
 $eventCssPath = $root . '/assets/css/admin-events-v2.css';
+$peopleBusinessCssPath = $root . '/assets/css/admin-people-business-v2.css';
 $jsIndexPath = $root . '/assets/js/coveted.js';
 $jsPath = $root . '/assets/js/admin-v2.js';
 
-foreach ([$integrityPath, $uiPath, $cssIndexPath, $cssPath, $eventCssPath, $jsIndexPath, $jsPath] as $path) {
+foreach ([$integrityPath, $uiPath, $cssIndexPath, $cssPath, $eventCssPath, $peopleBusinessCssPath, $jsIndexPath, $jsPath] as $path) {
     if (!is_file($path)) {
         fwrite(STDERR, "Missing Admin v2 integrity file: {$path}\n");
         exit(1);
@@ -22,6 +23,7 @@ $ui = (string)file_get_contents($uiPath);
 $cssIndex = (string)file_get_contents($cssIndexPath);
 $css = (string)file_get_contents($cssPath);
 $eventCss = (string)file_get_contents($eventCssPath);
+$peopleBusinessCss = (string)file_get_contents($peopleBusinessCssPath);
 $jsIndex = (string)file_get_contents($jsIndexPath);
 $js = (string)file_get_contents($jsPath);
 
@@ -72,9 +74,11 @@ foreach (['Profile', 'Member View', 'Sign out'] as $accountItem) {
     }
 }
 
-if (!str_contains($cssIndex, 'admin-v2.css') || !str_contains($cssIndex, 'admin-events-v2.css')) {
-    fwrite(STDERR, "Admin v2 stylesheets must be loaded by the canonical CSS entrypoint.\n");
-    exit(1);
+foreach (['admin-v2.css', 'admin-events-v2.css', 'admin-people-business-v2.css'] as $stylesheet) {
+    if (!str_contains($cssIndex, $stylesheet)) {
+        fwrite(STDERR, "Admin v2 stylesheet missing from canonical CSS entrypoint: {$stylesheet}\n");
+        exit(1);
+    }
 }
 
 foreach (['control-center-v5', '.cv-admin-quick-create', '.cv-admin-table', '.cv-admin-sidebar'] as $fragment) {
@@ -91,12 +95,31 @@ foreach (['.cv-admin-event-toolbar', '.cv-admin-event-filters', '.cv-admin-event
     }
 }
 
+foreach (['.cv-admin-people-toolbar', '.cv-admin-business-toolbar', '.cv-admin-role-summary', '.cv-admin-business-health', '.cv-location-search'] as $fragment) {
+    if (!str_contains($peopleBusinessCss, $fragment)) {
+        fwrite(STDERR, "Admin v2 people/business style contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
 if (!str_contains($jsIndex, 'admin-v2.js')) {
     fwrite(STDERR, "Admin v2 interaction layer must be loaded by the canonical JS entrypoint.\n");
     exit(1);
 }
 
-foreach (['cv-admin-event-toolbar', 'data-status', 'Search events, groups or status', 'cv-admin-dropdown'] as $fragment) {
+foreach ([
+    'cv-admin-event-toolbar',
+    'data-status',
+    'Search events, groups or status',
+    'cv-admin-dropdown',
+    'initUsers',
+    'initRoleRequests',
+    'initBusinesses',
+    'initBusinessLocations',
+    'Search people, email or role',
+    'Search requests by person, email or role',
+    'Search businesses or status',
+] as $fragment) {
     if (!str_contains($js, $fragment)) {
         fwrite(STDERR, "Admin v2 interaction contract missing: {$fragment}\n");
         exit(1);
