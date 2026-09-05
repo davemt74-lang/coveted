@@ -6,6 +6,12 @@ on:
       - fix/admin-http-500
     paths:
       - '.github/workflows/unpack-coveted.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/unpack-coveted.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
