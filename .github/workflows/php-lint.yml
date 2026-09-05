@@ -61,3 +61,6 @@ jobs:
 
       - name: Verify invite profile edge contract
         run: php scripts/verify-invite-profile-edgecases.php
+
+      - name: Verify landing network and nationwide city contract
+        run: php scripts/verify-landing-network.php
