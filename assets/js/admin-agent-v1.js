@@ -15,9 +15,10 @@
     const activityEndpoint = root.dataset.activityEndpoint || '';
     const csrf = root.dataset.csrf || '';
     const startNew = root.dataset.startNew === '1';
+    const autonomousActions = root.dataset.autonomousActions === '1';
     const storageKey = 'coveted.adminAgent.v1';
     const crmCursorKey = 'coveted.adminAgent.crmCursor.v1';
-    const maxStoredMessages = 60;
+    const maxStoredMessages = 80;
     const initialCrmCursor = Math.max(0, Number.parseInt(root.dataset.crmCursor || '0', 10) || 0);
     let busy = false;
     let messages = [];
@@ -26,7 +27,10 @@
     let crmPollingEnabled = activityEndpoint !== '';
     let activityNoticeTimer = 0;
 
-    const defaultStatus = () => (provider?.disabled ? 'Provider required' : 'Ready');
+    const defaultStatus = () => {
+        if (provider?.disabled) return 'Provider required';
+        return autonomousActions ? 'Ready · Autonomous actions ON' : 'Ready · Read/advise mode';
+    };
 
     const load = () => {
         try {
@@ -34,7 +38,7 @@
             if (Array.isArray(parsed)) {
                 messages = parsed
                     .filter((entry) => entry
-                        && ['user', 'assistant', 'activity'].includes(entry.role)
+                        && ['user', 'assistant', 'activity', 'action'].includes(entry.role)
                         && typeof entry.content === 'string')
                     .slice(-maxStoredMessages);
             }
@@ -74,10 +78,14 @@
     const makeMessage = (entry) => {
         const article = document.createElement('article');
         article.className = `cv-admin-agent-message is-${entry.role}`;
+        if (entry.role === 'action' && entry.ok === false) article.classList.add('is-failed');
 
         const label = document.createElement('span');
         label.className = 'cv-admin-agent-message-label';
-        label.textContent = entry.role === 'user' ? 'YOU' : (entry.role === 'activity' ? 'CRM' : 'COVETED');
+        if (entry.role === 'user') label.textContent = 'YOU';
+        else if (entry.role === 'activity') label.textContent = 'CRM';
+        else if (entry.role === 'action') label.textContent = 'ACTION';
+        else label.textContent = 'COVETED';
 
         const body = document.createElement('div');
         body.className = 'cv-admin-agent-message-body';
@@ -95,6 +103,13 @@
                 link.textContent = 'Review in CRM →';
                 body.append(document.createTextNode('\n'), link);
             }
+        } else if (entry.role === 'action') {
+            const title = entry.label || entry.action || 'Admin action';
+            const result = entry.ok === false ? 'Failed' : 'Completed';
+            body.textContent = `${title}\n${result}: ${entry.content}`;
+            if (entry.entityRef) {
+                body.append(document.createTextNode(`\nReference: ${entry.entityRef}`));
+            }
         } else {
             body.textContent = entry.content;
         }
@@ -110,12 +125,17 @@
             meta.textContent = `Received ${entry.submittedAt}`;
             article.append(meta);
         }
+        if (entry.role === 'action') {
+            const meta = document.createElement('small');
+            meta.textContent = autonomousActions ? 'Executed through an allowlisted canonical Admin service' : 'Admin action result';
+            article.append(meta);
+        }
         return article;
     };
 
     const render = (shouldScroll = true) => {
         canvas.querySelectorAll('.cv-admin-agent-message').forEach((node) => node.remove());
-        const hasConversation = messages.some((entry) => entry.role === 'user' || entry.role === 'assistant');
+        const hasConversation = messages.some((entry) => entry.role === 'user' || entry.role === 'assistant' || entry.role === 'action');
         empty.hidden = hasConversation;
         messages.forEach((entry) => canvas.appendChild(makeMessage(entry)));
         if (messages.length && shouldScroll) scrollToLatest();
@@ -173,6 +193,27 @@
             added += 1;
         });
 
+        if (messages.length > maxStoredMessages) {
+            messages = messages.slice(-maxStoredMessages);
+        }
+        return added;
+    };
+
+    const appendActionResults = (items) => {
+        if (!Array.isArray(items) || items.length === 0) return 0;
+        let added = 0;
+        items.forEach((item) => {
+            if (!item || typeof item !== 'object') return;
+            messages.push({
+                role: 'action',
+                content: typeof item.message === 'string' ? item.message : 'Action processed.',
+                action: typeof item.action === 'string' ? item.action : '',
+                label: typeof item.label === 'string' ? item.label : '',
+                ok: item.ok === true,
+                entityRef: typeof item.entity_ref === 'string' ? item.entity_ref : '',
+            });
+            added += 1;
+        });
         if (messages.length > maxStoredMessages) {
             messages = messages.slice(-maxStoredMessages);
         }
@@ -245,7 +286,7 @@
         render();
         input.value = '';
         resizeInput();
-        setBusy(true, 'Thinking…');
+        setBusy(true, autonomousActions ? 'Thinking · autonomous tools available…' : 'Thinking…');
 
         const body = new URLSearchParams();
         body.set('csrf_token', csrf);
@@ -265,6 +306,7 @@
                 throw new Error(data?.error || `Request failed (${response.status}).`);
             }
 
+            appendActionResults(data.actions);
             const modelMeta = [data.provider === 'openai' ? 'ChatGPT' : 'Claude', data.model].filter(Boolean).join(' · ');
             messages.push({ role: 'assistant', content: String(data.text || ''), meta: modelMeta });
             save();

@@ -8,6 +8,7 @@ const COVETED_SETTING_LANDING_SAMPLE_EVENTS = 'landing_sample_events_enabled';
 const COVETED_SETTING_MEMBER_SAMPLE_DATA = 'member_sample_data_enabled';
 const COVETED_SETTING_LANDING_CITY_STRIP = 'landing_city_strip_enabled';
 const COVETED_SETTING_LANDING_NETWORK_STATS = 'landing_network_stats_enabled';
+const COVETED_SETTING_ADMIN_AGENT_AUTONOMOUS_ACTIONS = 'admin_agent_autonomous_actions_enabled';
 
 /**
  * Runtime-safe settings table bootstrap.
