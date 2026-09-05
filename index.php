@@ -7,16 +7,32 @@ require_once __DIR__ . '/app/member_home.php';
 require_once __DIR__ . '/app/site_settings.php';
 require_once __DIR__ . '/app/sample_data.php';
 require_once __DIR__ . '/app/member_home_v2.php';
+require_once __DIR__ . '/app/newsletter.php';
 
 $user = coveted_current_user();
 $landingEventsEnabled = false;
 $landingSampleEventsEnabled = false;
 $landingEvents = [];
+$newsletterError = '';
+$newsletterSubmitted = (string)($_GET['newsletter'] ?? '') === '1';
 
 if (!$user) {
     $landingPdo = coveted_db();
     $landingEventsEnabled = coveted_site_setting_bool(COVETED_SETTING_LANDING_EVENTS, false, $landingPdo);
     $landingSampleEventsEnabled = coveted_site_setting_bool(COVETED_SETTING_LANDING_SAMPLE_EVENTS, false, $landingPdo);
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') === 'newsletter_signup') {
+        coveted_require_csrf();
+        try {
+            coveted_newsletter_signup_submit($_POST, $landingPdo);
+            coveted_redirect('/?newsletter=1#newsletter');
+        } catch (InvalidArgumentException $e) {
+            $newsletterError = $e->getMessage();
+        } catch (Throwable $e) {
+            error_log('Public newsletter signup failed: ' . $e->getMessage());
+            $newsletterError = 'We could not save your newsletter signup right now. Please try again.';
+        }
+    }
 
     if ($landingEventsEnabled) {
         if ($landingSampleEventsEnabled) {
@@ -204,13 +220,43 @@ if (!$user):
         </div>
     </section>
 
-    <section class="cv-landing-manifesto">
-        <div class="cv-landing-manifesto-mark">C</div>
-        <div class="cv-landing-manifesto-copy">
-            <span class="cv-landing-overline cv-landing-overline-dark">THE COVETED RULE</span>
-            <h2>When you arrive,<br>the app disappears.</h2>
-            <p>Use Coveted for where, when and RSVP. Use the gathering for people.</p>
-            <a class="cv-landing-button cv-landing-button-dark" href="/auth.php?action=register">Join Coveted <span aria-hidden="true">→</span></a>
+    <section class="cv-landing-newsletter" id="newsletter" aria-labelledby="cv-newsletter-title">
+        <div class="cv-landing-newsletter-copy">
+            <span class="cv-landing-overline cv-landing-overline-dark">STAY IN THE LOOP</span>
+            <h2 id="cv-newsletter-title">Join our newsletter.</h2>
+            <p>Get occasional updates about new cities, upcoming gatherings, partner openings and what Coveted is building next.</p>
+        </div>
+
+        <div class="cv-landing-newsletter-form-wrap">
+            <?php if ($newsletterSubmitted): ?>
+                <div class="cv-landing-newsletter-success" role="status">
+                    <h3>You’re on the list.</h3>
+                    <p>We’ll keep it useful and occasional. Watch your inbox for what is happening next with Coveted.</p>
+                </div>
+            <?php else: ?>
+                <?php if ($newsletterError !== ''): ?>
+                    <div class="cv-landing-newsletter-error" role="alert"><?= coveted_e($newsletterError) ?></div>
+                <?php endif; ?>
+                <form class="cv-landing-newsletter-form" method="post" action="/#newsletter" autocomplete="on">
+                    <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+                    <input type="hidden" name="action" value="newsletter_signup">
+                    <label class="cv-invite-honeypot" aria-hidden="true">Company<input name="company" tabindex="-1" autocomplete="off"></label>
+                    <label>
+                        Name
+                        <input name="name" maxlength="180" autocomplete="name" required placeholder="Your name" value="<?= coveted_e((string)($_POST['name'] ?? '')) ?>">
+                    </label>
+                    <label>
+                        Email
+                        <input type="email" name="email" maxlength="255" autocomplete="email" required placeholder="you@example.com" value="<?= coveted_e((string)($_POST['email'] ?? '')) ?>">
+                    </label>
+                    <label>
+                        City <span aria-hidden="true">·</span> Optional
+                        <input name="city" maxlength="180" autocomplete="address-level2" placeholder="City" value="<?= coveted_e((string)($_POST['city'] ?? '')) ?>">
+                    </label>
+                    <button class="cv-landing-button cv-landing-button-dark" type="submit">Join the Newsletter <span aria-hidden="true">→</span></button>
+                    <p class="cv-landing-newsletter-legal">By subscribing, you agree to receive Coveted updates by email. You can unsubscribe from future messages at any time. See our <a href="/privacy.php">Privacy Policy</a> and <a href="/terms.php">Terms of Service</a>.</p>
+                </form>
+            <?php endif; ?>
         </div>
     </section>
 
@@ -223,6 +269,7 @@ if (!$user):
         <nav aria-label="Footer">
             <a href="#membership">Membership</a>
             <a href="#partners">Partners</a>
+            <a href="#newsletter">Newsletter</a>
             <a href="/auth.php?action=login">Sign in</a>
         </nav>
     </footer>
