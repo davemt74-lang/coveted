@@ -12,9 +12,15 @@ $error = '';
 $notice = '';
 $status = strtolower(trim((string)($_GET['status'] ?? 'new')));
 $search = trim((string)($_GET['q'] ?? ''));
+$cityFilter = max(0, (int)($_GET['city_id'] ?? 0));
+$interestFilter = trim((string)($_GET['interest'] ?? ''));
 $allowedStatuses = ['new', 'contacted', 'qualified', 'converted', 'declined', 'all'];
+$interestOptions = coveted_invite_event_interest_options();
 if (!in_array($status, $allowedStatuses, true)) {
     $status = 'new';
+}
+if ($interestFilter !== '' && !isset($interestOptions[$interestFilter])) {
+    $interestFilter = '';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -57,7 +63,25 @@ unset($_SESSION['crm_conversion']);
 
 $counts = coveted_invite_request_counts($pdo);
 $requests = coveted_invite_requests_list($status, $search, $pdo);
-$interestOptions = coveted_invite_event_interest_options();
+$cityOptions = coveted_cities_list('active', $pdo);
+
+if ($cityFilter > 0) {
+    $requests = array_values(array_filter(
+        $requests,
+        static fn(array $request): bool => (int)($request['city_id'] ?? 0) === $cityFilter
+    ));
+}
+if ($interestFilter !== '') {
+    $requests = array_values(array_filter($requests, static function (array $request) use ($interestFilter): bool {
+        try {
+            $decoded = json_decode((string)($request['event_interests_json'] ?? '[]'), true, 32, JSON_THROW_ON_ERROR);
+            return is_array($decoded) && in_array($interestFilter, coveted_invite_normalize_interests($decoded), true);
+        } catch (Throwable) {
+            return false;
+        }
+    }));
+}
+
 $adminCounts = coveted_admin_ui_counts($pdo);
 
 coveted_page_start('Invite CRM', '', true);
@@ -109,14 +133,28 @@ coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
         <span class="cv-sr-only">Search CRM</span>
         <input type="search" name="q" value="<?= coveted_e($search) ?>" placeholder="Search name, email, phone or city">
     </label>
-    <button class="cv-button cv-button-soft" type="submit">Search</button>
-    <?php if ($search !== ''): ?><a class="cv-button cv-button-soft" href="/admin/crm.php?status=<?= coveted_e($status) ?>">Clear</a><?php endif; ?>
+    <select name="city_id" aria-label="Filter by city">
+        <option value="0">All cities</option>
+        <?php foreach ($cityOptions as $city): ?>
+            <option value="<?= (int)$city['id'] ?>" <?= $cityFilter === (int)$city['id'] ? 'selected' : '' ?>><?= coveted_e(coveted_city_label($city)) ?></option>
+        <?php endforeach; ?>
+    </select>
+    <select name="interest" aria-label="Filter by event interest">
+        <option value="">All event interests</option>
+        <?php foreach ($interestOptions as $key => $label): ?>
+            <option value="<?= coveted_e($key) ?>" <?= $interestFilter === $key ? 'selected' : '' ?>><?= coveted_e($label) ?></option>
+        <?php endforeach; ?>
+    </select>
+    <button class="cv-button cv-button-soft" type="submit">Filter</button>
+    <?php if ($search !== '' || $cityFilter > 0 || $interestFilter !== ''): ?><a class="cv-button cv-button-soft" href="/admin/crm.php?status=<?= coveted_e($status) ?>">Clear</a><?php endif; ?>
     <a class="cv-button cv-button-soft" href="/admin/crm.php?status=all">All records</a>
 </form>
 
+<div class="cv-crm-results-summary"><?= count($requests) ?> record<?= count($requests) === 1 ? '' : 's' ?> shown</div>
+
 <section class="cv-crm-list">
     <?php if (!$requests): ?>
-        <div class="cv-card cv-empty"><h3>No CRM records here.</h3><p>New public invite requests will appear in this queue.</p></div>
+        <div class="cv-card cv-empty"><h3>No CRM records here.</h3><p>Change the filters or wait for new public invite requests.</p></div>
     <?php endif; ?>
 
     <?php foreach ($requests as $request): ?>
