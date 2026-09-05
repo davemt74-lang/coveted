@@ -28,44 +28,48 @@ function coveted_nationwide_city_seed_rows(): array
 
 /**
  * Replace the original Phoenix-metro seed with the nationwide launch list.
- * Legacy rows are archived rather than deleted so existing foreign keys and
- * historical CRM submissions remain valid.
+ * Legacy rows are archived only during the initial rollout and never deleted,
+ * preserving historical foreign keys. Once the rollout exists, Admin status
+ * choices are respected and this helper will not silently reactivate cities.
  */
 function coveted_sync_nationwide_cities(?PDO $pdo = null): void
 {
     $pdo ??= coveted_db();
     coveted_invite_crm_ensure_schema($pdo);
 
-    $legacyPublicIds = [
-        'city_scottsdale_az',
-        'city_tempe_az',
-        'city_mesa_az',
-        'city_chandler_az',
-        'city_gilbert_az',
-    ];
-    $legacyPlaceholders = implode(',', array_fill(0, count($legacyPublicIds), '?'));
-    $archive = $pdo->prepare(
-        "UPDATE cities
-         SET status = 'archived', updated_at = UTC_TIMESTAMP()
-         WHERE public_id IN ({$legacyPlaceholders}) AND status <> 'archived'"
-    );
-    $archive->execute($legacyPublicIds);
+    $nationwideIds = array_values(array_filter(
+        array_map(static fn(array $city): string => (string)$city['public_id'], coveted_nationwide_city_seed_rows()),
+        static fn(string $id): bool => $id !== 'city_phoenix_az'
+    ));
+    $nationwidePlaceholders = implode(',', array_fill(0, count($nationwideIds), '?'));
+    $rolloutCheck = $pdo->prepare("SELECT COUNT(*) FROM cities WHERE public_id IN ({$nationwidePlaceholders})");
+    $rolloutCheck->execute($nationwideIds);
+    $rolloutAlreadyApplied = (int)$rolloutCheck->fetchColumn() > 0;
 
-    $upsert = $pdo->prepare(
-        "INSERT INTO cities (public_id,name,region,country,timezone,status,sort_order)
-         VALUES (?, ?, ?, 'US', ?, 'active', ?)
-         ON DUPLICATE KEY UPDATE
-            name = VALUES(name),
-            region = VALUES(region),
-            country = 'US',
-            timezone = VALUES(timezone),
-            status = 'active',
-            sort_order = VALUES(sort_order),
-            updated_at = UTC_TIMESTAMP()"
+    if (!$rolloutAlreadyApplied) {
+        $legacyPublicIds = [
+            'city_scottsdale_az',
+            'city_tempe_az',
+            'city_mesa_az',
+            'city_chandler_az',
+            'city_gilbert_az',
+        ];
+        $legacyPlaceholders = implode(',', array_fill(0, count($legacyPublicIds), '?'));
+        $archive = $pdo->prepare(
+            "UPDATE cities
+             SET status = 'archived', updated_at = UTC_TIMESTAMP()
+             WHERE public_id IN ({$legacyPlaceholders}) AND status <> 'archived'"
+        );
+        $archive->execute($legacyPublicIds);
+    }
+
+    $insert = $pdo->prepare(
+        "INSERT IGNORE INTO cities (public_id,name,region,country,timezone,status,sort_order)
+         VALUES (?, ?, ?, 'US', ?, 'active', ?)"
     );
 
     foreach (coveted_nationwide_city_seed_rows() as $city) {
-        $upsert->execute([
+        $insert->execute([
             $city['public_id'],
             $city['name'],
             $city['region'],
