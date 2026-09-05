@@ -62,22 +62,6 @@ function coveted_admin_ui_start(
     string $pageTitle,
     ?array $counts = null
 ): void {
-    $requestPath = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
-    $isBareAdminLanding = $active === 'dashboard'
-        && !array_key_exists('view', $_GET)
-        && in_array($requestPath, ['/admin', '/admin/', '/admin/index.php'], true);
-
-    // Admin Agent is the canonical Admin landing page. Preserve Dashboard as
-    // an explicit destination at /admin/?view=dashboard.
-    if ($isBareAdminLanding) {
-        if (!headers_sent()) {
-            coveted_redirect('/admin/agent.php');
-        }
-        echo '<script>window.location.replace("/admin/agent.php");</script>';
-        echo '<noscript><meta http-equiv="refresh" content="0;url=/admin/agent.php"></noscript>';
-        exit;
-    }
-
     $pdo = coveted_db();
     $counts ??= coveted_admin_ui_counts($pdo);
     $onboarding = coveted_admin_onboarding_state($admin);
