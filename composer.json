@@ -1,0 +1,20 @@
+{
+  "name": "coveted/app",
+  "description": "Coveted web and PWA application",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": ">=8.2",
+    "ext-curl": "*",
+    "ext-json": "*",
+    "ext-mbstring": "*",
+    "ext-openssl": "*",
+    "minishlink/web-push": "^11.0"
+  },
+  "config": {
+    "allow-plugins": {
+      "php-http/discovery": true
+    },
+    "sort-packages": true
+  }
+}
