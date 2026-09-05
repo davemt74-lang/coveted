@@ -121,8 +121,15 @@ coveted_page_start('Reconnect', 'Reconnect');
     <?php endif; ?>
 
     <?php if ($selectedEvent): ?>
+        <?php
+        $eventImage = trim((string)($selectedEvent['image'] ?? ''));
+        $locationParts = array_values(array_filter([
+            trim((string)($selectedEvent['location_name'] ?? '')),
+            trim((string)($selectedEvent['location_city'] ?? '')),
+        ], static fn(string $value): bool => $value !== ''));
+        $locationLabel = implode(' · ', $locationParts);
+        ?>
         <section class="cv-reconnect-context-card">
-            <?php $eventImage = trim((string)($selectedEvent['image'] ?? '')); ?>
             <div class="cv-reconnect-context-media <?= $eventImage === '' ? 'is-empty' : '' ?>">
                 <?php if ($eventImage !== ''): ?><img src="<?= coveted_e($eventImage) ?>" alt="" loading="eager" decoding="async"><?php endif; ?>
             </div>
@@ -130,7 +137,7 @@ coveted_page_start('Reconnect', 'Reconnect');
                 <span class="cv-member-overline">PEOPLE YOU MET</span>
                 <h2><?= coveted_e((string)$selectedEvent['title']) ?></h2>
                 <p><?= coveted_e((string)$selectedEvent['group_name']) ?> · <?= coveted_e(coveted_event_format($selectedEvent, 'F j, Y')) ?></p>
-                <?php if (!empty($selectedEvent['location_name'])): ?><p><?= coveted_e((string)$selectedEvent['location_name']) ?> · Phoenix, Arizona</p><?php endif; ?>
+                <?php if ($locationLabel !== ''): ?><p><?= coveted_e($locationLabel) ?></p><?php endif; ?>
                 <div class="cv-reconnect-private-note">
                     <strong>Private until mutual.</strong>
                     <span>Incoming one-sided interest is never shown. A connection appears only after both people independently choose each other.</span>
