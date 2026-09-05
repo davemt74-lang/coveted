@@ -225,6 +225,8 @@ function coveted_admin_integrity_guard_request(): void
         return;
     }
 
+    coveted_require_csrf();
+
     $pdo = coveted_db();
     coveted_admin_integrity_lock_create($pdo, $action, (int)$user['id']);
     coveted_admin_integrity_guard_replay($action);
