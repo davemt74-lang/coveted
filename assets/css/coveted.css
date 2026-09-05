@@ -11,6 +11,7 @@
 @import url("./admin-community-cleanup-v2.css?v=admin-community-cleanup-v2-20260905");
 @import url("./landing-event-images.css?v=landing-event-images-20260905");
 @import url("./invite-crm-v2.css?v=invite-crm-v2-20260905");
+@import url("./invite-profile-v2.css?v=invite-profile-v2-20260905");
 
 /* Invite-led public access: legacy register links still redirect server-side,
    but never present themselves as open self-signup while JS is loading. */
