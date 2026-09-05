@@ -71,7 +71,7 @@ function coveted_member_v2_profile_data(array $user, ?PDO $pdo = null): array
             'gathering_styles' => array_values((array)($profile['gathering_styles'] ?? [])),
             'member_since' => 'September 2026',
             'group_count' => count((array)($sample['groups'] ?? [])),
-            'event_count' => count((array)($sample['events'] ?? [])),
+            'event_count' => count((array)($sample['reconnect_events'] ?? [])),
             'benefit_count' => count(array_filter((array)($sample['benefits'] ?? []), static fn(array $benefit): bool => ($benefit['state'] ?? 'inbox') === 'inbox')),
             'reconnect_count' => count(array_filter((array)($sample['reconnects'] ?? []), static fn(array $person): bool => ($person['status'] ?? '') === 'mutual')),
             'is_sample' => true,
@@ -160,6 +160,7 @@ function coveted_member_v2_reconnect_events(array $user, ?PDO $pdo = null): arra
             'attendance_status' => 'attended',
             'image' => (string)($event['image'] ?? ''),
             'location_name' => (string)($event['location'] ?? ''),
+            'location_city' => 'Phoenix, Arizona',
             'is_sample' => true,
         ];
     }
