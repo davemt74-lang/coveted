@@ -1,0 +1,730 @@
+/* Coveted Member Experience v2 — Reconnect + Profile */
+
+/* Reconnect */
+
+.cv-reconnect-v2 {
+    padding-bottom: 36px;
+}
+
+.cv-reconnect-event-tabs {
+    max-width: 100%;
+}
+
+.cv-reconnect-context-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.18fr) minmax(330px, .82fr);
+    min-height: 390px;
+    overflow: hidden;
+    border: 1px solid #e5e1da;
+    border-radius: 28px;
+    background: #fff;
+}
+
+.cv-reconnect-context-media {
+    min-height: 360px;
+    overflow: hidden;
+    background: linear-gradient(145deg, #1c1c19, #59534a);
+}
+
+.cv-reconnect-context-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cv-reconnect-context-media.is-empty {
+    background:
+        radial-gradient(circle at 24% 22%, rgba(255,255,255,.12), transparent 30%),
+        linear-gradient(145deg, #1c1c19, #59534a);
+}
+
+.cv-reconnect-context-copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 44px;
+}
+
+.cv-reconnect-context-copy h2 {
+    margin: 10px 0 15px;
+    color: #151513;
+    font-size: clamp(34px, 4vw, 52px);
+    font-weight: 560;
+    line-height: .98;
+    letter-spacing: -.048em;
+}
+
+.cv-reconnect-context-copy > p {
+    margin: 2px 0;
+    color: #77736c;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.cv-reconnect-private-note {
+    display: grid;
+    gap: 6px;
+    margin-top: 26px;
+    padding: 18px;
+    border-radius: 16px;
+    background: #f5f2ed;
+}
+
+.cv-reconnect-private-note strong {
+    color: #1b1a17;
+    font-size: 11px;
+}
+
+.cv-reconnect-private-note span {
+    color: #7b776f;
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.cv-reconnect-person-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.cv-reconnect-person-card {
+    overflow: hidden;
+    border: 1px solid #e5e1da;
+    border-radius: 22px;
+    background: #fff;
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.cv-reconnect-person-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px rgba(31,29,25,.08);
+}
+
+.cv-reconnect-person-photo {
+    aspect-ratio: 1 / 1.06;
+    overflow: hidden;
+    background: linear-gradient(145deg, #d9d4cc, #aaa39a);
+}
+
+.cv-reconnect-person-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cv-reconnect-person-photo.is-empty {
+    background:
+        radial-gradient(circle at 40% 30%, rgba(255,255,255,.4), transparent 28%),
+        linear-gradient(145deg, #d9d4cc, #aaa39a);
+}
+
+.cv-reconnect-person-copy {
+    padding: 22px;
+}
+
+.cv-reconnect-person-copy h3 {
+    margin: 8px 0 7px;
+    color: #171714;
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -.035em;
+}
+
+.cv-reconnect-person-copy > p {
+    min-height: 34px;
+    margin: 0;
+    color: #77736c;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.cv-reconnect-person-action {
+    margin-top: 20px;
+}
+
+.cv-reconnect-person-action form,
+.cv-reconnect-person-action .cv-button {
+    width: 100%;
+}
+
+.cv-reconnect-person-action .cv-button {
+    justify-content: center;
+}
+
+.cv-member-status-chip.is-mutual {
+    border-color: #171714;
+    background: #171714;
+    color: #fff;
+}
+
+.cv-reconnect-match-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.cv-reconnect-match-card {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    min-height: 86px;
+    padding: 16px;
+    border: 1px solid #e5e1da;
+    border-radius: 18px;
+    background: #fff;
+}
+
+.cv-reconnect-match-avatar {
+    width: 52px;
+    height: 52px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: #e5e1da;
+}
+
+.cv-reconnect-match-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cv-reconnect-match-card strong,
+.cv-reconnect-match-card span {
+    display: block;
+}
+
+.cv-reconnect-match-card strong {
+    color: #171714;
+    font-size: 13px;
+}
+
+.cv-reconnect-match-card > div:nth-child(2) span {
+    margin-top: 4px;
+    color: #8b877f;
+    font-size: 10px;
+}
+
+.cv-reconnect-empty-small {
+    min-height: 190px;
+}
+
+/* Profile */
+
+.cv-profile-v2 {
+    padding-bottom: 40px;
+}
+
+.cv-profile-v2-hero {
+    overflow: hidden;
+    border: 1px solid #e5e1da;
+    border-radius: 28px;
+    background: #fff;
+}
+
+.cv-profile-v2-cover {
+    height: clamp(250px, 32vw, 430px);
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,.12), transparent 30%),
+        linear-gradient(145deg, #25231f, #625a50);
+}
+
+.cv-profile-v2-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cv-profile-v2-identity {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 22px;
+    padding: 0 34px 30px;
+}
+
+.cv-profile-v2-avatar {
+    width: 132px;
+    height: 132px;
+    margin-top: -56px;
+    overflow: hidden;
+    border: 6px solid #fff;
+    border-radius: 50%;
+    background: #171714;
+    box-shadow: 0 14px 32px rgba(0,0,0,.13);
+}
+
+.cv-profile-v2-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cv-profile-v2-avatar span {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: #fff;
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -.04em;
+}
+
+.cv-profile-v2-name {
+    padding-top: 18px;
+}
+
+.cv-profile-v2-name h2 {
+    margin: 5px 0 4px;
+    color: #151513;
+    font-size: clamp(32px, 4vw, 48px);
+    font-weight: 580;
+    line-height: 1;
+    letter-spacing: -.045em;
+}
+
+.cv-profile-v2-name p {
+    margin: 0;
+    color: #7d7971;
+    font-size: 12px;
+}
+
+.cv-profile-v2-state {
+    display: grid;
+    justify-items: end;
+    gap: 8px;
+    padding-bottom: 6px;
+}
+
+.cv-profile-v2-state small {
+    color: #969188;
+    font-size: 9px;
+}
+
+.cv-member-status-chip.is-private {
+    background: #f5f2ed;
+    color: #5e5a54;
+}
+
+.cv-profile-v2-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: hidden;
+    border: 1px solid #e5e1da;
+    border-radius: 20px;
+    background: #fff;
+}
+
+.cv-profile-v2-stats a {
+    display: grid;
+    gap: 5px;
+    min-height: 104px;
+    align-content: center;
+    padding: 18px 24px;
+    border-right: 1px solid #ece8e1;
+    color: inherit;
+    text-decoration: none;
+}
+
+.cv-profile-v2-stats a:last-child {
+    border-right: 0;
+}
+
+.cv-profile-v2-stats a:hover {
+    background: #faf8f5;
+}
+
+.cv-profile-v2-stats strong {
+    color: #171714;
+    font-size: 25px;
+    font-weight: 600;
+}
+
+.cv-profile-v2-stats span {
+    color: #8c877f;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.cv-profile-v2-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(330px, .8fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.cv-profile-v2-main,
+.cv-profile-v2-side {
+    display: grid;
+    gap: 18px;
+}
+
+.cv-profile-v2-panel {
+    padding: 30px;
+    border: 1px solid #e5e1da;
+    border-radius: 22px;
+    background: #fff;
+}
+
+.cv-profile-v2-panel h2 {
+    margin: 9px 0 12px;
+    color: #171714;
+    font-size: clamp(25px, 3vw, 36px);
+    font-weight: 570;
+    line-height: 1.04;
+    letter-spacing: -.04em;
+}
+
+.cv-profile-v2-panel p {
+    margin: 0;
+    color: #77736c;
+    font-size: 12px;
+    line-height: 1.65;
+}
+
+.cv-profile-v2-about {
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.cv-profile-v2-about p {
+    max-width: 680px;
+    font-size: 15px;
+    line-height: 1.72;
+}
+
+.cv-profile-v2-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.cv-profile-v2-tags span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid #e5e1da;
+    border-radius: 999px;
+    background: #f7f5f1;
+    color: #5f5b55;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.cv-profile-v2-privacy {
+    background: #171714;
+}
+
+.cv-profile-v2-privacy .cv-member-overline,
+.cv-profile-v2-privacy h2,
+.cv-profile-v2-privacy p,
+.cv-profile-v2-privacy li {
+    color: #fff;
+}
+
+.cv-profile-v2-privacy p,
+.cv-profile-v2-privacy li {
+    color: rgba(255,255,255,.7);
+}
+
+.cv-profile-v2-privacy ul {
+    display: grid;
+    gap: 10px;
+    margin: 22px 0 0;
+    padding: 0 0 0 18px;
+}
+
+.cv-profile-v2-privacy li {
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.cv-profile-v2-preview-note .cv-member-text-link {
+    display: inline-block;
+    margin-top: 18px;
+}
+
+.cv-profile-v2-editor {
+    overflow: hidden;
+    border: 1px solid #e5e1da;
+    border-radius: 22px;
+    background: #fff;
+}
+
+.cv-profile-v2-editor > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    min-height: 92px;
+    padding: 22px 26px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.cv-profile-v2-editor > summary::-webkit-details-marker {
+    display: none;
+}
+
+.cv-profile-v2-editor > summary span:first-child {
+    display: grid;
+    gap: 5px;
+}
+
+.cv-profile-v2-editor > summary small {
+    color: #918d85;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .14em;
+}
+
+.cv-profile-v2-editor > summary strong {
+    color: #171714;
+    font-size: 22px;
+    font-weight: 600;
+}
+
+.cv-profile-v2-editor > summary > span:last-child {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #f2efe9;
+    font-size: 20px;
+    transition: transform .18s ease;
+}
+
+.cv-profile-v2-editor[open] > summary > span:last-child {
+    transform: rotate(45deg);
+}
+
+.cv-profile-v2-editor form {
+    display: grid;
+    gap: 16px;
+    padding: 0 26px 28px;
+}
+
+.cv-profile-v2-editor label {
+    display: grid;
+    gap: 7px;
+    color: #48453f;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.cv-profile-v2-editor input,
+.cv-profile-v2-editor textarea {
+    width: 100%;
+    border: 1px solid #ddd8d0;
+    border-radius: 11px;
+    background: #fff;
+    color: #1d1c19;
+    font: inherit;
+    font-size: 12px;
+}
+
+.cv-profile-v2-editor input {
+    min-height: 44px;
+    padding: 0 12px;
+}
+
+.cv-profile-v2-editor textarea {
+    min-height: 120px;
+    padding: 12px;
+    resize: vertical;
+}
+
+.cv-profile-v2-editor label small {
+    color: #99948b;
+    font-size: 9px;
+    font-weight: 500;
+}
+
+@media (max-width: 1100px) {
+    .cv-reconnect-context-card {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-reconnect-context-media {
+        min-height: 330px;
+        aspect-ratio: 16 / 8;
+    }
+
+    .cv-reconnect-person-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cv-profile-v2-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-profile-v2-side {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cv-profile-v2-editor {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 760px) {
+    .cv-reconnect-context-card {
+        border-radius: 20px;
+    }
+
+    .cv-reconnect-context-media {
+        min-height: 240px;
+    }
+
+    .cv-reconnect-context-copy {
+        padding: 28px 22px 30px;
+    }
+
+    .cv-reconnect-person-grid,
+    .cv-reconnect-match-row {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-reconnect-person-card {
+        display: grid;
+        grid-template-columns: 112px minmax(0, 1fr);
+        min-height: 150px;
+        border-radius: 18px;
+    }
+
+    .cv-reconnect-person-photo {
+        aspect-ratio: auto;
+        height: 100%;
+        min-height: 150px;
+    }
+
+    .cv-reconnect-person-copy {
+        padding: 18px;
+    }
+
+    .cv-reconnect-person-copy h3 {
+        font-size: 20px;
+    }
+
+    .cv-reconnect-person-copy > p {
+        min-height: 0;
+    }
+
+    .cv-reconnect-person-action .cv-button {
+        min-height: 36px;
+        padding: 0 10px;
+        font-size: 9px;
+    }
+
+    .cv-profile-v2-hero {
+        border-radius: 20px;
+    }
+
+    .cv-profile-v2-cover {
+        height: 240px;
+    }
+
+    .cv-profile-v2-identity {
+        grid-template-columns: 88px minmax(0, 1fr);
+        gap: 14px;
+        padding: 0 20px 22px;
+    }
+
+    .cv-profile-v2-avatar {
+        width: 88px;
+        height: 88px;
+        margin-top: -38px;
+        border-width: 4px;
+    }
+
+    .cv-profile-v2-name {
+        padding-top: 12px;
+    }
+
+    .cv-profile-v2-name h2 {
+        font-size: 30px;
+    }
+
+    .cv-profile-v2-state {
+        grid-column: 1 / -1;
+        justify-items: start;
+        padding: 0;
+    }
+
+    .cv-profile-v2-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cv-profile-v2-stats a {
+        min-height: 88px;
+        border-right: 1px solid #ece8e1;
+        border-bottom: 1px solid #ece8e1;
+    }
+
+    .cv-profile-v2-stats a:nth-child(2n) {
+        border-right: 0;
+    }
+
+    .cv-profile-v2-stats a:nth-last-child(-n+2) {
+        border-bottom: 0;
+    }
+
+    .cv-profile-v2-side {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-profile-v2-panel {
+        padding: 24px 22px;
+        border-radius: 18px;
+    }
+
+    .cv-profile-v2-about {
+        min-height: 0;
+    }
+
+    .cv-profile-v2-editor {
+        border-radius: 18px;
+    }
+
+    .cv-profile-v2-editor > summary {
+        min-height: 82px;
+        padding: 18px 20px;
+    }
+
+    .cv-profile-v2-editor form {
+        padding: 0 20px 22px;
+    }
+}
+
+@media (max-width: 440px) {
+    .cv-reconnect-person-card {
+        grid-template-columns: 96px minmax(0, 1fr);
+    }
+
+    .cv-reconnect-person-photo {
+        min-height: 142px;
+    }
+
+    .cv-reconnect-match-card {
+        grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .cv-reconnect-match-avatar {
+        width: 44px;
+        height: 44px;
+    }
+
+    .cv-reconnect-match-card .cv-member-status-chip {
+        grid-column: 2;
+        justify-self: start;
+    }
+}
