@@ -26,6 +26,16 @@ function coveted_member_sample_event_start(int $daysAhead, int $hour, int $minut
     return $local->setTimezone($utc)->format('Y-m-d H:i:s');
 }
 
+function coveted_member_sample_past_event_start(int $daysAgo, int $hour, int $minute = 0): string
+{
+    $zone = new DateTimeZone('America/Phoenix');
+    $utc = new DateTimeZone('UTC');
+    $local = new DateTimeImmutable('now', $zone);
+    $local = $local->modify('-' . max(1, $daysAgo) . ' days')->setTime($hour, $minute);
+
+    return $local->setTimezone($utc)->format('Y-m-d H:i:s');
+}
+
 /** @return array<string,mixed> */
 function coveted_member_sample_data(): array
 {
@@ -188,12 +198,54 @@ function coveted_member_sample_data(): array
         ],
     ];
 
+    $reconnectEvents = [
+        [
+            'public_id' => 'sample-first-friday-supper',
+            'title' => 'First Friday Supper',
+            'starts_at' => coveted_member_sample_past_event_start(6, 19, 0),
+            'group_id' => 'inner-circle',
+            'group' => 'The Inner Circle',
+            'location' => 'Ember Room',
+            'image' => '/assets/images/sample/events/saturday-night-supper-club-hero.webp',
+        ],
+        [
+            'public_id' => 'sample-listening-room-night',
+            'title' => 'Listening Room Night',
+            'starts_at' => coveted_member_sample_past_event_start(15, 20, 0),
+            'group_id' => 'late-night-listening',
+            'group' => 'Late Night Listening',
+            'location' => 'Velvet Note',
+            'image' => '/assets/images/sample/events/vinyl-and-cocktails-hero.webp',
+        ],
+    ];
+
+    $reconnects = [
+        $people[1] + ['event_public_id' => 'sample-first-friday-supper', 'status' => 'mutual'],
+        $people[2] + ['event_public_id' => 'sample-first-friday-supper', 'status' => 'pending'],
+        $people[4] + ['event_public_id' => 'sample-first-friday-supper', 'status' => ''],
+        $people[3] + ['event_public_id' => 'sample-listening-room-night', 'status' => 'mutual'],
+        $people[5] + ['event_public_id' => 'sample-listening-room-night', 'status' => ''],
+        $people[0] + ['event_public_id' => 'sample-listening-room-night', 'status' => ''],
+    ];
+
+    $profile = [
+        'display_name' => 'Taylor Kim',
+        'city' => 'Phoenix, Arizona',
+        'bio' => 'Phoenix-based product designer who likes good food, live music, small rooms and meeting people through something worth leaving the house for.',
+        'avatar_url' => '/assets/images/sample/people/taylor-kim.webp',
+        'cover_url' => '/assets/images/sample/events/saturday-night-supper-club-hero.webp',
+        'interests' => ['Local dining', 'Live music', 'Design', 'Travel', 'Independent venues'],
+        'gathering_styles' => ['Dinner table', 'Listening night', 'Mystery gathering'],
+    ];
+
     return [
         'people' => $people,
         'locations' => $locations,
         'events' => $events,
         'groups' => $groups,
         'benefits' => $benefits,
-        'reconnects' => array_slice($people, 0, 4),
+        'reconnect_events' => $reconnectEvents,
+        'reconnects' => $reconnects,
+        'profile' => $profile,
     ];
 }
