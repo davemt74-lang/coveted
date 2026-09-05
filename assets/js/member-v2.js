@@ -1,8 +1,8 @@
 (() => {
     'use strict';
 
-    const root = document.querySelector('.cv-member-home-v2');
-    if (!root) return;
+    const appTopbar = document.querySelector('.cv-app-topbar');
+    if (!appTopbar) return;
 
     document.body.classList.add('cv-member-v2-active');
 
@@ -23,8 +23,7 @@
             const link = document.createElement('a');
             link.href = href;
             link.textContent = label;
-            const target = href === '/' ? '/' : href;
-            if ((target === '/' && current === '/') || (target !== '/' && current === target)) {
+            if ((href === '/' && current === '/') || (href !== '/' && current === href)) {
                 link.classList.add('is-active');
                 link.setAttribute('aria-current', 'page');
             }
