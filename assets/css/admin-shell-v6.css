@@ -1,0 +1,156 @@
+/* Coveted Admin shell v6 — compact content start + remembered accordion sidebar */
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content {
+    /* Fixed Admin header is 64px. Start content directly below it instead of
+       reserving an additional 32px blank band. */
+    padding-top: 72px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav {
+    display: flex;
+    flex-direction: column;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group {
+    display: block;
+    margin: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 24px;
+    padding: 0 10px;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-toggle .cv-admin-nav-label {
+    padding: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-chevron {
+    color: #aaa59d;
+    font-size: 12px;
+    line-height: 1;
+    transform: rotate(-90deg);
+    transition: transform .14s ease;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group[open] .cv-admin-nav-chevron {
+    transform: rotate(0deg);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-body {
+    display: grid;
+    gap: 0;
+    padding-top: 1px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-chats {
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid var(--cv-admin-line);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-new-chat-link {
+    color: #35322d;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-new-chat-link .cv-admin-nav-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Agent is now the landing canvas, so it does not reserve space for the
+   removed marketing-style page heading. */
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-agent-page {
+    min-height: calc(100vh - 72px);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-agent-canvas {
+    min-height: calc(100vh - 185px);
+    padding-top: 8px;
+}
+
+@media (min-width: 981px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav {
+        min-height: calc(100vh - 118px);
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-toggle {
+        min-height: 22px;
+    }
+}
+
+@media (max-width: 720px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content {
+        padding-top: 12px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 5px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group {
+        display: block;
+        flex: 0 0 auto;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-toggle {
+        min-height: 36px;
+        padding: 0 10px;
+        border-radius: 8px;
+        background: #f7f5f1;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-toggle .cv-admin-nav-label {
+        display: inline;
+        color: #747069;
+        font-size: 9px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-chevron {
+        margin-left: 5px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-body {
+        position: absolute;
+        z-index: 90;
+        min-width: 180px;
+        padding: 7px;
+        border: 1px solid var(--cv-admin-line);
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 16px 40px rgba(28, 26, 22, .12);
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group:not([open]) .cv-admin-nav-body {
+        display: none;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-chats {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-agent-page {
+        min-height: calc(100vh - 128px);
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-agent-canvas {
+        min-height: calc(100vh - 220px);
+        padding-top: 0;
+    }
+}
