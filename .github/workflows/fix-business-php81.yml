@@ -28,21 +28,26 @@ jobs:
 
           path = Path('business.php')
           text = path.read_text()
-          old = '''        $return = static fn(string $targetTab, string $saved): never => coveted_redirect(
-              '/business.php?business=' . rawurlencode($businessRef)
-              . '&tab=' . rawurlencode($targetTab)
-              . '&saved=' . rawurlencode($saved)
-          );'''
-          new = '''        $return = static function (string $targetTab, string $saved) use ($businessRef): never {
-              coveted_redirect(
-                  '/business.php?business=' . rawurlencode($businessRef)
-                  . '&tab=' . rawurlencode($targetTab)
-                  . '&saved=' . rawurlencode($saved)
-              );
-          };'''
-          if old not in text:
-              raise SystemExit('Expected business redirect closure was not found')
-          path.write_text(text.replace(old, new, 1))
+          needle = '$return = static fn(string $targetTab, string $saved): never => coveted_redirect('
+          start = text.find(needle)
+          if start < 0:
+              raise SystemExit('Business redirect closure start was not found')
+          line_start = text.rfind('\n', 0, start) + 1
+          indent = text[line_start:start]
+          end = text.find('\n' + indent + ');', start)
+          if end < 0:
+              raise SystemExit('Business redirect closure end was not found')
+          end += len('\n' + indent + ');')
+          replacement = (
+              '$return = static function (string $targetTab, string $saved) use ($businessRef): never {\n'
+              + indent + '    coveted_redirect(\n'
+              + indent + "        '/business.php?business=' . rawurlencode($businessRef)\n"
+              + indent + "        . '&tab=' . rawurlencode($targetTab)\n"
+              + indent + "        . '&saved=' . rawurlencode($saved)\n"
+              + indent + '    );\n'
+              + indent + '};'
+          )
+          path.write_text(text[:start] + replacement + text[end:])
 
       - name: Verify PHP 8.1 syntax
         uses: shivammathur/setup-php@v2
