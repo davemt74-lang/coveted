@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/bootstrap.php';
 
 const COVETED_SETTING_LANDING_EVENTS = 'landing_upcoming_events_enabled';
+const COVETED_SETTING_LANDING_SAMPLE_EVENTS = 'landing_sample_events_enabled';
 
 /**
  * Runtime-safe settings table bootstrap.
