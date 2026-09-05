@@ -10,13 +10,13 @@ function coveted_ai_provider_definitions(): array
         'openai' => [
             'label' => 'OpenAI',
             'chat_label' => 'ChatGPT',
-            'default_model' => 'gpt-5',
+            'default_model' => 'gpt-5.6',
             'key_placeholder' => 'sk-…',
         ],
         'anthropic' => [
             'label' => 'Anthropic',
             'chat_label' => 'Claude',
-            'default_model' => 'claude-sonnet-4-20250514',
+            'default_model' => 'claude-sonnet-5',
             'key_placeholder' => 'sk-ant-…',
         ],
         'elevenlabs' => [
@@ -76,6 +76,8 @@ function coveted_ai_root_secret(): string
     $app = coveted_config('app');
     $secret = trim((string)($app['ai_credentials_key'] ?? ''));
     if ($secret === '') {
+        // Backward-compatible fallback for existing Coveted installs that
+        // already have a strong uncommitted server-side application secret.
         $secret = trim((string)($app['claim_code_lookup_key'] ?? ''));
     }
 
@@ -296,6 +298,14 @@ function coveted_ai_http_json(string $url, array $headers, array $payload): arra
         throw new RuntimeException('The PHP cURL extension is required for AI provider requests.');
     }
 
+    $allowedUrls = [
+        'https://api.openai.com/v1/responses',
+        'https://api.anthropic.com/v1/messages',
+    ];
+    if (!in_array($url, $allowedUrls, true)) {
+        throw new RuntimeException('AI provider endpoint is not allowlisted.');
+    }
+
     $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     $ch = curl_init($url);
     if ($ch === false) {
@@ -312,6 +322,7 @@ function coveted_ai_http_json(string $url, array $headers, array $payload): arra
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_MAXREDIRS => 0,
         CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+        CURLOPT_USERAGENT => 'Coveted-Admin-Agent/1.0',
     ]);
 
     $body = curl_exec($ch);
@@ -354,10 +365,8 @@ function coveted_ai_validate_chat_messages(array $messages): array
             throw new InvalidArgumentException('A chat message is too long.');
         }
         $clean[] = ['role' => $role, 'content' => $content];
-        if (count($clean) >= 24) {
-            break;
-        }
     }
+    $clean = array_slice($clean, -24);
     if (!$clean) {
         throw new InvalidArgumentException('Enter a message for the Admin Agent.');
     }
