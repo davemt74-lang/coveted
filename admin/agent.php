@@ -9,6 +9,7 @@ $admin = coveted_require_system_admin();
 $pdo = coveted_db();
 $error = '';
 $brainError = '';
+$crmCursor = 0;
 
 try {
     $providers = coveted_ai_provider_statuses($pdo);
@@ -25,6 +26,14 @@ $chatProviders = array_values(array_filter(
         && !empty($provider['configured'])
 ));
 $counts = coveted_admin_ui_counts($pdo);
+
+try {
+    $crmCursor = (int)($pdo->query('SELECT COALESCE(MAX(id), 0) FROM invite_requests')->fetchColumn() ?: 0);
+} catch (Throwable $e) {
+    // The Invite CRM migration is optional on older installs. Live activity
+    // polling stays disabled until that canonical table is available.
+    $crmCursor = 0;
+}
 
 try {
     $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin, $pdo));
@@ -45,7 +54,13 @@ $brainIssues = array_values((array)($brain['issues'] ?? []));
 coveted_page_start('Admin Agent', '', true);
 coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
 ?>
-<div class="cv-admin-agent-page" data-admin-agent data-endpoint="/api/admin-agent-chat.php" data-csrf="<?= coveted_e(coveted_csrf_token()) ?>" data-start-new="<?= isset($_GET['new']) ? '1' : '0' ?>">
+<div class="cv-admin-agent-page"
+     data-admin-agent
+     data-endpoint="/api/admin-agent-chat.php"
+     data-activity-endpoint="/api/admin-agent-activity.php"
+     data-crm-cursor="<?= $crmCursor ?>"
+     data-csrf="<?= coveted_e(coveted_csrf_token()) ?>"
+     data-start-new="<?= isset($_GET['new']) ? '1' : '0' ?>">
     <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
     <?php if ($brainError !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($brainError) ?></div><?php endif; ?>
 
