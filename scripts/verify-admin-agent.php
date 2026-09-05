@@ -132,25 +132,29 @@ $contains($threads, 'owner_user_id = ?', 'thread reads must stay scoped to the S
 $contains($threads, "status ENUM('active','archived')", 'thread archive state is missing');
 $contains($threads, 'coveted_admin_agent_thread_chat_history', 'server chat-history loader is missing');
 $contains($threads, 'coveted_admin_agent_thread_completed_request', 'durable request replay lookup is missing');
+$contains($threads, "status = 'processing'", 'thread archive must reject active Agent runs');
 $contains($threads, 'admin.agent_thread_created', 'thread creation must be audited');
 $contains($threads, 'admin.agent_thread_renamed', 'thread rename must be audited');
 $contains($threads, 'admin.agent_thread_archived', 'thread archive must be audited');
 
 // Durable request-run ledger must prevent duplicate concurrent/retry mutations.
 $contains($runs, 'coveted_admin_agent_run_claim', 'request-run claim service is missing');
+$contains($runs, 'coveted_admin_agent_run_locked', 'locked request-run loader is missing');
 $contains($runs, 'FOR UPDATE', 'run claims must serialize through database locking');
 $contains($runs, 'coveted_admin_agent_run_mark_mutation_started', 'mutation-start guard is missing');
 $contains($runs, 'mutation_started = 1', 'mutation-start state must be persisted before canonical mutators');
+$contains($runs, 'mutation_started = 0', 'mutation replay guard must be atomic');
+$contains($runs, 'rowCount() !== 1', 'mutation replay guard must fail closed if it cannot be acquired');
 $contains($runs, 'coveted_admin_agent_run_complete', 'request-run completion service is missing');
 $contains($runs, 'coveted_admin_agent_run_interrupt', 'interrupted request recovery is missing');
 
 // Thread API: System Admin only; GET is read-only, POST mutations require CSRF.
 $contains($threadsEndpoint, 'coveted_require_system_admin()', 'thread API must require System Admin');
-$contains($threadsEndpoint, "if ($method === 'GET')", 'thread API GET path is missing');
+$contains($threadsEndpoint, 'if ($method === \'GET\')', 'thread API GET path is missing');
 $contains($threadsEndpoint, 'coveted_require_csrf()', 'thread mutations must enforce CSRF');
-$contains($threadsEndpoint, "if ($action === 'create')", 'thread create API is missing');
-$contains($threadsEndpoint, "if ($action === 'rename')", 'thread rename API is missing');
-$contains($threadsEndpoint, "if ($action === 'archive')", 'thread archive API is missing');
+$contains($threadsEndpoint, 'if ($action === \'create\')', 'thread create API is missing');
+$contains($threadsEndpoint, 'if ($action === \'rename\')', 'thread rename API is missing');
+$contains($threadsEndpoint, 'if ($action === \'archive\')', 'thread archive API is missing');
 $contains($threadsEndpoint, "'Cache-Control: no-store", 'thread responses must not be cached');
 $missing($threadsEndpoint, 'coveted_ai_chat(', 'thread CRUD must never call an AI provider');
 
@@ -170,13 +174,15 @@ $contains($endpoint, '$maxActions = 8;', 'autonomous actions per request must be
 $contains($endpoint, 'count($recent) + $maxRounds > 30', 'provider-call multiplier must count toward throttle');
 $contains($endpoint, 'coveted_admin_agent_thread_append_message(', 'chat messages must be persisted server-side');
 $contains($endpoint, 'coveted_admin_agent_run_complete(', 'successful requests must close the durable run ledger');
-$contains($endpoint, "http_response_code(409)", 'concurrent duplicate requests must be rejected without replay');
+$contains($endpoint, 'http_response_code(409)', 'concurrent duplicate requests must be rejected without replay');
 $contains($endpoint, "'replayed' => true", 'completed durable requests must support safe replay');
 
 // Agent page exposes durable thread controls without putting optional thread runtime in the global Admin shell.
 $contains($adminUi, "coveted_redirect('/admin/agent.php');", 'bare Admin GET must route to Admin Agent before output');
 $missing($adminUi, "require_once __DIR__ . '/admin_agent_threads.php'", 'optional Agent thread runtime must not be globally required by Admin shell');
 $contains($agent, "require_once dirname(__DIR__) . '/app/admin_agent_threads.php';", 'Agent page must load its thread service locally');
+$contains($agent, "require_once dirname(__DIR__) . '/app/admin_agent_runs.php';", 'Agent page must load its durable run ledger locally');
+$contains($agent, 'coveted_admin_agent_runs_ensure_schema($pdo);', 'Agent storage readiness must include the run ledger');
 $contains($agent, 'data-threads-endpoint="/api/admin-agent-threads.php"', 'Agent thread endpoint is missing');
 $contains($agent, 'data-current-thread=', 'Agent current-thread reference is missing');
 $contains($agent, 'data-thread-storage-ready=', 'Agent thread-storage readiness flag is missing');
@@ -230,6 +236,9 @@ $contains($js, 'body.set(\'request_id\', id);', 'chat send must include the dura
 $missing($js, "body.set('history_json'", 'browser must not submit chat transcript history');
 $contains($js, 'conversationMessages = normalizeServerMessages(data.messages);', 'saved transcript must reload from the server');
 $contains($js, 'setPendingRequest({ threadRef, requestId: id, message: trimmed, provider: provider.value });', 'interrupted sends must preserve their retry identifier');
+$missing($js, 'pending.provider === provider.value', 'provider changes must not mint a new request id for an interrupted durable request');
+$contains($js, 'const restorePendingDraft = () =>', 'interrupted request draft restoration is missing');
+$contains($js, "if (entry.pending) article.dataset.pending = '1';", 'optimistic pending messages must be visually identifiable');
 $contains($js, "setBusy(false, 'Request interrupted · safe to retry');", 'retry-safe interrupted state is missing');
 $contains($js, 'searchThreads(threadSearch.value)', 'chat full-text search wiring is missing');
 $contains($js, "postThreadAction('rename'", 'chat rename wiring is missing');
