@@ -55,3 +55,6 @@ jobs:
 
       - name: Verify landing sample event image contract
         run: php scripts/verify-landing-sample-images.php
+
+      - name: Verify invite CRM and city contract
+        run: php scripts/verify-invite-crm.php
