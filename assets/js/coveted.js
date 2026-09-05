@@ -17,5 +17,6 @@
         await loadScript('/assets/js/admin-platform-v2.js?v=admin-platform-v2-20260905');
         await loadScript('/assets/js/admin-community-cleanup-v2.js?v=admin-community-cleanup-v2-20260905');
         await loadScript('/assets/js/landing-event-images.js?v=landing-event-images-20260905');
+        await loadScript('/assets/js/invite-crm-v2.js?v=invite-crm-v2-20260905');
     })().catch((error) => console.error('Coveted application scripts failed to load:', error));
 })();
