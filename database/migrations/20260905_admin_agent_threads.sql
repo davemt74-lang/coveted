@@ -1,5 +1,5 @@
 -- Coveted persistent Admin Agent conversations
--- Server-owned System Admin thread/message history.
+-- Server-owned System Admin thread/message history and idempotent request runs.
 
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
@@ -15,6 +15,24 @@ CREATE TABLE IF NOT EXISTS admin_agent_threads (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_admin_agent_threads_owner_status (owner_user_id,status,last_message_at,id),
   CONSTRAINT fk_admin_agent_threads_owner FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS admin_agent_runs (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  thread_id BIGINT UNSIGNED NOT NULL,
+  request_id VARCHAR(64) NOT NULL,
+  user_message_hash CHAR(64) NOT NULL,
+  status ENUM('processing','completed','interrupted') NOT NULL DEFAULT 'processing',
+  mutation_started TINYINT(1) NOT NULL DEFAULT 0,
+  response_text MEDIUMTEXT NULL,
+  provider VARCHAR(32) NULL,
+  model VARCHAR(190) NULL,
+  started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_admin_agent_runs_thread_request (thread_id,request_id),
+  KEY idx_admin_agent_runs_status_updated (status,updated_at),
+  CONSTRAINT fk_admin_agent_runs_thread FOREIGN KEY (thread_id) REFERENCES admin_agent_threads(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS admin_agent_messages (
