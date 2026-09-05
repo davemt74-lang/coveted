@@ -2,9 +2,11 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/app/invitation_eligibility.php';
+require_once __DIR__ . '/app/member_pages_v2.php';
 
 $user = coveted_require_user();
 $pdo = coveted_db();
+$sampleMode = coveted_member_sample_mode($user, $pdo);
 $message = '';
 $error = '';
 
@@ -12,6 +14,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     coveted_require_csrf();
 
     try {
+        if ($sampleMode) {
+            throw new InvalidArgumentException('Sample invitations are preview-only. Turn Sample Data off to manage live invitations.');
+        }
+
         $response = coveted_event_respond_invitation(
             $user,
             (string)($_POST['invite_id'] ?? ''),
@@ -22,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $message = match ($response) {
             'attending' => 'You’re in.',
             'waitlist' => 'You’re on the waitlist.',
-            default => 'Invitation declined.',
+            default => 'Invitation updated.',
         };
     } catch (InvalidArgumentException $e) {
         $error = $e->getMessage();
@@ -32,224 +38,199 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$stmt = $pdo->prepare(
-    "SELECT
-        ei.public_id,
-        ei.invite_type,
-        ei.status,
-        e.title,
-        e.description,
-        e.event_type,
-        e.audience,
-        e.timezone,
-        e.starts_at,
-        e.plus_one_allowed,
-        e.location_visibility,
-        e.status AS event_status,
-        g.name AS group_name,
-        er.response AS rsvp_response,
-        er.guest_count
-     FROM event_invitations ei
-     JOIN events e ON e.id = ei.event_id
-     JOIN social_groups g ON g.id = e.group_id
-     LEFT JOIN event_rsvps er ON er.event_id = e.id AND er.user_id = ei.user_id
-     WHERE ei.user_id = ?
-       AND e.status <> 'draft'
-     ORDER BY FIELD(ei.status, 'pending', 'accepted', 'declined', 'expired', 'revoked'), e.starts_at ASC
-     LIMIT 100"
-);
-$stmt->execute([(int)$user['id']]);
-$invitations = $stmt->fetchAll();
-
+$invitations = coveted_member_v2_invitations($user, $pdo);
 $now = time();
-$pendingCount = 0;
-$acceptedCount = 0;
-$waitlistCount = 0;
+$buckets = ['waiting' => [], 'accepted' => [], 'maybe' => [], 'past' => []];
 foreach ($invitations as $invite) {
-    $future = coveted_utc_datetime((string)$invite['starts_at'])->getTimestamp() > $now;
-    if ($invite['status'] === 'pending' && $invite['event_status'] === 'published' && $future) {
-        $pendingCount++;
-    }
-    if ($invite['status'] === 'accepted' || $invite['rsvp_response'] === 'attending') {
-        $acceptedCount++;
-    }
-    if ($invite['rsvp_response'] === 'waitlist') {
-        $waitlistCount++;
-    }
+    $bucket = coveted_member_v2_invitation_bucket($invite, $now);
+    $buckets[$bucket][] = $invite;
 }
 
-$nextExperience = coveted_next_experience_for_member($user, 4);
+foreach ($buckets as $key => &$rows) {
+    usort(
+        $rows,
+        static fn(array $a, array $b): int => $key === 'past'
+            ? strcmp((string)$b['starts_at'], (string)$a['starts_at'])
+            : strcmp((string)$a['starts_at'], (string)$b['starts_at'])
+    );
+}
+unset($rows);
 
-$view = strtolower(trim((string)($_GET['view'] ?? ($pendingCount > 0 ? 'pending' : 'history'))));
-if (!in_array($view, ['pending', 'history'], true)) {
-    $view = $pendingCount > 0 ? 'pending' : 'history';
+$view = strtolower(trim((string)($_GET['view'] ?? 'waiting')));
+$view = match ($view) {
+    'pending' => 'waiting',
+    'history' => 'past',
+    'declined' => 'maybe',
+    default => $view,
+};
+if (!array_key_exists($view, $buckets)) {
+    $view = 'waiting';
 }
 
-$visibleInvitations = array_values(array_filter(
-    $invitations,
-    static function (array $invite) use ($view, $now): bool {
-        $future = coveted_utc_datetime((string)$invite['starts_at'])->getTimestamp() > $now;
-        $isPending = $invite['status'] === 'pending'
-            && $invite['event_status'] === 'published'
-            && $future;
-        return $view === 'pending' ? $isPending : !$isPending;
-    }
-));
-usort(
-    $visibleInvitations,
-    static fn(array $a, array $b): int => $view === 'pending'
-        ? strcmp((string)$a['starts_at'], (string)$b['starts_at'])
-        : strcmp((string)$b['starts_at'], (string)$a['starts_at'])
-);
+$featured = $buckets['waiting'][0] ?? null;
+$visibleInvitations = $view === 'waiting' && $featured !== null
+    ? array_slice($buckets['waiting'], 1)
+    : $buckets[$view];
+$showInvitationList = $view !== 'waiting' || $featured === null || !empty($visibleInvitations);
 
 coveted_page_start('Invitations', 'Invitations');
 ?>
-<section class="cv-page-heading">
-    <span class="cv-eyebrow">INVITATIONS</span>
-    <h1>Someone wants you there.</h1>
-    <p>Decide before you arrive. Once the gathering starts, the app gets out of the way.</p>
-</section>
-
-<?php if ($message !== ''): ?>
-    <div class="cv-alert"><?= coveted_e($message) ?></div>
-<?php endif; ?>
-
-<?php if ($error !== ''): ?>
-    <div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div>
-<?php endif; ?>
-
-<section class="cv-stat-grid" aria-label="Invitation summary">
-    <div class="cv-card cv-stat">
-        <strong><?= $pendingCount ?></strong>
-        <span>Need a response</span>
-    </div>
-    <div class="cv-card cv-stat">
-        <strong><?= $acceptedCount ?></strong>
-        <span>Accepted</span>
-    </div>
-    <div class="cv-card cv-stat">
-        <strong><?= $waitlistCount ?></strong>
-        <span>Waitlist</span>
-    </div>
-</section>
-
-<?php if ($nextExperience): ?>
-    <section class="cv-card">
-        <span class="cv-eyebrow">YOUR NEXT EXPERIENCE</span>
-        <h2>Private context, visible only to you.</h2>
-        <p>Your own attendance, “Would you do this again?” answer and Mutual Reconnect history can help you understand where Coveted has useful context. Hosts see participation history and group-level aggregates—not your individual answers or matches.</p>
-
-        <div class="cv-role-request-list">
-            <?php foreach ($nextExperience as $experience): ?>
-                <div class="cv-role-request">
-                    <div>
-                        <strong><?= coveted_e((string)$experience['group_name']) ?></strong>
-                        <span><?= coveted_e((string)$experience['state_message']) ?></span>
-                        <div class="cv-tag-row">
-                            <span class="cv-pill"><?= coveted_e((string)$experience['state_label']) ?></span>
-                            <span class="cv-pill"><?= (int)$experience['verified_attendance_count'] ?> verified gathering<?= (int)$experience['verified_attendance_count'] === 1 ? '' : 's' ?></span>
-                            <?php if ((int)$experience['mystery_attendance_count'] > 0): ?>
-                                <span class="cv-pill"><?= (int)$experience['mystery_attendance_count'] ?> mystery</span>
-                            <?php endif; ?>
-                            <?php if ((int)$experience['mutual_reconnect_count'] > 0): ?>
-                                <span class="cv-pill"><?= (int)$experience['mutual_reconnect_count'] ?> mutual reconnect<?= (int)$experience['mutual_reconnect_count'] === 1 ? '' : 's' ?></span>
-                            <?php endif; ?>
-                            <?php if (!empty($experience['mystery_ready'])): ?>
-                                <span class="cv-pill">Mystery-ready</span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <a class="cv-button cv-button-soft" href="/group.php?group=<?= coveted_e((string)$experience['group_public_id']) ?>">Group</a>
-                </div>
-            <?php endforeach; ?>
+<div class="cv-member-page-v2 cv-invitations-v2">
+    <section class="cv-member-page-intro">
+        <div>
+            <span class="cv-eyebrow">INVITATIONS</span>
+            <h1>Your invitations.</h1>
+            <p>Know where you’re headed, who invited you and what needs a response. Then put the phone away and go.</p>
         </div>
+        <?php if ($sampleMode): ?>
+            <a class="cv-member-preview-pill" href="/admin/sample-data.php">Sample data · ON</a>
+        <?php endif; ?>
     </section>
-<?php endif; ?>
 
-<nav class="cv-tab-row" aria-label="Invitation views">
-    <a class="cv-tab <?= $view === 'pending' ? 'is-active' : '' ?>" href="/invitations.php?view=pending">Needs response<?= $pendingCount > 0 ? ' · ' . $pendingCount : '' ?></a>
-    <a class="cv-tab <?= $view === 'history' ? 'is-active' : '' ?>" href="/invitations.php?view=history">History</a>
-</nav>
+    <?php if ($message !== ''): ?><div class="cv-alert"><?= coveted_e($message) ?></div><?php endif; ?>
+    <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
 
-<section class="cv-list">
-    <?php if (!$visibleInvitations): ?>
-        <div class="cv-card cv-empty">
-            <h2><?= $view === 'pending' ? 'You’re caught up.' : 'No invitation history yet.' ?></h2>
-            <p><?= $view === 'pending'
-                ? 'There are no invitations waiting for your response.'
-                : 'Accepted, declined, closed and past invitations will stay here for context.' ?></p>
-        </div>
-    <?php endif; ?>
+    <nav class="cv-member-segmented-tabs" aria-label="Invitation views">
+        <?php foreach ([
+            'waiting' => 'Waiting',
+            'accepted' => 'Accepted',
+            'maybe' => 'Maybe later',
+            'past' => 'Past',
+        ] as $tabKey => $tabLabel): ?>
+            <a class="<?= $view === $tabKey ? 'is-active' : '' ?>" href="/invitations.php?view=<?= coveted_e($tabKey) ?>">
+                <span><?= coveted_e($tabLabel) ?></span>
+                <?php if (count($buckets[$tabKey]) > 0): ?><small><?= count($buckets[$tabKey]) ?></small><?php endif; ?>
+            </a>
+        <?php endforeach; ?>
+    </nav>
 
-    <?php foreach ($visibleInvitations as $invite): ?>
+    <?php if ($featured && $view === 'waiting'): ?>
         <?php
-        $future = coveted_utc_datetime((string)$invite['starts_at'])->getTimestamp() > $now;
-        $canRespond = $invite['status'] === 'pending'
-            && $invite['event_status'] === 'published'
-            && $future;
-        $description = trim((string)($invite['description'] ?? ''));
+        $featuredImage = trim((string)($featured['image'] ?? ''));
+        $featuredCanRespond = !$sampleMode
+            && $featured['status'] === 'pending'
+            && $featured['event_status'] === 'published'
+            && coveted_utc_datetime((string)$featured['starts_at'])->getTimestamp() > $now;
         ?>
-        <article class="cv-card cv-event-row">
-            <div class="cv-event-date">
-                <strong><?= coveted_e(coveted_event_format($invite, 'M')) ?></strong>
-                <span><?= coveted_e(coveted_event_format($invite, 'j')) ?></span>
-            </div>
-
-            <div class="cv-event-copy">
-                <span class="cv-kicker">
-                    <?= coveted_e($invite['group_name']) ?> · <?= coveted_e(str_replace('_', ' ', (string)$invite['event_type'])) ?>
-                </span>
-                <h2><?= coveted_e($invite['title']) ?></h2>
-                <p><?= coveted_e(coveted_event_format($invite, 'l, F j · g:i A')) ?></p>
-
-                <?php if ($description !== ''): ?>
-                    <p><?= coveted_e(mb_strimwidth($description, 0, 260, '…')) ?></p>
-                <?php endif; ?>
-
-                <div class="cv-tag-row">
-                    <?php if ($invite['event_type'] === 'mystery' || $invite['location_visibility'] !== 'immediate'): ?>
-                        <span class="cv-pill">Location revealed later</span>
-                    <?php endif; ?>
-                    <?php if ($invite['audience'] === 'invitation_only'): ?>
-                        <span class="cv-pill">Invitation only</span>
-                    <?php endif; ?>
-                    <?php if ((int)($invite['guest_count'] ?? 0) === 1 && $invite['rsvp_response'] === 'attending'): ?>
-                        <span class="cv-pill">+1 included</span>
-                    <?php endif; ?>
-                    <?php if ($invite['rsvp_response'] === 'waitlist'): ?>
-                        <span class="cv-pill">Waitlist</span>
-                    <?php elseif ($invite['event_status'] === 'cancelled'): ?>
-                        <span class="cv-pill">Cancelled</span>
-                    <?php elseif (!$future && $invite['status'] === 'pending'): ?>
-                        <span class="cv-pill">Closed</span>
-                    <?php elseif (!$canRespond && $invite['status'] !== 'pending'): ?>
-                        <span class="cv-pill"><?= coveted_e(ucfirst((string)$invite['status'])) ?></span>
-                    <?php endif; ?>
+        <section class="cv-invite-feature" aria-label="Featured invitation">
+            <div class="cv-invite-feature-media <?= $featuredImage === '' ? 'is-empty' : '' ?>">
+                <?php if ($featuredImage !== ''): ?><img src="<?= coveted_e($featuredImage) ?>" alt="" loading="eager" decoding="async"><?php endif; ?>
+                <div class="cv-invite-feature-date">
+                    <strong><?= coveted_e(coveted_event_format($featured, 'M')) ?></strong>
+                    <span><?= coveted_e(coveted_event_format($featured, 'j')) ?></span>
                 </div>
+            </div>
+            <div class="cv-invite-feature-copy">
+                <span class="cv-member-overline">WAITING FOR YOU</span>
+                <h2><?= coveted_e((string)$featured['title']) ?></h2>
+                <p class="cv-invite-feature-lede"><?= coveted_e((string)($featured['description'] ?? '')) ?></p>
+                <dl class="cv-member-detail-list">
+                    <div><dt>When</dt><dd><?= coveted_e(coveted_event_format($featured, 'l, F j · g:i A')) ?></dd></div>
+                    <div><dt>Group</dt><dd><?= coveted_e((string)$featured['group_name']) ?></dd></div>
+                    <div><dt>Place</dt><dd><?= $featured['location_visibility'] === 'immediate' && !empty($featured['location_name']) ? coveted_e((string)$featured['location_name']) : 'Revealed later' ?></dd></div>
+                </dl>
 
-                <?php if ($canRespond): ?>
-                    <form class="cv-action-row" method="post">
+                <?php if ($featuredCanRespond): ?>
+                    <form class="cv-member-rsvp-actions" method="post">
                         <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
-                        <input type="hidden" name="invite_id" value="<?= coveted_e($invite['public_id']) ?>">
-
-                        <?php if ((bool)$invite['plus_one_allowed']): ?>
-                            <label class="cv-inline-form">
-                                <span class="cv-kicker">RSVP FOR</span>
-                                <select name="guest_count">
-                                    <option value="0">Just me</option>
-                                    <option value="1">Me + one guest</option>
-                                </select>
-                            </label>
+                        <input type="hidden" name="invite_id" value="<?= coveted_e((string)$featured['public_id']) ?>">
+                        <?php if ((bool)$featured['plus_one_allowed']): ?>
+                            <select name="guest_count" aria-label="Guests">
+                                <option value="0">Just me</option>
+                                <option value="1">Me + one guest</option>
+                            </select>
                         <?php else: ?>
                             <input type="hidden" name="guest_count" value="0">
                         <?php endif; ?>
-
-                        <button class="cv-button cv-button-primary" name="decision" value="accepted" type="submit">I’m attending</button>
-                        <button class="cv-button cv-button-soft" name="decision" value="declined" type="submit">Decline</button>
+                        <button class="cv-button cv-button-primary" name="decision" value="accepted" type="submit">I’m in</button>
+                        <button class="cv-button cv-button-soft" name="decision" value="declined" type="submit">Not this time</button>
                     </form>
+                <?php elseif ($sampleMode): ?>
+                    <div class="cv-member-preview-note">Preview only · live RSVP actions stay disabled in Sample Data mode.</div>
                 <?php endif; ?>
             </div>
-        </article>
-    <?php endforeach; ?>
-</section>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($showInvitationList): ?>
+        <section class="cv-member-section-head">
+            <div>
+                <span class="cv-member-overline"><?= coveted_e(strtoupper($view === 'maybe' ? 'MAYBE LATER' : $view)) ?></span>
+                <h2><?= match ($view) {
+                    'accepted' => 'You said yes.',
+                    'maybe' => 'Not this time.',
+                    'past' => 'Where you’ve been invited.',
+                    default => $featured ? 'More invitations.' : 'Waiting on your answer.',
+                } ?></h2>
+            </div>
+        </section>
+
+        <?php if (!$visibleInvitations): ?>
+            <div class="cv-member-empty-v2">
+                <span><?= $view === 'waiting' ? 'All caught up' : 'Nothing here yet' ?></span>
+                <h2><?= match ($view) {
+                    'accepted' => 'No accepted invitations yet.',
+                    'maybe' => 'No invitations set aside.',
+                    'past' => 'Your invitation history will live here.',
+                    default => 'Nothing needs your response.',
+                } ?></h2>
+                <p>Coveted keeps this list intentionally small so the invitation stays about the gathering, not the feed.</p>
+            </div>
+        <?php else: ?>
+            <div class="cv-invite-card-grid">
+                <?php foreach ($visibleInvitations as $invite): ?>
+                    <?php
+                    $image = trim((string)($invite['image'] ?? ''));
+                    $future = coveted_utc_datetime((string)$invite['starts_at'])->getTimestamp() > $now;
+                    $canRespond = !$sampleMode
+                        && $invite['status'] === 'pending'
+                        && $invite['event_status'] === 'published'
+                        && $future;
+                    ?>
+                    <article class="cv-invite-card">
+                        <div class="cv-invite-card-media <?= $image === '' ? 'is-empty' : '' ?>">
+                            <?php if ($image !== ''): ?><img src="<?= coveted_e($image) ?>" alt="" loading="lazy" decoding="async"><?php endif; ?>
+                            <div class="cv-invite-card-date">
+                                <strong><?= coveted_e(coveted_event_format($invite, 'M')) ?></strong>
+                                <span><?= coveted_e(coveted_event_format($invite, 'j')) ?></span>
+                            </div>
+                        </div>
+                        <div class="cv-invite-card-copy">
+                            <span class="cv-member-overline"><?= coveted_e((string)$invite['group_name']) ?></span>
+                            <h3><?= coveted_e((string)$invite['title']) ?></h3>
+                            <p><?= coveted_e(coveted_event_format($invite, 'D, M j · g:i A')) ?></p>
+                            <div class="cv-member-card-meta">
+                                <?php if ($invite['location_visibility'] === 'immediate' && !empty($invite['location_name'])): ?>
+                                    <span><?= coveted_e((string)$invite['location_name']) ?></span>
+                                <?php else: ?>
+                                    <span>Location revealed later</span>
+                                <?php endif; ?>
+                                <?php if ((int)($invite['guest_count'] ?? 0) === 1 && $invite['rsvp_response'] === 'attending'): ?><span>+1 included</span><?php endif; ?>
+                            </div>
+
+                            <?php if ($canRespond): ?>
+                                <form class="cv-invite-card-actions" method="post">
+                                    <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+                                    <input type="hidden" name="invite_id" value="<?= coveted_e((string)$invite['public_id']) ?>">
+                                    <input type="hidden" name="guest_count" value="0">
+                                    <button class="cv-button cv-button-primary" name="decision" value="accepted" type="submit">Accept</button>
+                                    <button class="cv-button cv-button-soft" name="decision" value="declined" type="submit">Maybe later</button>
+                                </form>
+                            <?php elseif ($sampleMode): ?>
+                                <span class="cv-member-preview-chip">Preview</span>
+                            <?php else: ?>
+                                <span class="cv-member-status-chip"><?= coveted_e(match ($view) {
+                                    'accepted' => 'Accepted',
+                                    'maybe' => 'Passed',
+                                    'past' => 'Past',
+                                    default => 'Waiting',
+                                }) ?></span>
+                            <?php endif; ?>
+                        </div>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    <?php endif; ?>
+</div>
 <?php coveted_page_end(); ?>
