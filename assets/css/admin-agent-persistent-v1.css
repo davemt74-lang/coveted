@@ -1,0 +1,160 @@
+/* Persistent Admin Agent thread controls */
+
+.cv-admin-agent-thread-toolbar,
+.cv-admin-agent-history {
+    width: min(920px, 100%);
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.cv-admin-agent-thread-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 52px;
+    padding: 5px 0 10px;
+    border-bottom: 1px solid #ece8e2;
+}
+
+.cv-admin-agent-thread-heading {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.cv-admin-agent-thread-heading strong {
+    overflow: hidden;
+    color: #25221e;
+    font-size: 13px;
+    font-weight: 680;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cv-admin-agent-thread-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.cv-admin-agent-thread-actions .cv-button {
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 9px;
+}
+
+.cv-admin-agent-history {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid #e2ddd5;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 18px 48px rgba(28, 26, 22, .08);
+}
+
+.cv-admin-agent-history[hidden] {
+    display: none;
+}
+
+.cv-admin-agent-history-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.cv-admin-agent-history-search input {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 38px;
+    padding: 0 11px;
+    border: 1px solid #ddd8d0;
+    border-radius: 10px;
+    background: #fff;
+    color: #211f1c;
+    font: inherit;
+    font-size: 10px;
+}
+
+.cv-admin-agent-history-results {
+    display: grid;
+    max-height: min(48vh, 440px);
+    overflow: auto;
+}
+
+.cv-admin-agent-history-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 11px 9px;
+    border-top: 1px solid #f0ede8;
+    color: #2c2925;
+    text-decoration: none;
+}
+
+.cv-admin-agent-history-row:first-child {
+    border-top: 0;
+}
+
+.cv-admin-agent-history-row:hover {
+    background: #faf9f6;
+}
+
+.cv-admin-agent-history-row > span:first-child {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.cv-admin-agent-history-row strong {
+    overflow: hidden;
+    font-size: 10px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cv-admin-agent-history-row small {
+    overflow: hidden;
+    color: #99938a;
+    font-size: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cv-admin-agent-message.is-user[data-pending="1"] {
+    opacity: .68;
+}
+
+.cv-admin-agent-page[data-thread-storage-ready="0"] .cv-admin-agent-thread-actions button,
+.cv-admin-agent-page[data-thread-storage-ready="0"] .cv-admin-agent-thread-actions a {
+    pointer-events: none;
+    opacity: .45;
+}
+
+@media (max-width: 720px) {
+    .cv-admin-agent-thread-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+        padding-top: 2px;
+    }
+
+    .cv-admin-agent-thread-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .cv-admin-agent-thread-actions .cv-button {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    .cv-admin-agent-history-search {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}
