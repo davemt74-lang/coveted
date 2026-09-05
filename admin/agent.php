@@ -28,18 +28,6 @@ coveted_page_start('Admin Agent', '', true);
 coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
 ?>
 <div class="cv-admin-agent-page" data-admin-agent data-endpoint="/api/admin-agent-chat.php" data-csrf="<?= coveted_e(coveted_csrf_token()) ?>">
-    <div class="cv-admin-page-head cv-admin-agent-head">
-        <div>
-            <span class="cv-eyebrow">BACK AGENT · ADMIN</span>
-            <h1>Ask Coveted.</h1>
-            <p>A private System Admin chat surface for planning, operations and future agent tools. Provider credentials stay on the server.</p>
-        </div>
-        <div class="cv-admin-agent-head-actions">
-            <button class="cv-button cv-button-soft" type="button" data-agent-new-chat>New chat</button>
-            <a class="cv-button cv-button-soft" href="/admin/ai-settings.php">AI Settings</a>
-        </div>
-    </div>
-
     <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
 
     <section class="cv-admin-agent-canvas" aria-label="Admin Agent conversation" aria-live="polite" data-agent-canvas>
