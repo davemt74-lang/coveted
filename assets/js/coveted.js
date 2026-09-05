@@ -15,6 +15,7 @@
         await loadScript('/assets/js/legal-footer.js?v=legal-footer-20260905');
         await loadScript('/assets/js/member-v2.js?v=member-v2-20260905');
         await loadScript('/assets/js/admin-v2.js?v=admin-v2-people-business-20260905');
+        await loadScript('/assets/js/admin-shell-v6.js?v=admin-shell-v6-20260905');
         await loadScript('/assets/js/admin-platform-v2.js?v=admin-platform-v2-20260905');
         await loadScript('/assets/js/admin-community-cleanup-v2.js?v=admin-community-cleanup-v2-20260905');
         await loadScript('/assets/js/admin-event-workspace-v1.js?v=admin-event-workspace-v1-20260905');
