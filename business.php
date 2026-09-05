@@ -51,11 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $businessId = (int)$business['id'];
         $businessRef = (string)$business['public_id'];
-        $return = static fn(string $targetTab, string $saved): never => coveted_redirect(
-            '/business.php?business=' . rawurlencode($businessRef)
-            . '&tab=' . rawurlencode($targetTab)
-            . '&saved=' . rawurlencode($saved)
-        );
+        $return = static function (string $targetTab, string $saved) use ($businessRef): never {
+            coveted_redirect(
+                '/business.php?business=' . rawurlencode($businessRef)
+                . '&tab=' . rawurlencode($targetTab)
+                . '&saved=' . rawurlencode($saved)
+            );
+        };
 
         switch ($action) {
             case 'create_location':

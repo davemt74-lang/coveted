@@ -261,23 +261,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$countStmt = $pdo->query(
-    "SELECT
-        (SELECT COUNT(*) FROM users) AS users,
-        (SELECT COUNT(*) FROM social_groups) AS groups,
-        (SELECT COUNT(*) FROM events) AS events,
-        (SELECT COUNT(*) FROM businesses) AS businesses,
-        (SELECT COUNT(*) FROM artist_profiles) AS artists,
-        (SELECT COUNT(*) FROM role_requests WHERE status = 'pending') AS pending_requests"
-);
-$counts = $countStmt->fetch() ?: [
-    'users' => 0,
-    'groups' => 0,
-    'events' => 0,
-    'businesses' => 0,
-    'artists' => 0,
-    'pending_requests' => 0,
-];
+$counts = coveted_admin_ui_counts($pdo);
 
 $requests = [];
 $users = [];
@@ -310,6 +294,7 @@ $manualCampaigns = [];
 $distributionUsers = [];
 $distributionRuns = [];
 
+try {
 if ($view === 'requests' || $view === 'dashboard') {
     $requests = $pdo->query(
         "SELECT rr.*, u.display_name, u.email
@@ -506,6 +491,14 @@ if ($view === 'pwa') {
          ORDER BY display_name, id
          LIMIT 500"
     )->fetchAll();
+}
+
+} catch (Throwable $e) {
+    $adminLoadMessage = trim(preg_replace('/\s+/', ' ', $e->getMessage()) ?? $e->getMessage());
+    error_log('Coveted Admin recovery mode: ' . $adminLoadMessage);
+    if ($error === '') {
+        $error = 'Admin opened in recovery mode because some data could not load: ' . $adminLoadMessage;
+    }
 }
 
 coveted_page_start('Admin', '', true);
