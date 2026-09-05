@@ -18,69 +18,90 @@ function coveted_invite_event_interest_options(): array
 
 function coveted_invite_crm_ensure_schema(?PDO $pdo = null): void
 {
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+
     $pdo ??= coveted_db();
+    $databaseName = (string)$pdo->query('SELECT DATABASE()')->fetchColumn();
+    $tableCount = 0;
 
-    $pdo->exec(
-        "CREATE TABLE IF NOT EXISTS cities (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            public_id VARCHAR(64) NOT NULL UNIQUE,
-            name VARCHAR(160) NOT NULL,
-            region VARCHAR(160) NULL,
-            country CHAR(2) NOT NULL DEFAULT 'US',
-            timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
-            status ENUM('active','paused','archived') NOT NULL DEFAULT 'active',
-            sort_order INT NOT NULL DEFAULT 100,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_city_identity (name,region,country),
-            KEY idx_cities_status_sort (status,sort_order,name)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-    );
+    if ($databaseName !== '') {
+        $check = $pdo->prepare(
+            "SELECT COUNT(*)
+             FROM information_schema.tables
+             WHERE table_schema = ?
+               AND table_name IN ('cities','invite_requests','user_activation_tokens')"
+        );
+        $check->execute([$databaseName]);
+        $tableCount = (int)$check->fetchColumn();
+    }
 
-    $pdo->exec(
-        "CREATE TABLE IF NOT EXISTS invite_requests (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            public_id VARCHAR(64) NOT NULL UNIQUE,
-            full_name VARCHAR(180) NOT NULL,
-            email VARCHAR(255) NOT NULL,
-            phone VARCHAR(80) NULL,
-            city_id BIGINT UNSIGNED NULL,
-            city_other VARCHAR(180) NULL,
-            event_interests_json JSON NOT NULL,
-            how_heard VARCHAR(180) NULL,
-            message TEXT NULL,
-            admin_note TEXT NULL,
-            status ENUM('new','contacted','qualified','converted','declined') NOT NULL DEFAULT 'new',
-            converted_user_id BIGINT UNSIGNED NULL,
-            reviewed_by BIGINT UNSIGNED NULL,
-            reviewed_at DATETIME NULL,
-            source_ip_hash CHAR(64) NULL,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            KEY idx_invite_requests_status_created (status,created_at),
-            KEY idx_invite_requests_email_created (email,created_at),
-            KEY idx_invite_requests_city_status (city_id,status),
-            KEY idx_invite_requests_converted_user (converted_user_id),
-            CONSTRAINT fk_invite_requests_city FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE SET NULL,
-            CONSTRAINT fk_invite_requests_converted_user FOREIGN KEY (converted_user_id) REFERENCES users(id) ON DELETE SET NULL,
-            CONSTRAINT fk_invite_requests_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-    );
+    if ($tableCount < 3) {
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS cities (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                public_id VARCHAR(64) NOT NULL UNIQUE,
+                name VARCHAR(160) NOT NULL,
+                region VARCHAR(160) NULL,
+                country CHAR(2) NOT NULL DEFAULT 'US',
+                timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
+                status ENUM('active','paused','archived') NOT NULL DEFAULT 'active',
+                sort_order INT NOT NULL DEFAULT 100,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_city_identity (name,region,country),
+                KEY idx_cities_status_sort (status,sort_order,name)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
 
-    $pdo->exec(
-        "CREATE TABLE IF NOT EXISTS user_activation_tokens (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            user_id BIGINT UNSIGNED NOT NULL,
-            token_hash CHAR(64) NOT NULL UNIQUE,
-            expires_at DATETIME NOT NULL,
-            used_at DATETIME NULL,
-            created_by BIGINT UNSIGNED NULL,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            KEY idx_user_activation_user (user_id,used_at,expires_at),
-            CONSTRAINT fk_user_activation_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            CONSTRAINT fk_user_activation_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-    );
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS invite_requests (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                public_id VARCHAR(64) NOT NULL UNIQUE,
+                full_name VARCHAR(180) NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                phone VARCHAR(80) NULL,
+                city_id BIGINT UNSIGNED NULL,
+                city_other VARCHAR(180) NULL,
+                event_interests_json JSON NOT NULL,
+                how_heard VARCHAR(180) NULL,
+                message TEXT NULL,
+                admin_note TEXT NULL,
+                status ENUM('new','contacted','qualified','converted','declined') NOT NULL DEFAULT 'new',
+                converted_user_id BIGINT UNSIGNED NULL,
+                reviewed_by BIGINT UNSIGNED NULL,
+                reviewed_at DATETIME NULL,
+                source_ip_hash CHAR(64) NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                KEY idx_invite_requests_status_created (status,created_at),
+                KEY idx_invite_requests_email_created (email,created_at),
+                KEY idx_invite_requests_city_status (city_id,status),
+                KEY idx_invite_requests_converted_user (converted_user_id),
+                KEY idx_invite_requests_ip_created (source_ip_hash,created_at),
+                CONSTRAINT fk_invite_requests_city FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE SET NULL,
+                CONSTRAINT fk_invite_requests_converted_user FOREIGN KEY (converted_user_id) REFERENCES users(id) ON DELETE SET NULL,
+                CONSTRAINT fk_invite_requests_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+
+        $pdo->exec(
+            "CREATE TABLE IF NOT EXISTS user_activation_tokens (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT UNSIGNED NOT NULL,
+                token_hash CHAR(64) NOT NULL UNIQUE,
+                expires_at DATETIME NOT NULL,
+                used_at DATETIME NULL,
+                created_by BIGINT UNSIGNED NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                KEY idx_user_activation_user (user_id,used_at,expires_at),
+                CONSTRAINT fk_user_activation_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                CONSTRAINT fk_user_activation_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        );
+    }
 
     $seed = $pdo->prepare(
         "INSERT IGNORE INTO cities (public_id,name,region,country,timezone,status,sort_order)
@@ -96,6 +117,8 @@ function coveted_invite_crm_ensure_schema(?PDO $pdo = null): void
     ] as [$name, $region, $sort]) {
         $seed->execute(['city_' . strtolower(str_replace(' ', '_', $name)) . '_az', $name, $region, $sort]);
     }
+
+    $ready = true;
 }
 
 /** @return array<int,array<string,mixed>> */
@@ -153,16 +176,28 @@ function coveted_city_create(array $admin, array $input, ?PDO $pdo = null): arra
     $timezone = trim((string)($input['timezone'] ?? ''));
     $sortOrder = max(0, min(10000, (int)($input['sort_order'] ?? 100)));
 
-    if ($name === '' || mb_strlen($name) > 160) {
-        throw new InvalidArgumentException('Enter a city name.');
+    if ($name === '' || mb_strlen($name) > 160 || preg_match('/[\x00-\x1F\x7F]/u', $name) === 1) {
+        throw new InvalidArgumentException('Enter a valid city name.');
     }
-    if (mb_strlen($region) > 160) {
-        throw new InvalidArgumentException('Region/state is too long.');
+    if (mb_strlen($region) > 160 || preg_match('/[\x00-\x1F\x7F]/u', $region) === 1) {
+        throw new InvalidArgumentException('Enter a valid region/state.');
     }
     if (!preg_match('/^[A-Z]{2}$/', $country)) {
         throw new InvalidArgumentException('Use a two-letter country code.');
     }
     coveted_require_timezone($timezone);
+
+    $duplicate = $pdo->prepare(
+        "SELECT id FROM cities
+         WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))
+           AND LOWER(TRIM(COALESCE(region,''))) = LOWER(TRIM(?))
+           AND country = ?
+         LIMIT 1"
+    );
+    $duplicate->execute([$name, $region, $country]);
+    if ($duplicate->fetchColumn()) {
+        throw new InvalidArgumentException('That city is already in the database.');
+    }
 
     try {
         $stmt = $pdo->prepare(
@@ -199,7 +234,7 @@ function coveted_city_set_status(array $admin, int $cityId, string $status, ?PDO
         throw new InvalidArgumentException('City not found.');
     }
 
-    $pdo->prepare('UPDATE cities SET status = ?, updated_at = NOW() WHERE id = ?')->execute([$status, $cityId]);
+    $pdo->prepare('UPDATE cities SET status = ?, updated_at = UTC_TIMESTAMP() WHERE id = ?')->execute([$status, $cityId]);
     coveted_audit('admin.city_status', 'city', $publicId, ['status' => $status], (int)$admin['id']);
 }
 
@@ -241,8 +276,8 @@ function coveted_invite_request_submit(array $input, ?PDO $pdo = null): string
     if (strlen($email) > 255 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
         throw new InvalidArgumentException('Enter a valid email address.');
     }
-    if (mb_strlen($phone) > 80) {
-        throw new InvalidArgumentException('Phone number is too long.');
+    if (mb_strlen($phone) > 80 || preg_match('/[\x00-\x1F\x7F]/u', $phone) === 1) {
+        throw new InvalidArgumentException('Enter a valid phone number.');
     }
     if (count($interests) < 1) {
         throw new InvalidArgumentException('Choose at least one type of event you are interested in.');
@@ -263,6 +298,20 @@ function coveted_invite_request_submit(array $input, ?PDO $pdo = null): string
         throw new InvalidArgumentException('Choose your city or enter another city.');
     }
 
+    $ip = coveted_client_ip();
+    $ipHash = $ip !== 'unknown' ? hash('sha256', 'invite-request|' . $ip) : null;
+    if ($ipHash !== null) {
+        $rate = $pdo->prepare(
+            "SELECT COUNT(*) FROM invite_requests
+             WHERE source_ip_hash = ?
+               AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)"
+        );
+        $rate->execute([$ipHash]);
+        if ((int)$rate->fetchColumn() >= 8) {
+            throw new InvalidArgumentException('Too many invite requests were submitted from this connection today. Try again tomorrow.');
+        }
+    }
+
     $recent = $pdo->prepare(
         "SELECT id FROM invite_requests
          WHERE email = ? AND status IN ('new','contacted','qualified')
@@ -275,9 +324,6 @@ function coveted_invite_request_submit(array $input, ?PDO $pdo = null): string
     }
 
     $publicId = coveted_uuid('lead');
-    $ip = coveted_client_ip();
-    $ipHash = $ip !== 'unknown' ? hash('sha256', 'invite-request|' . $ip) : null;
-
     $stmt = $pdo->prepare(
         "INSERT INTO invite_requests
             (public_id,full_name,email,phone,city_id,city_other,event_interests_json,how_heard,message,status,source_ip_hash)
@@ -372,7 +418,7 @@ function coveted_invite_request_update(array $admin, int $requestId, string $sta
 
     $pdo ??= coveted_db();
     coveted_invite_crm_ensure_schema($pdo);
-    $stmt = $pdo->prepare("SELECT public_id,status FROM invite_requests WHERE id = ? LIMIT 1");
+    $stmt = $pdo->prepare('SELECT public_id,status FROM invite_requests WHERE id = ? LIMIT 1');
     $stmt->execute([$requestId]);
     $row = $stmt->fetch();
     if (!$row || $row['status'] === 'converted') {
@@ -383,6 +429,21 @@ function coveted_invite_request_update(array $admin, int $requestId, string $sta
         'UPDATE invite_requests SET status = ?, admin_note = ?, reviewed_by = ?, reviewed_at = UTC_TIMESTAMP(), updated_at = UTC_TIMESTAMP() WHERE id = ?'
     )->execute([$status, trim($adminNote) !== '' ? trim($adminNote) : null, (int)$admin['id'], $requestId]);
     coveted_audit('admin.invite_request_updated', 'invite_request', (string)$row['public_id'], ['status' => $status], (int)$admin['id']);
+}
+
+function coveted_activation_issue_token(PDO $pdo, int $userId, int $adminId): string
+{
+    $pdo->prepare(
+        'UPDATE user_activation_tokens SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND used_at IS NULL'
+    )->execute([$userId]);
+
+    $rawToken = bin2hex(random_bytes(32));
+    $pdo->prepare(
+        "INSERT INTO user_activation_tokens (user_id,token_hash,expires_at,created_by)
+         VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY), ?)"
+    )->execute([$userId, hash('sha256', $rawToken), $adminId]);
+
+    return coveted_url('/activate.php?token=' . rawurlencode($rawToken));
 }
 
 /** @return array{user_id:int,email:string,existing_user:bool,activation_url:?string} */
@@ -418,6 +479,10 @@ function coveted_invite_request_convert(array $admin, int $requestId, ?PDO $pdo 
         $user = $existing->fetch();
         $existingUser = (bool)$user;
         $activationUrl = null;
+
+        if ($user && in_array((string)$user['status'], ['suspended', 'deleted'], true)) {
+            throw new InvalidArgumentException('That email belongs to a suspended or deleted account. Review the existing user record before converting this CRM submission.');
+        }
 
         $cityLabel = trim((string)$lead['city_other']);
         if (!empty($lead['city_name'])) {
@@ -458,16 +523,13 @@ function coveted_invite_request_convert(array $admin, int $requestId, ?PDO $pdo 
                 ->execute([$userId, (int)$admin['id']]);
             $pdo->prepare('INSERT INTO profiles (user_id,city,interests_json) VALUES (?, ?, ?)')
                 ->execute([$userId, $cityLabel !== '' ? $cityLabel : null, $profileJson]);
-
-            $rawToken = bin2hex(random_bytes(32));
-            $pdo->prepare(
-                "INSERT INTO user_activation_tokens (user_id,token_hash,expires_at,created_by)
-                 VALUES (?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY), ?)"
-            )->execute([$userId, hash('sha256', $rawToken), (int)$admin['id']]);
-            $activationUrl = coveted_url('/activate.php?token=' . rawurlencode($rawToken));
+            $activationUrl = coveted_activation_issue_token($pdo, $userId, (int)$admin['id']);
             $user = ['id' => $userId, 'public_id' => $publicId, 'status' => 'invited'];
         } else {
             $userId = (int)$user['id'];
+            $pdo->prepare(
+                "INSERT IGNORE INTO user_roles (user_id,role_key,granted_by) VALUES (?, 'attendee', ?)"
+            )->execute([$userId, (int)$admin['id']]);
             $pdo->prepare(
                 "INSERT INTO profiles (user_id,city,interests_json)
                  VALUES (?, ?, ?)
@@ -475,6 +537,10 @@ function coveted_invite_request_convert(array $admin, int $requestId, ?PDO $pdo 
                     city = CASE WHEN city IS NULL OR city = '' THEN VALUES(city) ELSE city END,
                     interests_json = CASE WHEN interests_json IS NULL THEN VALUES(interests_json) ELSE interests_json END"
             )->execute([$userId, $cityLabel !== '' ? $cityLabel : null, $profileJson]);
+
+            if ((string)$user['status'] === 'invited') {
+                $activationUrl = coveted_activation_issue_token($pdo, $userId, (int)$admin['id']);
+            }
         }
 
         $pdo->prepare(
@@ -532,6 +598,10 @@ function coveted_activation_lookup(string $rawToken, ?PDO $pdo = null): ?array
 
 function coveted_activation_complete(string $rawToken, string $password, string $passwordConfirm, ?PDO $pdo = null): array
 {
+    $rawToken = trim($rawToken);
+    if (!preg_match('/^[a-f0-9]{64}$/', $rawToken)) {
+        throw new InvalidArgumentException('That activation link is invalid or has expired.');
+    }
     if (strlen($password) < 10 || strlen($password) > 4096) {
         throw new InvalidArgumentException('Use at least 10 characters for your password.');
     }
@@ -550,7 +620,7 @@ function coveted_activation_complete(string $rawToken, string $password, string 
              WHERE uat.token_hash = ? AND uat.used_at IS NULL AND uat.expires_at > UTC_TIMESTAMP()
              LIMIT 1 FOR UPDATE"
         );
-        $stmt->execute([hash('sha256', trim($rawToken))]);
+        $stmt->execute([hash('sha256', $rawToken)]);
         $row = $stmt->fetch();
         if (!$row || !in_array((string)$row['status'], ['invited', 'active'], true)) {
             throw new InvalidArgumentException('That activation link is invalid or has expired.');
@@ -558,8 +628,9 @@ function coveted_activation_complete(string $rawToken, string $password, string 
 
         $pdo->prepare("UPDATE users SET password_hash = ?, status = 'active', updated_at = UTC_TIMESTAMP() WHERE id = ?")
             ->execute([password_hash($password, PASSWORD_DEFAULT), (int)$row['user_id']]);
-        $pdo->prepare('UPDATE user_activation_tokens SET used_at = UTC_TIMESTAMP() WHERE id = ?')
-            ->execute([(int)$row['token_id']]);
+        $pdo->prepare(
+            'UPDATE user_activation_tokens SET used_at = UTC_TIMESTAMP() WHERE user_id = ? AND used_at IS NULL'
+        )->execute([(int)$row['user_id']]);
         coveted_audit('user.activated', 'user', (string)$row['public_id'], [], (int)$row['user_id']);
         $pdo->commit();
         return ['user_id' => (int)$row['user_id']];
