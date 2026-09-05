@@ -109,7 +109,7 @@ if (!str_contains($jsIndex, 'admin-v2.js')) {
 
 foreach ([
     'cv-admin-event-toolbar',
-    'data-status',
+    'dataset.status',
     'Search events, groups or status',
     'cv-admin-dropdown',
     'initUsers',
