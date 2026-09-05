@@ -62,6 +62,21 @@ function coveted_admin_agent_run_by_request(
     return $row ?: null;
 }
 
+/** @return array<string,mixed>|null */
+function coveted_admin_agent_run_locked(PDO $pdo, int $threadId, string $requestId): ?array
+{
+    $stmt = $pdo->prepare(
+        'SELECT id, thread_id, request_id, user_message_hash, status, mutation_started,
+                response_text, provider, model, started_at, completed_at, updated_at
+         FROM admin_agent_runs
+         WHERE thread_id = ? AND request_id = ?
+         LIMIT 1 FOR UPDATE'
+    );
+    $stmt->execute([$threadId, $requestId]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
 /**
  * Atomically claim one browser request for provider/action processing.
  *
@@ -89,6 +104,7 @@ function coveted_admin_agent_run_claim(
         throw new InvalidArgumentException('Admin Agent chat not found or archived.');
     }
 
+    $threadId = (int)$thread['id'];
     $messageHash = hash('sha256', $userMessage);
     try {
         $insert = $pdo->prepare(
@@ -96,7 +112,7 @@ function coveted_admin_agent_run_claim(
                 (thread_id, request_id, user_message_hash, status, mutation_started)
              VALUES (?, ?, ?, 'processing', 0)"
         );
-        $insert->execute([(int)$thread['id'], $requestId, $messageHash]);
+        $insert->execute([$threadId, $requestId, $messageHash]);
         $run = coveted_admin_agent_run_by_request($admin, $threadRef, $requestId, $pdo);
         if (!$run) {
             throw new RuntimeException('Unable to claim the Admin Agent request.');
@@ -108,48 +124,74 @@ function coveted_admin_agent_run_claim(
         }
     }
 
-    $run = coveted_admin_agent_run_by_request($admin, $threadRef, $requestId, $pdo);
-    if (!$run) {
-        throw new RuntimeException('Unable to read the existing Admin Agent request.');
-    }
-    if (!hash_equals((string)$run['user_message_hash'], $messageHash)) {
-        throw new InvalidArgumentException('That Admin Agent request identifier was already used for a different message.');
-    }
-    if ((string)$run['status'] === 'completed') {
-        return ['state' => 'completed', 'run' => $run];
-    }
-    if (!empty($run['mutation_started'])) {
-        return ['state' => 'blocked', 'run' => $run];
+    $ownsTransaction = !$pdo->inTransaction();
+    if ($ownsTransaction) {
+        $pdo->beginTransaction();
     }
 
-    if ((string)$run['status'] === 'processing') {
-        // Provider requests are capped at 60 seconds each and three rounds.
-        // Five minutes is deliberately longer than the entire normal loop.
-        $markStale = $pdo->prepare(
-            "UPDATE admin_agent_runs
-             SET status = 'interrupted', updated_at = UTC_TIMESTAMP()
-             WHERE id = ? AND status = 'processing'
-               AND mutation_started = 0
-               AND updated_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)"
-        );
-        $markStale->execute([(int)$run['id']]);
-        if ($markStale->rowCount() === 0) {
-            return ['state' => 'processing', 'run' => $run];
+    try {
+        $run = coveted_admin_agent_run_locked($pdo, $threadId, $requestId);
+        if (!$run) {
+            throw new RuntimeException('Unable to read the existing Admin Agent request.');
         }
-    }
+        if (!hash_equals((string)$run['user_message_hash'], $messageHash)) {
+            throw new InvalidArgumentException('That Admin Agent request identifier was already used for a different message.');
+        }
 
-    $resume = $pdo->prepare(
-        "UPDATE admin_agent_runs
-         SET status = 'processing', started_at = UTC_TIMESTAMP(), completed_at = NULL,
-             response_text = NULL, provider = NULL, model = NULL, updated_at = UTC_TIMESTAMP()
-         WHERE id = ? AND status = 'interrupted' AND mutation_started = 0"
-    );
-    $resume->execute([(int)$run['id']]);
-    $run = coveted_admin_agent_run_by_request($admin, $threadRef, $requestId, $pdo) ?? $run;
-    return [
-        'state' => $resume->rowCount() === 1 ? 'claimed' : ((string)$run['status'] === 'completed' ? 'completed' : 'processing'),
-        'run' => $run,
-    ];
+        if ((string)$run['status'] === 'completed') {
+            if ($ownsTransaction) {
+                $pdo->commit();
+            }
+            return ['state' => 'completed', 'run' => $run];
+        }
+        if (!empty($run['mutation_started'])) {
+            if ($ownsTransaction) {
+                $pdo->commit();
+            }
+            return ['state' => 'blocked', 'run' => $run];
+        }
+
+        if ((string)$run['status'] === 'processing') {
+            // Provider requests are capped at 60 seconds each and three rounds.
+            // Five minutes is deliberately longer than the entire normal loop.
+            $markStale = $pdo->prepare(
+                "UPDATE admin_agent_runs
+                 SET status = 'interrupted', updated_at = UTC_TIMESTAMP()
+                 WHERE id = ? AND status = 'processing'
+                   AND mutation_started = 0
+                   AND updated_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)"
+            );
+            $markStale->execute([(int)$run['id']]);
+            if ($markStale->rowCount() === 0) {
+                if ($ownsTransaction) {
+                    $pdo->commit();
+                }
+                return ['state' => 'processing', 'run' => $run];
+            }
+        }
+
+        $resume = $pdo->prepare(
+            "UPDATE admin_agent_runs
+             SET status = 'processing', started_at = UTC_TIMESTAMP(), completed_at = NULL,
+                 response_text = NULL, provider = NULL, model = NULL, updated_at = UTC_TIMESTAMP()
+             WHERE id = ? AND status = 'interrupted' AND mutation_started = 0"
+        );
+        $resume->execute([(int)$run['id']]);
+        $run = coveted_admin_agent_run_locked($pdo, $threadId, $requestId) ?? $run;
+        $state = $resume->rowCount() === 1
+            ? 'claimed'
+            : ((string)$run['status'] === 'completed' ? 'completed' : 'processing');
+
+        if ($ownsTransaction) {
+            $pdo->commit();
+        }
+        return ['state' => $state, 'run' => $run];
+    } catch (Throwable $e) {
+        if ($ownsTransaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 }
 
 function coveted_admin_agent_run_mark_mutation_started(
@@ -163,9 +205,15 @@ function coveted_admin_agent_run_mark_mutation_started(
     if (!$run || (string)$run['status'] !== 'processing') {
         throw new RuntimeException('Admin Agent request is not available for mutation.');
     }
-    $pdo->prepare(
-        'UPDATE admin_agent_runs SET mutation_started = 1, updated_at = UTC_TIMESTAMP() WHERE id = ? AND status = ?'
-    )->execute([(int)$run['id'], 'processing']);
+    $stmt = $pdo->prepare(
+        "UPDATE admin_agent_runs
+         SET mutation_started = 1, updated_at = UTC_TIMESTAMP()
+         WHERE id = ? AND status = 'processing' AND mutation_started = 0"
+    );
+    $stmt->execute([(int)$run['id']]);
+    if ($stmt->rowCount() !== 1) {
+        throw new RuntimeException('Admin Agent mutation replay guard could not be acquired.');
+    }
 }
 
 function coveted_admin_agent_run_complete(
