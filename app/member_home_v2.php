@@ -23,14 +23,10 @@ function coveted_member_home_v2_install_assets(): void
     $jsTag = '<script src="/assets/js/member-v2.js?v=' . coveted_e($jsVersion) . '" defer></script>';
 
     ob_start(static function (string $html) use ($cssTag, $jsTag): string {
-        if (str_contains($html, '/assets/css/member-v2.css')) {
-            return $html;
-        }
-
-        if (str_contains($html, '</head>')) {
+        if (!str_contains($html, '/assets/css/member-v2.css') && str_contains($html, '</head>')) {
             $html = str_replace('</head>', '    ' . $cssTag . "\n</head>", $html);
         }
-        if (str_contains($html, '</body>')) {
+        if (!str_contains($html, '/assets/js/member-v2.js') && str_contains($html, '</body>')) {
             $html = str_replace('</body>', $jsTag . "\n</body>", $html);
         }
 
@@ -38,10 +34,15 @@ function coveted_member_home_v2_install_assets(): void
     });
 }
 
+// index.php requires this module before coveted_page_start(), so signed-in Home
+// gets valid head/body asset placement without changing the shared shell yet.
+if (PHP_SAPI !== 'cli' && coveted_current_user() !== null) {
+    coveted_member_home_v2_install_assets();
+}
+
 /** @return array<string,mixed> */
 function coveted_member_home_v2_data(array $user, ?PDO $pdo = null): array
 {
-    coveted_member_home_v2_install_assets();
     $pdo ??= coveted_db();
 
     if (coveted_member_sample_mode($user, $pdo)) {
