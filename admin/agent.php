@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
 require_once dirname(__DIR__) . '/app/admin_agent_actions.php';
 require_once dirname(__DIR__) . '/app/admin_agent_threads.php';
+require_once dirname(__DIR__) . '/app/admin_agent_runs.php';
 require_once dirname(__DIR__) . '/app/site_branding.php';
 
 $admin = coveted_require_system_admin();
@@ -20,7 +21,7 @@ $threadStorageReady = false;
 $autonomousActionsEnabled = coveted_admin_agent_autonomous_actions_enabled($pdo);
 
 try {
-    coveted_admin_agent_threads_ensure_schema($pdo);
+    coveted_admin_agent_runs_ensure_schema($pdo);
     $threadStorageReady = true;
 
     if (!isset($_GET['new'])) {
