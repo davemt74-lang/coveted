@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS invite_requests (
   KEY idx_invite_requests_email_created (email,created_at),
   KEY idx_invite_requests_city_status (city_id,status),
   KEY idx_invite_requests_converted_user (converted_user_id),
+  KEY idx_invite_requests_ip_created (source_ip_hash,created_at),
   CONSTRAINT fk_invite_requests_city FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE SET NULL,
   CONSTRAINT fk_invite_requests_converted_user FOREIGN KEY (converted_user_id) REFERENCES users(id) ON DELETE SET NULL,
   CONSTRAINT fk_invite_requests_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
