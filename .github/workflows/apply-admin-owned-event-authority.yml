@@ -36,6 +36,25 @@ jobs:
       - name: Apply authority patch
         run: python3 scripts/apply-admin-owned-event-authority.py
 
+      - name: Fix verifier literals
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/verify-event-authority.php')
+          text = p.read_text()
+          replacements = {
+              'function coveted_event_create(array $actor, int $groupId, array $data): array\\n{\\n    coveted_event_require_system_admin($actor);': 'function coveted_event_create(array \\$actor, int \\$groupId, array \\$data): array\\n{\\n    coveted_event_require_system_admin(\\$actor);',
+              'function coveted_event_set_status(array $actor, string $eventRef, string $status): void\\n{\\n    coveted_event_require_system_admin($actor);': 'function coveted_event_set_status(array \\$actor, string \\$eventRef, string \\$status): void\\n{\\n    coveted_event_require_system_admin(\\$actor);',
+              'function coveted_event_assign_host(array $actor, string $eventRef, int $userId, string $hostRole): void\\n{\\n    coveted_event_require_system_admin($actor);': 'function coveted_event_assign_host(array \\$actor, string \\$eventRef, int \\$userId, string \\$hostRole): void\\n{\\n    coveted_event_require_system_admin(\\$actor);',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit('Verifier authority string not found: ' + old)
+              text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
+
       - name: Setup PHP 8.1
         uses: shivammathur/setup-php@v2
         with:
