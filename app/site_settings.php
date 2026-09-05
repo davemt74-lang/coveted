@@ -77,7 +77,15 @@ function coveted_site_setting_set(string $key, string $value, array $actor, ?PDO
     $pdo ??= coveted_db();
     $key = coveted_site_setting_key($key);
     $actorId = (int)($actor['id'] ?? 0);
-    if ($actorId < 1 || !coveted_user_has_role($actorId, 'system_admin')) {
+    if ($actorId < 1) {
+        throw new RuntimeException('System Admin access required.');
+    }
+
+    $roleStmt = $pdo->prepare(
+        "SELECT 1 FROM user_roles WHERE user_id = ? AND role_key = 'system_admin' LIMIT 1"
+    );
+    $roleStmt->execute([$actorId]);
+    if (!$roleStmt->fetchColumn()) {
         throw new RuntimeException('System Admin access required.');
     }
 
