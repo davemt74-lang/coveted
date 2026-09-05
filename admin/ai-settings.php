@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/ai_providers.php';
+require_once dirname(__DIR__) . '/app/admin_agent_actions.php';
 
 $admin = coveted_require_system_admin();
 $pdo = coveted_db();
@@ -35,6 +36,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error === '') {
             coveted_redirect('/admin/ai-settings.php');
         }
 
+        if ($action === 'save_agent_autonomy') {
+            $enabled = (string)($_POST['enabled'] ?? '0') === '1';
+            coveted_admin_agent_set_autonomous_actions($admin, $enabled, $pdo);
+            $_SESSION['ai_settings_notice'] = 'Admin Agent Autonomous Actions ' . ($enabled ? 'enabled.' : 'disabled.');
+            coveted_redirect('/admin/ai-settings.php');
+        }
+
         throw new InvalidArgumentException('Unsupported AI settings action.');
     } catch (InvalidArgumentException $e) {
         $error = $e->getMessage();
@@ -48,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error === '') {
 
 $providers = $error === '' ? coveted_ai_provider_statuses($pdo) : [];
 $credentialStorageReady = coveted_ai_credentials_ready();
+$autonomousActionsEnabled = coveted_admin_agent_autonomous_actions_enabled($pdo);
 $counts = coveted_admin_ui_counts($pdo);
 
 coveted_page_start('AI Settings', '', true);
@@ -71,6 +80,31 @@ coveted_admin_ui_start($admin, 'ai-settings', 'AI Settings', $counts);
         <span>Add a random 32+ character <code>app.ai_credentials_key</code> value to your uncommitted production <code>config.php</code>. Until then, Coveted will not accept API keys.</span>
     </div>
 <?php endif; ?>
+
+<section class="cv-admin-panel cv-ai-security-note">
+    <div class="cv-admin-panel-head">
+        <div>
+            <span class="cv-eyebrow">ADMIN AGENT · ACTION MODE</span>
+            <h2>Autonomous Actions</h2>
+        </div>
+        <span class="cv-status"><?= $autonomousActionsEnabled ? 'ON' : 'OFF' ?></span>
+    </div>
+    <p>
+        When ON, the System Admin Agent may execute allowlisted Coveted Admin actions without asking for confirmation on each action.
+        Actions still pass through Coveted's canonical permission and validation services, never free-form SQL, and every attempted execution is audited.
+    </p>
+    <p class="cv-form-help">
+        OFF keeps the Agent in read/advise mode. Event creation and configuration remain System Admin authority; host and Business Admin eligibility rules still apply in autonomous mode.
+    </p>
+    <form method="post" class="cv-action-row">
+        <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+        <input type="hidden" name="action" value="save_agent_autonomy">
+        <input type="hidden" name="enabled" value="<?= $autonomousActionsEnabled ? '0' : '1' ?>">
+        <button class="cv-button <?= $autonomousActionsEnabled ? 'cv-button-soft' : 'cv-button-primary' ?>" type="submit">
+            <?= $autonomousActionsEnabled ? 'Turn Autonomous Actions Off' : 'Turn Autonomous Actions On' ?>
+        </button>
+    </form>
+</section>
 
 <section class="cv-ai-provider-grid">
     <?php foreach ($providers as $provider => $status): ?>
