@@ -59,10 +59,10 @@ coveted_admin_ui_start($admin, 'branding', 'Branding', $counts);
         </div>
 
         <?php if ($logo): ?>
-            <div style="max-width:320px;padding:24px;border:1px solid #e8e4dd;border-radius:12px;background:#fff;margin:0 0 18px;">
-                <img src="<?= coveted_e($logo['public_path']) ?>?v=<?= coveted_e($logo['version']) ?>" alt="Current site logo" style="display:block;max-width:100%;max-height:120px;object-fit:contain;">
+            <div class="cv-branding-preview">
+                <img src="<?= coveted_e($logo['public_path']) ?>?v=<?= coveted_e($logo['version']) ?>" alt="Current site logo">
             </div>
-            <p><?= (int)$logo['width'] ?>×<?= (int)$logo['height'] ?> · <?= coveted_e($logo['mime_type']) ?></p>
+            <p class="cv-branding-meta"><?= (int)$logo['width'] ?>×<?= (int)$logo['height'] ?> · <?= coveted_e($logo['mime_type']) ?></p>
         <?php else: ?>
             <p>Until a logo is uploaded, Coveted keeps the existing text wordmark in every shell.</p>
         <?php endif; ?>
@@ -79,7 +79,7 @@ coveted_admin_ui_start($admin, 'branding', 'Branding', $counts);
         </form>
 
         <?php if ($logo): ?>
-            <form method="post" data-confirm="Remove the active site logo and return to text branding?" style="margin-top:12px;">
+            <form method="post" data-confirm="Remove the active site logo and return to text branding?" class="cv-branding-remove-form">
                 <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
                 <input type="hidden" name="action" value="remove_logo">
                 <button class="cv-button cv-button-soft" type="submit">Remove Logo</button>
