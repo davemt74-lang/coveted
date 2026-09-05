@@ -62,6 +62,12 @@ try {
         }
     }
 
+    // Keep enough conversation continuity while reserving space for the
+    // server-generated live context and the current user message. The provider
+    // service retains at most 24 messages, so this clamp guarantees that the
+    // canonical Admin context cannot be pushed out by a custom/long client.
+    $messages = array_slice($messages, -20);
+
     // Refresh the brain for every request. This makes the Agent state-aware
     // without caching or duplicating product state: once an Admin fixes an
     // opportunity, the next message sees the updated canonical records.
