@@ -67,6 +67,13 @@ function coveted_event_actor_has_host_approval(array $user): bool
         || in_array('attendee_host', (array)($user['roles'] ?? []), true);
 }
 
+function coveted_event_require_system_admin(array $actor): void
+{
+    if (!coveted_is_system_admin($actor)) {
+        throw new InvalidArgumentException('Coveted System Admin access is required for event configuration.');
+    }
+}
+
 function coveted_event_group_role(int $groupId, int $userId): ?string
 {
     $stmt = coveted_db()->prepare(
@@ -99,11 +106,6 @@ function coveted_event_can_manage(array $event, array $user): bool
     }
     if (!coveted_event_actor_has_host_approval($user)) {
         return false;
-    }
-
-    $groupRole = coveted_event_group_role((int)$event['group_id'], (int)$user['id']);
-    if (in_array($groupRole, ['host', 'group_admin'], true)) {
-        return true;
     }
 
     return in_array(
@@ -289,7 +291,26 @@ function coveted_events_for_user(array $user, int $limit = 100, ?int $groupId = 
     $sql .= " ORDER BY e.starts_at DESC, e.id DESC LIMIT {$limit}";
     $stmt = coveted_db()->prepare($sql);
     $stmt->execute($params);
-    return $stmt->fetchAll();
+    $rows = $stmt->fetchAll();
+
+    if ($isSystemAdmin) {
+        return $rows;
+    }
+
+    $visible = [];
+    foreach ($rows as $row) {
+        $assignedRole = coveted_event_assigned_host_role((int)$row['id'], $userId);
+        if ((string)$row['status'] === 'draft' && $assignedRole === null) {
+            continue;
+        }
+        $row['can_manage'] = $isHostApproved
+            && in_array($assignedRole, ['lead', 'cohost'], true)
+            ? 1
+            : 0;
+        $visible[] = $row;
+    }
+
+    return $visible;
 }
 
 function coveted_event_assert_open_locked(array $event): void
@@ -764,6 +785,7 @@ function coveted_event_actor_can_host_group_locked(PDO $pdo, array $actor, int $
 
 function coveted_event_create(array $actor, int $groupId, array $data): array
 {
+    coveted_event_require_system_admin($actor);
     $input = coveted_event_validate_input($data);
     $status = strtolower(trim((string)($data['status'] ?? 'draft')));
     if (!in_array($status, ['draft','published'], true)) {
@@ -812,6 +834,7 @@ function coveted_event_create(array $actor, int $groupId, array $data): array
 
 function coveted_event_set_status(array $actor, string $eventRef, string $status): void
 {
+    coveted_event_require_system_admin($actor);
     $status = strtolower(trim($status));
     $allowed = ['published','closed','completed','cancelled'];
     if (!in_array($status, $allowed, true)) {
@@ -869,6 +892,7 @@ function coveted_event_set_status(array $actor, string $eventRef, string $status
 
 function coveted_event_assign_host(array $actor, string $eventRef, int $userId, string $hostRole): void
 {
+    coveted_event_require_system_admin($actor);
     $hostRole = strtolower(trim($hostRole));
     if (!in_array($hostRole, ['lead','cohost','checkin'], true)) {
         throw new InvalidArgumentException('Invalid event host role.');

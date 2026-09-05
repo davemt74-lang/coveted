@@ -271,7 +271,7 @@ coveted_page_start((string)$group['name'], 'Groups');
                     <span class="cv-eyebrow">NEXT GATHERING</span>
                     <h2>Nothing scheduled yet.</h2>
                     <p>This group is between gatherings. The relationship is the product—not a feed to fill the space.</p>
-                    <?php if ($canHost): ?><a class="cv-text-link" href="/host.php">Plan a gathering →</a><?php endif; ?>
+                    <?php if ($canHost): ?><a class="cv-text-link" href="/host.php">View host assignments →</a><?php endif; ?>
                 </article>
             <?php endif; ?>
 
@@ -307,7 +307,7 @@ coveted_page_start((string)$group['name'], 'Groups');
                 <article class="cv-card cv-copy-card">
                     <span class="cv-eyebrow">HOSTING</span>
                     <h2>Take the group offline.</h2>
-                    <p>Use the Host Workspace to create the next gathering, assign cohosts, manage attendance and reveal mystery details.</p>
+                    <p>Coveted Admin creates and configures gatherings. Use the Host Workspace for assigned guest-list, check-in and event-day responsibilities.</p>
                     <a class="cv-text-link" href="/host.php">Open Host Workspace →</a>
                 </article>
             <?php endif; ?>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/app/event_management.php';
 
 $user = coveted_require_user();
+$isSystemAdmin = coveted_is_system_admin($user);
 
 if (!coveted_event_actor_has_host_approval($user)) {
     http_response_code(403);
@@ -12,7 +13,7 @@ if (!coveted_event_actor_has_host_approval($user)) {
     <section class="cv-page-heading">
         <span class="cv-eyebrow">HOST WORKSPACE</span>
         <h1>Host approval required.</h1>
-        <p>Coveted Attendee Host approval is required before you can create or manage gatherings.</p>
+        <p>Coveted Attendee Host approval is required before you can manage assigned gatherings.</p>
     </section>
     <div class="cv-card cv-empty">
         <h2>Want to host?</h2>
@@ -103,12 +104,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         $action = trim((string)($_POST['action'] ?? ''));
-
-        if ($action === 'create_event') {
-            $data = coveted_host_event_input($_POST);
-            $data['status'] = (string)($_POST['status'] ?? 'draft');
-            $created = coveted_event_create($user, (int)($_POST['group_id'] ?? 0), $data);
-            coveted_redirect('/host.php?event=' . rawurlencode((string)$created['public_id']) . '&saved=created');
+        $adminOnlyActions = [
+            'update_event', 'set_status', 'set_location', 'set_artist',
+            'remove_artist', 'assign_host', 'add_reveal',
+        ];
+        if (!$isSystemAdmin && in_array($action, $adminOnlyActions, true)) {
+            throw new InvalidArgumentException('Event configuration is controlled by Coveted System Admin.');
         }
 
         if ($eventRef === '') {
@@ -200,31 +201,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-if (coveted_is_system_admin($user)) {
-    $groupStmt = $pdo->query(
-        "SELECT g.id, g.public_id, g.name, g.city
-         FROM social_groups g
-         WHERE g.status = 'active'
-         ORDER BY g.name, g.id"
-    );
-} else {
-    $groupStmt = $pdo->prepare(
-        "SELECT g.id, g.public_id, g.name, g.city
-         FROM group_memberships gm
-         JOIN social_groups g ON g.id = gm.group_id
-         WHERE gm.user_id = ?
-           AND gm.membership_status = 'active'
-           AND gm.group_role IN ('host','group_admin')
-           AND g.status = 'active'
-         ORDER BY g.name, g.id"
-    );
-    $groupStmt->execute([(int)$user['id']]);
-}
-$hostGroups = $groupStmt->fetchAll();
-
+$hostWorkspaceEvents = coveted_events_for_user($user, 250);
 $manageableEvents = array_values(array_filter(
-    coveted_events_for_user($user, 250),
-    static fn(array $event): bool => !empty($event['can_manage'])
+    $hostWorkspaceEvents,
+    static function (array $event) use ($user, $isSystemAdmin): bool {
+        return $isSystemAdmin
+            || coveted_event_assigned_host_role((int)$event['id'], (int)$user['id']) !== null;
+    }
 ));
 
 $selectedEvent = null;
@@ -237,9 +220,12 @@ $stats = ['attending' => 0, 'waitlist' => 0, 'attendance' => 0];
 
 if ($eventRef !== '') {
     $selectedEvent = coveted_event_by_ref($eventRef);
-    if (!$selectedEvent || !coveted_event_can_manage($selectedEvent, $user)) {
+    $assignedHostRole = $selectedEvent && !$isSystemAdmin
+        ? coveted_event_assigned_host_role((int)$selectedEvent['id'], (int)$user['id'])
+        : ($isSystemAdmin ? 'system_admin' : null);
+    if (!$selectedEvent || (!$isSystemAdmin && $assignedHostRole === null)) {
         http_response_code(404);
-        $error = 'Event not found or you no longer have host access.';
+        $error = 'Event not found or you are no longer assigned to this gathering.';
         $selectedEvent = null;
         $eventRef = '';
     }
@@ -247,11 +233,13 @@ if ($eventRef !== '') {
 
 $isFinalEvent = $selectedEvent && in_array((string)$selectedEvent['status'], ['completed', 'cancelled'], true);
 $canInvite = $selectedEvent
+    && coveted_event_can_manage($selectedEvent, $user)
     && $selectedEvent['status'] === 'published'
     && coveted_event_is_future($selectedEvent);
 $canRecordAttendance = $selectedEvent
+    && coveted_event_can_checkin($selectedEvent, $user)
     && !in_array((string)$selectedEvent['status'], ['draft', 'cancelled'], true);
-$canConfigure = $selectedEvent && !$isFinalEvent;
+$canConfigure = $selectedEvent && $isSystemAdmin && !$isFinalEvent;
 
 if ($selectedEvent) {
     $eventId = (int)$selectedEvent['id'];
@@ -363,10 +351,10 @@ coveted_page_start('Host Workspace', 'Events');
 ?>
 <section class="cv-page-heading">
     <span class="cv-eyebrow">HOST WORKSPACE</span>
-    <h1><?= $selectedEvent ? coveted_e($selectedEvent['title']) : 'Plan the gathering.' ?></h1>
+    <h1><?= $selectedEvent ? coveted_e($selectedEvent['title']) : 'Assigned gatherings.' ?></h1>
     <p><?= $selectedEvent
-        ? 'Manage the details before people arrive. During the gathering, Coveted gets out of the way.'
-        : 'Create a gathering from an approved group, then manage invitations, experience details and attendance here.' ?></p>
+        ? ($isSystemAdmin ? 'Configure the gathering and coordinate its assigned host team.' : 'Support the guest list and event-day experience. Coveted Admin controls the event setup.')
+        : ($isSystemAdmin ? 'Choose an event to configure, or create one from Admin Events.' : 'Your assigned gatherings appear here when Coveted Admin adds you to the host team.') ?></p>
 </section>
 
 <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
@@ -375,8 +363,7 @@ coveted_page_start('Host Workspace', 'Events');
 <div class="cv-admin-shell">
     <aside class="cv-admin-nav" aria-label="Host events">
         <span class="cv-eyebrow">HOST</span>
-        <h2>Events</h2>
-        <a class="<?= !$selectedEvent ? 'is-active' : '' ?>" href="/host.php">Create event</a>
+        <h2>Assignments</h2>
         <?php foreach ($manageableEvents as $managed): ?>
             <a class="<?= $selectedEvent && (int)$selectedEvent['id'] === (int)$managed['id'] ? 'is-active' : '' ?>" href="/host.php?event=<?= coveted_e($managed['public_id']) ?>">
                 <?= coveted_e($managed['title']) ?>
@@ -387,89 +374,17 @@ coveted_page_start('Host Workspace', 'Events');
 
     <div class="cv-admin-content">
         <?php if (!$selectedEvent): ?>
-            <?php if (!$hostGroups): ?>
-                <div class="cv-card cv-empty">
-                    <h2>No host group available yet.</h2>
-                    <p>Create or join a group as an approved Host or Group Admin before creating a gathering.</p>
-                    <a class="cv-button" href="/groups.php">Open Groups</a>
-                </div>
-            <?php else: ?>
-                <form id="create-event" class="cv-card cv-form cv-narrow-form cv-anchor-target" method="post">
-                    <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
-                    <input type="hidden" name="action" value="create_event">
-                    <span class="cv-eyebrow">NEW EVENT</span>
-                    <h2>Start with the essentials.</h2>
-                    <p>Draft first if you still need to settle the location, lineup or mystery reveal plan.</p>
-
-                    <label>Group
-                        <select name="group_id" required>
-                            <?php foreach ($hostGroups as $group): ?>
-                                <option value="<?= (int)$group['id'] ?>"><?= coveted_e($group['name']) ?><?= $group['city'] ? ' · ' . coveted_e($group['city']) : '' ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </label>
-                    <label>Event title<input name="title" maxlength="190" required></label>
-                    <label>Description<textarea name="description" rows="4" maxlength="5000"></textarea></label>
-
-                    <div class="cv-form-row">
-                        <label>Event type
-                            <select name="event_type">
-                                <option value="regular">Regular gathering</option>
-                                <option value="mystery">Mystery gathering</option>
-                                <option value="private_table">Private table</option>
-                                <option value="member_plus_one">Member +1</option>
-                                <option value="session">Coveted Session</option>
-                            </select>
-                        </label>
-                        <label>Audience
-                            <select name="audience">
-                                <option value="group">Group</option>
-                                <option value="invitation_only">Invitation only</option>
-                            </select>
-                        </label>
-                    </div>
-
-                    <div class="cv-form-row">
-                        <label>Start<input type="datetime-local" name="starts_at" required></label>
-                        <label>End<input type="datetime-local" name="ends_at"></label>
-                    </div>
-
-                    <div class="cv-form-row">
-                        <label>Timezone
-                            <select name="timezone">
-                                <?php foreach ($timezoneOptions as $zone => $label): ?>
-                                    <option value="<?= coveted_e($zone) ?>"><?= coveted_e($label) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label>
-                        <label>Capacity<input type="number" name="capacity" min="1" step="1" placeholder="Unlimited"></label>
-                    </div>
-
-                    <div class="cv-form-row">
-                        <label>Location visibility
-                            <select name="location_visibility">
-                                <option value="immediate">Show immediately</option>
-                                <option value="scheduled_reveal">Reveal later</option>
-                                <option value="host_only">Host only</option>
-                            </select>
-                        </label>
-                        <label>Allow +1
-                            <select name="plus_one_allowed">
-                                <option value="0">No</option>
-                                <option value="1">Yes · one guest per RSVP</option>
-                            </select>
-                        </label>
-                    </div>
-
-                    <label>Status
-                        <select name="status">
-                            <option value="draft">Save as draft</option>
-                            <option value="published">Publish now</option>
-                        </select>
-                    </label>
-                    <button class="cv-button" type="submit">Create Event</button>
-                </form>
-            <?php endif; ?>
+            <div class="cv-card cv-empty">
+                <?php if ($isSystemAdmin): ?>
+                    <h2>Choose an event to manage.</h2>
+                    <p>System Admin creates events and assigns the host team from the Admin Events workflow.</p>
+                    <a class="cv-button" href="/admin/?view=events">Open Admin Events</a>
+                <?php else: ?>
+                    <h2>No assigned events yet.</h2>
+                    <p>Coveted Admin creates each gathering and assigns Attendee Hosts when event-day support is needed.</p>
+                    <a class="cv-button" href="/events.php">Open My Events</a>
+                <?php endif; ?>
+            </div>
         <?php else: ?>
             <?php
             $startLocal = coveted_event_local_datetime($selectedEvent)->format('Y-m-d\TH:i');
@@ -573,7 +488,7 @@ coveted_page_start('Host Workspace', 'Events');
                         <section class="cv-card cv-form">
                             <span class="cv-eyebrow">DETAILS</span>
                             <h2>Event record</h2>
-                            <p>Completed and cancelled event setup is read-only.</p>
+                            <p>Event setup is controlled by Coveted System Admin.</p>
                             <div class="cv-mini-row"><div><strong><?= coveted_e($selectedEvent['title']) ?></strong><span><?= coveted_e(ucwords(str_replace('_', ' ', (string)$selectedEvent['event_type']))) ?></span></div></div>
                             <div class="cv-mini-row"><div><strong><?= coveted_e(coveted_event_format($selectedEvent, 'D, M j · g:i A T')) ?></strong><span><?= coveted_e(ucwords(str_replace('_', ' ', (string)$selectedEvent['audience']))) ?></span></div></div>
                             <div class="cv-mini-row"><div><strong><?= $selectedEvent['capacity'] !== null ? (int)$selectedEvent['capacity'] : 'Unlimited' ?></strong><span>Capacity · <?= !empty($selectedEvent['plus_one_allowed']) ? '+1 allowed' : 'No +1' ?></span></div></div>
@@ -586,15 +501,19 @@ coveted_page_start('Host Workspace', 'Events');
                             <h2><?= coveted_e(ucfirst((string)$selectedEvent['status'])) ?></h2>
                             <p><?= coveted_e(coveted_event_format($selectedEvent, 'D, M j · g:i A T')) ?></p>
                             <div class="cv-action-row">
-                                <?php foreach ($statusTransitions[(string)$selectedEvent['status']] ?? [] as $value => $label): ?>
-                                    <form method="post">
-                                        <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
-                                        <input type="hidden" name="action" value="set_status">
-                                        <input type="hidden" name="event_ref" value="<?= coveted_e($eventRef) ?>">
-                                        <input type="hidden" name="status" value="<?= coveted_e($value) ?>">
-                                        <button class="cv-button <?= $value === 'cancelled' ? 'cv-button-soft' : '' ?>" type="submit"><?= coveted_e($label) ?></button>
-                                    </form>
-                                <?php endforeach; ?>
+                                <?php if ($canConfigure): ?>
+                                    <?php foreach ($statusTransitions[(string)$selectedEvent['status']] ?? [] as $value => $label): ?>
+                                        <form method="post">
+                                            <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+                                            <input type="hidden" name="action" value="set_status">
+                                            <input type="hidden" name="event_ref" value="<?= coveted_e($eventRef) ?>">
+                                            <input type="hidden" name="status" value="<?= coveted_e($value) ?>">
+                                            <button class="cv-button <?= $value === 'cancelled' ? 'cv-button-soft' : '' ?>" type="submit"><?= coveted_e($label) ?></button>
+                                        </form>
+                                    <?php endforeach; ?>
+                                <?php elseif (!$isSystemAdmin): ?>
+                                    <span class="cv-status">Admin controlled</span>
+                                <?php endif; ?>
                             </div>
                         </section>
 
@@ -621,7 +540,7 @@ coveted_page_start('Host Workspace', 'Events');
                             <section class="cv-card cv-form">
                                 <span class="cv-eyebrow">LOCATION</span>
                                 <h2><?= coveted_e($eventLocation['location_name'] ?? $eventLocation['private_location_label'] ?? 'Not set') ?></h2>
-                                <p><?= coveted_e((string)($eventLocation['reveal_notes'] ?? 'Location record is read-only for this event.')) ?></p>
+                                <p><?= coveted_e((string)($eventLocation['reveal_notes'] ?? 'Location is controlled by Coveted System Admin.')) ?></p>
                             </section>
                         <?php endif; ?>
                     </div>
@@ -774,7 +693,7 @@ coveted_page_start('Host Workspace', 'Events');
                         <section class="cv-card cv-form">
                             <span class="cv-eyebrow">ARTIST PARTNERS</span>
                             <h2>Lineup locked.</h2>
-                            <p>Completed and cancelled events keep their artist history read-only.</p>
+                            <p>Artist lineup is managed by Coveted System Admin.</p>
                         </section>
                     <?php endif; ?>
 
@@ -826,8 +745,8 @@ coveted_page_start('Host Workspace', 'Events');
                     <?php else: ?>
                         <section class="cv-card cv-form">
                             <span class="cv-eyebrow">MYSTERY REVEAL</span>
-                            <h2>Reveal timeline locked.</h2>
-                            <p>Completed and cancelled event reveal history remains available below.</p>
+                            <h2>Admin-managed reveal timeline.</h2>
+                            <p>Coveted System Admin controls mystery reveal timing and content.</p>
                         </section>
                     <?php endif; ?>
 
