@@ -1,0 +1,31 @@
+/* Coveted site branding workspace */
+
+.cv-branding-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: min(100%, 360px);
+    min-height: 150px;
+    margin: 0 0 18px;
+    padding: 24px;
+    border: 1px solid var(--cv-admin-line, var(--line));
+    border-radius: 12px;
+    background: #fff;
+}
+
+.cv-branding-preview img {
+    display: block;
+    max-width: 100%;
+    max-height: 120px;
+    object-fit: contain;
+}
+
+.cv-branding-remove-form {
+    margin-top: 12px;
+}
+
+.cv-branding-meta {
+    margin: -6px 0 18px;
+    color: var(--cv-admin-muted, var(--muted));
+    font-size: 12px;
+}
