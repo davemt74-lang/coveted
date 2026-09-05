@@ -8,10 +8,11 @@ $cssIndexPath = $root . '/assets/css/coveted.css';
 $cssPath = $root . '/assets/css/admin-v2.css';
 $eventCssPath = $root . '/assets/css/admin-events-v2.css';
 $peopleBusinessCssPath = $root . '/assets/css/admin-people-business-v2.css';
+$communityValueCssPath = $root . '/assets/css/admin-community-value-v2.css';
 $jsIndexPath = $root . '/assets/js/coveted.js';
 $jsPath = $root . '/assets/js/admin-v2.js';
 
-foreach ([$integrityPath, $uiPath, $cssIndexPath, $cssPath, $eventCssPath, $peopleBusinessCssPath, $jsIndexPath, $jsPath] as $path) {
+foreach ([$integrityPath, $uiPath, $cssIndexPath, $cssPath, $eventCssPath, $peopleBusinessCssPath, $communityValueCssPath, $jsIndexPath, $jsPath] as $path) {
     if (!is_file($path)) {
         fwrite(STDERR, "Missing Admin v2 integrity file: {$path}\n");
         exit(1);
@@ -24,6 +25,7 @@ $cssIndex = (string)file_get_contents($cssIndexPath);
 $css = (string)file_get_contents($cssPath);
 $eventCss = (string)file_get_contents($eventCssPath);
 $peopleBusinessCss = (string)file_get_contents($peopleBusinessCssPath);
+$communityValueCss = (string)file_get_contents($communityValueCssPath);
 $jsIndex = (string)file_get_contents($jsIndexPath);
 $js = (string)file_get_contents($jsPath);
 
@@ -74,7 +76,7 @@ foreach (['Profile', 'Member View', 'Sign out'] as $accountItem) {
     }
 }
 
-foreach (['admin-v2.css', 'admin-events-v2.css', 'admin-people-business-v2.css'] as $stylesheet) {
+foreach (['admin-v2.css', 'admin-events-v2.css', 'admin-people-business-v2.css', 'admin-community-value-v2.css'] as $stylesheet) {
     if (!str_contains($cssIndex, $stylesheet)) {
         fwrite(STDERR, "Admin v2 stylesheet missing from canonical CSS entrypoint: {$stylesheet}\n");
         exit(1);
@@ -102,6 +104,13 @@ foreach (['.cv-admin-people-toolbar', '.cv-admin-business-toolbar', '.cv-admin-r
     }
 }
 
+foreach (['.cv-admin-group-list', '.cv-admin-artist-grid', '.cv-admin-benefit-panel', '.cv-admin-distribution-workspace', '.cv-admin-community-toolbar', '.cv-admin-value-toolbar'] as $fragment) {
+    if (!str_contains($communityValueCss, $fragment)) {
+        fwrite(STDERR, "Admin v2 community/value style contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
 if (!str_contains($jsIndex, 'admin-v2.js')) {
     fwrite(STDERR, "Admin v2 interaction layer must be loaded by the canonical JS entrypoint.\n");
     exit(1);
@@ -116,9 +125,17 @@ foreach ([
     'initRoleRequests',
     'initBusinesses',
     'initBusinessLocations',
+    'initGroups',
+    'initArtists',
+    'initBenefits',
+    'initDistribution',
     'Search people, email or role',
     'Search requests by person, email or role',
     'Search businesses or status',
+    'Search groups, creators or status',
+    'Search artists, owners or status',
+    'Search campaigns, owners, rewards or status',
+    'Search distribution history',
 ] as $fragment) {
     if (!str_contains($js, $fragment)) {
         fwrite(STDERR, "Admin v2 interaction contract missing: {$fragment}\n");
