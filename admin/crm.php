@@ -2,11 +2,12 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
-require_once dirname(__DIR__) . '/app/invite_crm.php';
+require_once dirname(__DIR__) . '/app/invite_profile.php';
 
 $admin = coveted_require_system_admin();
 $pdo = coveted_db();
 coveted_invite_crm_ensure_schema($pdo);
+coveted_invite_profile_ensure_schema($pdo);
 
 $error = '';
 $notice = '';
@@ -16,6 +17,17 @@ $cityFilter = max(0, (int)($_GET['city_id'] ?? 0));
 $interestFilter = trim((string)($_GET['interest'] ?? ''));
 $allowedStatuses = ['new', 'contacted', 'qualified', 'converted', 'declined', 'all'];
 $interestOptions = coveted_invite_event_interest_options();
+$goalOptions = coveted_invite_goal_options();
+$sourceOptions = coveted_invite_source_options();
+$genderOptions = coveted_invite_gender_options();
+$linkLabels = [
+    'personal_website' => 'Personal website',
+    'business_website' => 'Business website',
+    'instagram' => 'Instagram',
+    'linkedin' => 'LinkedIn',
+    'tiktok' => 'TikTok',
+    'x_profile' => 'X / Twitter',
+];
 if (!in_array($status, $allowedStatuses, true)) {
     $status = 'new';
 }
@@ -43,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'crm_convert') {
             $conversion = coveted_invite_request_convert($admin, $requestId, $pdo);
+            coveted_invite_profile_apply_to_user($requestId, (int)$conversion['user_id'], $pdo);
             $_SESSION['crm_conversion'] = $conversion;
             coveted_redirect('/admin/crm.php?status=converted');
         }
@@ -82,6 +95,10 @@ if ($interestFilter !== '') {
     }));
 }
 
+$profileDetails = coveted_invite_profile_details_map(array_map(
+    static fn(array $request): int => (int)$request['id'],
+    $requests
+), $pdo);
 $adminCounts = coveted_admin_ui_counts($pdo);
 
 coveted_page_start('Invite CRM', '', true);
@@ -173,6 +190,16 @@ coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
                 $cityLabel .= ', ' . (string)$request['city_region'];
             }
         }
+
+        $detail = $profileDetails[(int)$request['id']] ?? [];
+        $goalKeys = coveted_invite_profile_decode_list($detail['goals_json'] ?? '[]');
+        $sourceKeys = coveted_invite_profile_decode_list($detail['source_keys_json'] ?? '[]');
+        $socialLinks = coveted_invite_profile_decode_links($detail['social_links_json'] ?? null);
+        $genderKey = trim((string)($detail['gender_key'] ?? ''));
+        $genderLabel = $genderOptions[$genderKey] ?? '';
+        if ($genderKey === 'self_describe' && trim((string)($detail['gender_self_description'] ?? '')) !== '') {
+            $genderLabel = trim((string)$detail['gender_self_description']);
+        }
         ?>
         <article class="cv-admin-panel cv-crm-record">
             <div class="cv-crm-record-main">
@@ -198,12 +225,44 @@ coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
                     <?php endforeach; ?>
                 </div>
 
-                <?php if (!empty($request['message'])): ?>
-                    <div class="cv-crm-copy"><span>WHAT THEY’RE LOOKING FOR</span><p><?= nl2br(coveted_e((string)$request['message'])) ?></p></div>
+                <?php if ($goalKeys): ?>
+                    <div class="cv-crm-copy">
+                        <span>LOOKING FOR</span>
+                        <div class="cv-crm-interest-row">
+                            <?php foreach ($goalKeys as $key): ?><span><?= coveted_e($goalOptions[$key] ?? $key) ?></span><?php endforeach; ?>
+                        </div>
+                    </div>
                 <?php endif; ?>
-                <?php if (!empty($request['how_heard'])): ?>
-                    <div class="cv-crm-inline-meta"><strong>Source</strong><span><?= coveted_e((string)$request['how_heard']) ?></span></div>
+
+                <?php if (!empty($detail['additional_note'])): ?>
+                    <div class="cv-crm-copy"><span>ADDITIONAL NOTE</span><p><?= nl2br(coveted_e((string)$detail['additional_note'])) ?></p></div>
+                <?php elseif (!empty($request['message'])): ?>
+                    <div class="cv-crm-copy"><span>ADDITIONAL NOTE</span><p><?= nl2br(coveted_e((string)$request['message'])) ?></p></div>
                 <?php endif; ?>
+
+                <?php if ($sourceKeys || $genderLabel !== '' || $socialLinks): ?>
+                    <div class="cv-crm-profile-meta">
+                        <?php if ($sourceKeys): ?>
+                            <div class="cv-crm-profile-row"><strong>Source</strong><span><?= coveted_e(implode(', ', array_values(array_filter(array_map(static fn(string $key): ?string => $sourceOptions[$key] ?? null, $sourceKeys))))) ?></span></div>
+                        <?php elseif (!empty($request['how_heard'])): ?>
+                            <div class="cv-crm-profile-row"><strong>Source</strong><span><?= coveted_e((string)$request['how_heard']) ?></span></div>
+                        <?php endif; ?>
+                        <?php if ($genderLabel !== ''): ?>
+                            <div class="cv-crm-profile-row"><strong>Gender</strong><span><?= coveted_e($genderLabel) ?></span></div>
+                        <?php endif; ?>
+                        <?php if ($socialLinks): ?>
+                            <div class="cv-crm-profile-row">
+                                <strong>Links</strong>
+                                <div class="cv-crm-profile-links">
+                                    <?php foreach ($socialLinks as $key => $url): ?>
+                                        <a href="<?= coveted_e($url) ?>" target="_blank" rel="noopener noreferrer"><?= coveted_e($linkLabels[$key] ?? ucfirst(str_replace('_', ' ', $key))) ?> ↗</a>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+
                 <?php if (!empty($request['converted_user_id'])): ?>
                     <div class="cv-crm-inline-meta"><strong>User</strong><span><?= coveted_e((string)($request['converted_user_name'] ?? 'Coveted user')) ?></span></div>
                 <?php endif; ?>
@@ -235,7 +294,7 @@ coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
                         <input type="hidden" name="action" value="crm_convert">
                         <input type="hidden" name="request_id" value="<?= (int)$request['id'] ?>">
                         <button class="cv-button cv-button-primary" type="submit">Convert to User</button>
-                        <small>Name, email, city and event interests will carry into the member record.</small>
+                        <small>Name, email, city, event interests and submitted profile details will carry into the member intake record.</small>
                     </form>
                 <?php else: ?>
                     <div class="cv-crm-converted-state">
