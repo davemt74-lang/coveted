@@ -11,6 +11,7 @@ $pdo = coveted_db();
 $error = '';
 $brainError = '';
 $crmCursor = 0;
+$auditCursor = 0;
 $autonomousActionsEnabled = coveted_admin_agent_autonomous_actions_enabled($pdo);
 
 try {
@@ -38,6 +39,14 @@ try {
 }
 
 try {
+    $auditCursor = (int)($pdo->query('SELECT COALESCE(MAX(id), 0) FROM audit_events')->fetchColumn() ?: 0);
+} catch (Throwable $e) {
+    // Audit history is canonical on current installs but this remains fail-soft
+    // so the Agent workspace still loads if an older/incomplete DB is deployed.
+    $auditCursor = 0;
+}
+
+try {
     $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin, $pdo));
 } catch (Throwable $e) {
     error_log('Admin Agent brain load failed: ' . $e->getMessage());
@@ -60,7 +69,9 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
      data-admin-agent
      data-endpoint="/api/admin-agent-chat.php"
      data-activity-endpoint="/api/admin-agent-activity.php"
+     data-operations-activity-endpoint="/api/admin-agent-operations-activity.php"
      data-crm-cursor="<?= $crmCursor ?>"
+     data-audit-cursor="<?= $auditCursor ?>"
      data-autonomous-actions="<?= $autonomousActionsEnabled ? '1' : '0' ?>"
      data-csrf="<?= coveted_e(coveted_csrf_token()) ?>"
      data-start-new="<?= isset($_GET['new']) ? '1' : '0' ?>">

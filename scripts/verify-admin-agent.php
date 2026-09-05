@@ -31,6 +31,7 @@ $settings = $read('admin/ai-settings.php');
 $agent = $read('admin/agent.php');
 $endpoint = $read('api/admin-agent-chat.php');
 $activityEndpoint = $read('api/admin-agent-activity.php');
+$operationsActivityEndpoint = $read('api/admin-agent-operations-activity.php');
 $brain = $read('app/admin_agent_brain.php');
 $actions = $read('app/admin_agent_actions.php');
 $siteSettings = $read('app/site_settings.php');
@@ -150,7 +151,7 @@ $contains($endpoint, "'autonomous_actions' => $autonomous", 'chat response must 
 $contains($endpoint, "'actions' => $executedActions", 'chat response must return action results');
 $contains($endpoint, 'array_slice($dialogue, -20)', 'chat history must preserve room for canonical context');
 
-// Agent UI + live CRM feed.
+// Agent UI + existing CRM feed.
 $contains($adminUi, "coveted_redirect('/admin/agent.php');", 'bare Admin GET must route to Admin Agent before output');
 $missing($adminUi, 'window.location.replace', 'Admin default route must not use CSP-blocked inline JavaScript');
 $contains($agent, 'data-admin-agent', 'Admin Agent canvas root is missing');
@@ -163,6 +164,31 @@ $contains($activityEndpoint, 'FROM invite_requests ir', 'CRM activity must read 
 $contains($activityEndpoint, 'WHERE ir.id > ?', 'CRM activity must use incremental cursor');
 $contains($activityEndpoint, 'LIMIT 26', 'CRM activity must remain batched');
 $missing($activityEndpoint, 'coveted_ai_chat(', 'CRM polling must never call an AI provider');
+
+// Broader live operational feed must stay read-only, audit-backed, bounded and noise-filtered.
+$contains($agent, 'data-operations-activity-endpoint="/api/admin-agent-operations-activity.php"', 'operational activity endpoint is missing from Agent page');
+$contains($agent, 'data-audit-cursor=', 'Agent page must expose canonical audit baseline cursor');
+$contains($agent, 'SELECT COALESCE(MAX(id), 0) FROM audit_events', 'audit baseline must come from canonical audit_events');
+$contains($operationsActivityEndpoint, 'coveted_require_system_admin()', 'operational activity must require System Admin');
+$contains($operationsActivityEndpoint, "(\$_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET'", 'operational activity endpoint must be read-only GET');
+$contains($operationsActivityEndpoint, "'Cache-Control: no-store", 'operational activity must not be cached');
+$contains($operationsActivityEndpoint, 'FROM audit_events ae', 'operational activity must read canonical audit_events');
+$contains($operationsActivityEndpoint, 'WHERE ae.id > ?', 'operational activity must use an incremental audit cursor');
+$contains($operationsActivityEndpoint, 'LIMIT 101', 'audit scanning must be bounded');
+$contains($operationsActivityEndpoint, 'count($items) >= 25', 'returned operational cards must be bounded');
+$contains($operationsActivityEndpoint, "'invite_request.created'", 'CRM create events must be explicitly excluded from the operational stream');
+$contains($operationsActivityEndpoint, "'admin.agent_'", 'Agent self-audit noise must be excluded from the operational stream');
+$contains($operationsActivityEndpoint, "'site_setting.updated'", 'generic setting churn must be excluded from the operational stream');
+$contains($operationsActivityEndpoint, "'event.rsvp_updated'", 'RSVP activity mapping is missing');
+$contains($operationsActivityEndpoint, "'role.requested'", 'role request activity mapping is missing');
+$contains($operationsActivityEndpoint, "'campaign.'", 'campaign activity category is missing');
+$contains($operationsActivityEndpoint, "'reward.'", 'reward activity category is missing');
+$contains($operationsActivityEndpoint, "'notification.'", 'notification operations category is missing');
+$contains($operationsActivityEndpoint, 'coveted_admin_agent_activity_metadata_lines', 'operational metadata must be whitelist-normalized');
+$missing($operationsActivityEndpoint, 'coveted_ai_chat(', 'operational polling must never call an AI provider');
+$missing($operationsActivityEndpoint, 'INSERT INTO ', 'operational polling must never mutate tables');
+$missing($operationsActivityEndpoint, 'UPDATE ', 'operational polling must never mutate tables');
+$missing($operationsActivityEndpoint, 'DELETE FROM ', 'operational polling must never mutate tables');
 
 // Brain/branding remain intact.
 $contains($brain, 'coveted_operations_snapshot(', 'Agent brain must reuse canonical Operations snapshot');
@@ -181,20 +207,24 @@ $contains($brandingRuntimeCss, '.cv-admin-brand', 'runtime Admin branding CSS is
 $contains($config, "'ai_credentials_key'", 'config example must document AI credential encryption key');
 $contains($migration, 'CREATE TABLE IF NOT EXISTS ai_provider_settings', 'AI provider migration is missing');
 $contains($cssEntry, 'admin-agent-autonomous-actions-v1-20260905', 'Admin Agent CSS cache key is stale');
-$contains($jsEntry, 'admin-agent-autonomous-actions-v1-20260905', 'Admin Agent JS cache key is stale');
+$contains($jsEntry, 'admin-agent-operational-feed-v2-20260905', 'Admin Agent operational JS cache key is stale');
 $contains($cssEntry, 'site-branding-v1.css', 'Branding stylesheet is not loaded');
 $contains($brainCss, '.cv-admin-agent-empty > .cv-admin-panel', 'opportunity panel layout is missing');
 $contains($brandingCss, '.cv-branding-preview', 'branding preview styles are missing');
 $contains($css, '.cv-admin-agent-message.is-action', 'action result styling is missing');
 $contains($css, '@media (max-width: 720px)', 'Admin Agent mobile layout is missing');
 $contains($js, 'sessionStorage', 'browser-session chat persistence is missing');
-$contains($js, "['user', 'assistant', 'activity', 'action']", 'action timeline persistence is missing');
+$contains($js, "['user', 'assistant', 'activity', 'ops', 'action']", 'operational timeline persistence is missing');
+$contains($js, "const auditCursorKey = 'coveted.adminAgent.auditCursor.v1';", 'audit cursor persistence is missing');
+$contains($js, "entry.role === 'ops'", 'operational activity rendering is missing');
+$contains($js, 'appendOperationalItems(data.items);', 'operational polling must append normalized cards');
+$contains($js, 'window.setInterval(pollOperations, 60000);', 'operational activity cadence must be 60 seconds');
 $contains($js, 'appendActionResults(data.actions);', 'server action results must render in the timeline');
 $contains($js, "entry.role === 'action'", 'action message rendering is missing');
-$contains($js, 'body.textContent', 'action/chat rendering must use DOM text rather than raw HTML');
+$contains($js, 'body.textContent', 'timeline rendering must use DOM text rather than raw HTML');
 $contains($js, '.filter((entry) => entry.role === \'user\' || entry.role === \'assistant\')', 'activity/action cards must stay out of client LLM history');
 $contains($js, 'window.setInterval(pollCrm, 60000);', 'CRM polling cadence must remain 60 seconds');
-$contains($js, 'document.hidden', 'CRM polling must pause while hidden');
-$contains($js, "cache: 'no-store'", 'CRM polling must bypass browser caches');
+$contains($js, 'document.hidden', 'live polling must pause while hidden');
+$contains($js, "cache: 'no-store'", 'live polling must bypass browser caches');
 
 fwrite(STDOUT, "Admin Agent contract verified.\n");
