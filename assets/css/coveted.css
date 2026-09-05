@@ -1172,7 +1172,7 @@ body:has(.cv-auth-shell) .cv-main {
 .cv-distribution-form,
 .cv-claim-form {
     margin-top: 16px;
-    padding-top: 10px;
+    padding-top: 16px;
     border-top: 1px solid var(--line);
 }
 
@@ -2381,8 +2381,8 @@ body:has(.cv-app-topbar) .cv-main {
     overflow-y: auto;
     padding: 18px 14px 14px;
     border-right: 1px solid #e1e1de;
-    background: #171716;
-    color: #fff;
+    background: #fff;
+    color: #171716;
 }
 
 .cv-admin-brand {
@@ -2448,8 +2448,8 @@ body:has(.cv-app-topbar) .cv-main {
 }
 
 .cv-admin-primary-nav a.is-active {
-    background: #fff;
-    color: #171716;
+    background: #171716;
+    color: #fff;
 }
 
 .cv-admin-nav-text {
@@ -2480,7 +2480,7 @@ body:has(.cv-app-topbar) .cv-main {
 
 .cv-admin-sidebar-footer {
     margin-top: auto;
-    padding-top: 16px;
+    padding-top: 10px;
 }
 
 .cv-admin-sidebar-footer a {
