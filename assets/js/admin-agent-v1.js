@@ -18,7 +18,26 @@
     let busy = false;
     let messages = [];
 
+    const requestedNewChat = (() => {
+        try {
+            const url = new URL(window.location.href);
+            const wantsNew = url.searchParams.get('new') === '1';
+            if (wantsNew) {
+                sessionStorage.removeItem(storageKey);
+                url.searchParams.delete('new');
+                window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+            }
+            return wantsNew;
+        } catch (_) {
+            return false;
+        }
+    })();
+
     const load = () => {
+        if (requestedNewChat) {
+            messages = [];
+            return;
+        }
         try {
             const parsed = JSON.parse(sessionStorage.getItem(storageKey) || '[]');
             if (Array.isArray(parsed)) {
