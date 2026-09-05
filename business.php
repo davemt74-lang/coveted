@@ -19,9 +19,6 @@ $tabs = [
     'insights' => 'Insights',
     'admins' => 'Admins',
 ];
-if ($isSystemAdmin) {
-    $tabs['new'] = 'New Business';
-}
 
 $tab = strtolower(trim((string)($_GET['tab'] ?? $_POST['tab'] ?? 'overview')));
 if (!isset($tabs[$tab])) {
@@ -335,7 +332,7 @@ if ($tab === 'admins') {
 
     <?php if (count($businesses) > 1): ?>
         <form class="cv-business-selector" method="get">
-            <input type="hidden" name="tab" value="<?= coveted_e($tab === 'new' ? 'overview' : $tab) ?>">
+            <input type="hidden" name="tab" value="<?= coveted_e($tab) ?>">
             <?php if ($tab === 'insights'): ?><input type="hidden" name="period" value="<?= coveted_e($insightPeriod) ?>"><?php endif; ?>
             <label>
                 <span>Switch business</span>
@@ -500,19 +497,6 @@ if ($tab === 'admins') {
             </table></div>
         <?php endif; ?>
     </section>
-<?php endif; ?>
-
-<?php if ($tab === 'new' && $isSystemAdmin): ?>
-    <form id="create-business" class="cv-card cv-form cv-narrow-form cv-anchor-target" method="post">
-        <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
-        <input type="hidden" name="action" value="create_business">
-        <span class="cv-eyebrow">SYSTEM ADMIN</span>
-        <h2>Create another business</h2>
-        <p>Business Admin authority remains scoped to the business after creation.</p>
-        <label>Business name<input name="name" maxlength="180" required></label>
-        <label>Description<textarea name="description" maxlength="4000" rows="5"></textarea></label>
-        <button class="cv-button cv-button-primary" type="submit">Create Business</button>
-    </form>
 <?php endif; ?>
 
 <?php if ($tab === 'locations'): ?>
