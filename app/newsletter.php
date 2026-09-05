@@ -54,7 +54,7 @@ function coveted_newsletter_signup_submit(array $input, ?PDO $pdo = null): strin
 
     // Treat repeat opt-ins as idempotent. If Admin previously declined a
     // newsletter lead, a new explicit signup re-opens it as New while keeping
-    // the original CRM record and history intact.
+    // the original CRM record and notes intact.
     $existing = $pdo->prepare(
         "SELECT id, public_id, status
          FROM invite_requests
@@ -74,6 +74,8 @@ function coveted_newsletter_signup_submit(array $input, ?PDO $pdo = null): strin
                      status = 'new',
                      source_ip_hash = ?,
                      message = ?,
+                     reviewed_by = NULL,
+                     reviewed_at = NULL,
                      updated_at = UTC_TIMESTAMP()
                  WHERE id = ?"
             )->execute([
