@@ -7,9 +7,11 @@ $homePath = $root . '/app/member_home_v2.php';
 $pagesPath = $root . '/app/member_pages_v2.php';
 $invitationsPath = $root . '/invitations.php';
 $eventsPath = $root . '/events.php';
+$groupsPath = $root . '/groups.php';
+$benefitsPath = $root . '/benefits.php';
 $adminPath = $root . '/admin/sample-data.php';
 
-foreach ([$samplePath, $homePath, $pagesPath, $invitationsPath, $eventsPath, $adminPath] as $path) {
+foreach ([$samplePath, $homePath, $pagesPath, $invitationsPath, $eventsPath, $groupsPath, $benefitsPath, $adminPath] as $path) {
     if (!is_file($path)) {
         fwrite(STDERR, "Missing required member sample-data file: {$path}\n");
         exit(1);
@@ -21,6 +23,8 @@ $home = (string)file_get_contents($homePath);
 $pages = (string)file_get_contents($pagesPath);
 $invitations = (string)file_get_contents($invitationsPath);
 $events = (string)file_get_contents($eventsPath);
+$groups = (string)file_get_contents($groupsPath);
+$benefits = (string)file_get_contents($benefitsPath);
 $admin = (string)file_get_contents($adminPath);
 
 $requiredSampleFragments = [
@@ -30,6 +34,11 @@ $requiredSampleFragments = [
     'Saturday Night Supper Club',
     'Sunset Dinner',
     'Vinyl & Cocktails',
+    'The Inner Circle',
+    'City Table Club',
+    'Late Night Listening',
+    'Dinner on us',
+    'Member welcome',
     'Phoenix, Arizona',
 ];
 
@@ -63,9 +72,16 @@ if (!str_contains($invitations, 'Sample invitations are preview-only')) {
     fwrite(STDERR, "Invitations sample mode must block synthetic RSVP mutations.\n");
     exit(1);
 }
-
 if (!str_contains($events, 'coveted_member_v2_events($user, $pdo)')) {
     fwrite(STDERR, "Events page must use the guarded Member v2 event adapter.\n");
+    exit(1);
+}
+if (!str_contains($groups, 'Sample groups are preview-only') || !str_contains($groups, 'coveted_member_sample_mode($user, $pdo)')) {
+    fwrite(STDERR, "Groups sample mode must stay guarded and mutation-free.\n");
+    exit(1);
+}
+if (!str_contains($benefits, 'Sample benefits are preview-only') || !str_contains($benefits, 'coveted_member_sample_mode($user, $pdo)')) {
+    fwrite(STDERR, "Benefits sample mode must stay guarded and mutation-free.\n");
     exit(1);
 }
 
@@ -73,7 +89,6 @@ if (!str_contains($admin, 'coveted_require_system_admin()')) {
     fwrite(STDERR, "Sample Data control must remain System Admin-only.\n");
     exit(1);
 }
-
 if (!str_contains($admin, 'coveted_site_setting_set_bool(COVETED_SETTING_MEMBER_SAMPLE_DATA')) {
     fwrite(STDERR, "Sample Data control must use the canonical site setting.\n");
     exit(1);
