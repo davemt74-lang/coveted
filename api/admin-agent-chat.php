@@ -3,9 +3,39 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
 require_once dirname(__DIR__) . '/app/admin_agent_actions.php';
+require_once dirname(__DIR__) . '/app/admin_agent_threads.php';
 require_once dirname(__DIR__) . '/app/site_branding.php';
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+/** @return array<int,array<string,mixed>> */
+function coveted_admin_agent_persisted_action_results(array $rows): array
+{
+    $actions = [];
+    foreach ($rows as $row) {
+        if (($row['role'] ?? '') !== 'action') {
+            continue;
+        }
+        $metadata = [];
+        try {
+            $decoded = json_decode((string)($row['metadata_json'] ?? ''), true, 32, JSON_THROW_ON_ERROR);
+            if (is_array($decoded)) {
+                $metadata = $decoded;
+            }
+        } catch (Throwable) {
+            $metadata = [];
+        }
+        $actions[] = [
+            'action' => (string)($metadata['action'] ?? ''),
+            'label' => (string)($metadata['label'] ?? 'Admin action'),
+            'ok' => !empty($metadata['ok']),
+            'message' => (string)($row['content'] ?? 'Action processed.'),
+            'entity_ref' => (string)($metadata['entity_ref'] ?? ''),
+        ];
+    }
+    return $actions;
+}
 
 try {
     $admin = coveted_require_system_admin();
@@ -18,13 +48,106 @@ try {
 
     coveted_require_csrf();
 
-    $autonomous = coveted_admin_agent_autonomous_actions_enabled(coveted_db());
+    $provider = trim((string)($_POST['provider'] ?? ''));
+    $message = trim((string)($_POST['message'] ?? ''));
+    if ($message === '' || mb_strlen($message) > 12000) {
+        throw new InvalidArgumentException('Enter a message for the Admin Agent.');
+    }
+    $requestId = coveted_admin_agent_request_id((string)($_POST['request_id'] ?? ''));
+
+    $pdo = coveted_db();
+    coveted_admin_agent_threads_ensure_schema($pdo);
+
+    $threadRef = trim((string)($_POST['thread_ref'] ?? ''));
+    if ($threadRef === '') {
+        $thread = coveted_admin_agent_thread_create($admin, 'New Chat', $pdo);
+        $threadRef = (string)$thread['public_id'];
+    } else {
+        $threadRef = coveted_admin_agent_thread_ref($threadRef);
+        $thread = coveted_admin_agent_thread_by_ref($admin, $threadRef, $pdo);
+        if (!$thread || $thread['status'] !== 'active') {
+            throw new InvalidArgumentException('Admin Agent chat not found or archived.');
+        }
+    }
+
+    // Request IDs make browser/network retries safe. If the same request was
+    // already completed, return its persisted result without another provider
+    // call. If actions completed before a transport interruption, do not replay
+    // those mutations on retry.
+    $requestRows = coveted_admin_agent_thread_request_messages($admin, $threadRef, $requestId, $pdo);
+    $storedUserContent = null;
+    foreach ($requestRows as $row) {
+        if (($row['role'] ?? '') === 'user') {
+            $storedUserContent = (string)$row['content'];
+            break;
+        }
+    }
+    if ($storedUserContent !== null && !hash_equals($storedUserContent, $message)) {
+        throw new InvalidArgumentException('That Admin Agent request identifier was already used for a different message.');
+    }
+
+    $completed = coveted_admin_agent_thread_completed_request($admin, $threadRef, $requestId, $pdo);
+    if ($completed !== null) {
+        $thread = coveted_admin_agent_thread_by_ref($admin, $threadRef, $pdo) ?? $thread;
+        $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin));
+        echo coveted_json([
+            'ok' => true,
+            'provider' => (string)$completed['provider'],
+            'model' => (string)$completed['model'],
+            'text' => (string)$completed['text'],
+            'autonomous_actions' => coveted_admin_agent_autonomous_actions_enabled($pdo),
+            'actions' => (array)$completed['actions'],
+            'thread' => ['public_id' => $threadRef, 'title' => (string)$thread['title']],
+            'replayed' => true,
+            'readiness' => (int)($brain['readiness']['percent'] ?? 0),
+            'opportunity_count' => count((array)($brain['opportunities'] ?? [])),
+        ]);
+        exit;
+    }
+
+    $persistedActions = coveted_admin_agent_persisted_action_results($requestRows);
+    if ($persistedActions) {
+        $thread = coveted_admin_agent_thread_by_ref($admin, $threadRef, $pdo) ?? $thread;
+        $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin));
+        echo coveted_json([
+            'ok' => true,
+            'provider' => '',
+            'model' => '',
+            'text' => 'This request already executed or attempted Admin actions before the previous response was interrupted. I did not repeat them. Review the persisted action results and send a new message if you want me to continue.',
+            'autonomous_actions' => coveted_admin_agent_autonomous_actions_enabled($pdo),
+            'actions' => $persistedActions,
+            'thread' => ['public_id' => $threadRef, 'title' => (string)$thread['title']],
+            'replayed' => true,
+            'readiness' => (int)($brain['readiness']['percent'] ?? 0),
+            'opportunity_count' => count((array)($brain['opportunities'] ?? [])),
+        ]);
+        exit;
+    }
+
+    if ($storedUserContent === null) {
+        coveted_admin_agent_thread_append_message(
+            $admin,
+            $threadRef,
+            'user',
+            $message,
+            $requestId,
+            null,
+            null,
+            [],
+            $pdo
+        );
+    }
+
+    // Server history is authoritative. Browser-supplied history is not used to
+    // construct provider context, which prevents cross-thread/client tampering
+    // and makes the same conversation resumable from another device.
+    $dialogue = coveted_admin_agent_thread_chat_history($admin, $threadRef, 20, $pdo);
+
+    $autonomous = coveted_admin_agent_autonomous_actions_enabled($pdo);
     $maxRounds = $autonomous ? 3 : 1;
     $maxActions = 8;
 
-    // Reserve the worst-case provider-call cost up front. This prevents one
-    // autonomous browser request from multiplying API usage beyond the same
-    // 30-calls / 5-minute session throttle used by ordinary chat requests.
+    // Reserve worst-case provider-call cost only after replay/idempotency checks.
     $now = time();
     $recent = array_values(array_filter(
         (array)($_SESSION['admin_ai_chat_timestamps'] ?? []),
@@ -40,40 +163,6 @@ try {
     }
     $_SESSION['admin_ai_chat_timestamps'] = $recent;
 
-    $provider = trim((string)($_POST['provider'] ?? ''));
-    $message = trim((string)($_POST['message'] ?? ''));
-    if ($message === '') {
-        throw new InvalidArgumentException('Enter a message for the Admin Agent.');
-    }
-
-    $historyRaw = trim((string)($_POST['history_json'] ?? '[]'));
-    if (strlen($historyRaw) > 120000) {
-        throw new InvalidArgumentException('This chat is too long. Start a new chat and try again.');
-    }
-
-    try {
-        $history = json_decode($historyRaw, true, 64, JSON_THROW_ON_ERROR);
-    } catch (Throwable $e) {
-        throw new InvalidArgumentException('The chat history is invalid.', 0, $e);
-    }
-    if (!is_array($history)) {
-        $history = [];
-    }
-
-    $dialogue = [];
-    foreach ($history as $entry) {
-        if (!is_array($entry)) {
-            continue;
-        }
-        $role = strtolower(trim((string)($entry['role'] ?? '')));
-        $content = trim((string)($entry['content'] ?? ''));
-        if (in_array($role, ['user', 'assistant'], true) && $content !== '') {
-            $dialogue[] = ['role' => $role, 'content' => $content];
-        }
-    }
-    $dialogue = array_slice($dialogue, -20);
-    $dialogue[] = ['role' => 'user', 'content' => $message];
-
     $executedActions = [];
     $visibleChunks = [];
     $providerResult = null;
@@ -81,19 +170,10 @@ try {
     $brain = [];
 
     for ($round = 0; $round < $maxRounds; $round++) {
-        // Refresh canonical state on every reasoning/action round. The context
-        // is rebuilt for each provider call so it can never be pushed out by
-        // long client history or action-result messages.
         $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin));
         $callMessages = [
-            [
-                'role' => 'user',
-                'content' => coveted_admin_agent_context_message($brain),
-            ],
-            [
-                'role' => 'user',
-                'content' => coveted_admin_agent_action_protocol_message($autonomous),
-            ],
+            ['role' => 'user', 'content' => coveted_admin_agent_context_message($brain)],
+            ['role' => 'user', 'content' => coveted_admin_agent_action_protocol_message($autonomous)],
             ...array_slice($dialogue, -20),
         ];
 
@@ -107,13 +187,25 @@ try {
         try {
             $requests = coveted_admin_agent_extract_action_requests($rawText);
         } catch (InvalidArgumentException $e) {
-            $executedActions[] = [
+            $actionResult = [
                 'action' => 'action_protocol',
                 'label' => 'Action request rejected',
                 'ok' => false,
                 'message' => $e->getMessage(),
                 'entity_ref' => '',
             ];
+            $executedActions[] = $actionResult;
+            coveted_admin_agent_thread_append_message(
+                $admin,
+                $threadRef,
+                'action',
+                $actionResult['message'],
+                $requestId,
+                null,
+                null,
+                $actionResult,
+                $pdo
+            );
             break;
         }
 
@@ -124,13 +216,19 @@ try {
         $roundResults = [];
         foreach ($requests as $request) {
             if ($totalActionCount >= $maxActions) {
-                $roundResults[] = [
+                $actionResult = [
                     'action' => 'action_limit',
                     'label' => 'Autonomous action limit',
                     'ok' => false,
                     'message' => 'The bounded autonomous action limit was reached for this request.',
                     'entity_ref' => '',
                 ];
+                $roundResults[] = $actionResult;
+                $executedActions[] = $actionResult;
+                coveted_admin_agent_thread_append_message(
+                    $admin, $threadRef, 'action', $actionResult['message'], $requestId,
+                    null, null, $actionResult, $pdo
+                );
                 break;
             }
 
@@ -149,6 +247,17 @@ try {
             }
             $roundResults[] = $actionResult;
             $executedActions[] = $actionResult;
+            coveted_admin_agent_thread_append_message(
+                $admin,
+                $threadRef,
+                'action',
+                (string)$actionResult['message'],
+                $requestId,
+                null,
+                null,
+                $actionResult,
+                $pdo
+            );
         }
 
         if (!$roundResults) {
@@ -186,18 +295,32 @@ try {
             ? 'The requested Coveted Admin actions were processed.'
             : 'The Admin Agent completed the request.';
     }
+    $finalText = trim(implode("\n\n", $visibleChunks));
 
-    // Re-read state once more so readiness/opportunity counts returned to the
-    // browser reflect any actions that completed during this same request.
+    coveted_admin_agent_thread_append_message(
+        $admin,
+        $threadRef,
+        'assistant',
+        $finalText,
+        $requestId,
+        (string)$providerResult['provider'],
+        (string)$providerResult['model'],
+        [],
+        $pdo
+    );
+
+    $thread = coveted_admin_agent_thread_by_ref($admin, $threadRef, $pdo) ?? $thread;
     $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin));
 
     echo coveted_json([
         'ok' => true,
         'provider' => $providerResult['provider'],
         'model' => $providerResult['model'],
-        'text' => trim(implode("\n\n", $visibleChunks)),
+        'text' => $finalText,
         'autonomous_actions' => $autonomous,
         'actions' => $executedActions,
+        'thread' => ['public_id' => $threadRef, 'title' => (string)$thread['title']],
+        'replayed' => false,
         'readiness' => (int)($brain['readiness']['percent'] ?? 0),
         'opportunity_count' => count((array)($brain['opportunities'] ?? [])),
     ]);
