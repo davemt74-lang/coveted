@@ -55,8 +55,6 @@ function coveted_site_setting_get(string $key, ?string $default = null, ?PDO $pd
 
         return $value === false ? $default : (string)$value;
     } catch (PDOException $e) {
-        // A deployment may receive this application code before System Admin
-        // has opened settings and initialized the table. Default safely OFF.
         $driverCode = (int)($e->errorInfo[1] ?? 0);
         if ($e->getCode() === '42S02' || $driverCode === 1146) {
             return $default;
@@ -114,7 +112,6 @@ function coveted_site_setting_set(string $key, string $value, array $actor, ?PDO
             json_encode(['value' => $value], JSON_THROW_ON_ERROR),
         ]);
     } catch (Throwable $e) {
-        // The setting is authoritative; a logging failure must not undo it.
         error_log('Coveted site setting audit failed [' . $key . ']: ' . $e->getMessage());
     }
 }
