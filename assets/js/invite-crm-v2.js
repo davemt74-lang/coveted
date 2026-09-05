@@ -1,14 +1,16 @@
 (() => {
     'use strict';
 
-    if (document.body.classList.contains('cv-public-home')) {
-        document.querySelectorAll('a[href="/auth.php?action=register"]').forEach((link) => {
-            link.href = '/request-invite.php';
-            if (link.textContent.trim().startsWith('Join Coveted')) {
-                link.innerHTML = 'Request an Invite <span aria-hidden="true">→</span>';
-            }
-        });
-    }
+    // Coveted is invite-led for now. Any legacy public registration link is
+    // normalized to the request flow, while Sign in remains available.
+    document.querySelectorAll('a[href="/auth.php?action=register"]').forEach((link) => {
+        link.href = '/request-invite.php';
+
+        const text = link.textContent.trim();
+        if (text.startsWith('Join Coveted') || text.startsWith('Create an account') || text.startsWith('Become a partner') || text.startsWith('Join as an artist')) {
+            link.innerHTML = 'Request an Invite <span aria-hidden="true">→</span>';
+        }
+    });
 
     const dialogs = new Map();
     document.querySelectorAll('[data-dialog]').forEach((dialog) => {
