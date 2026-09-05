@@ -69,6 +69,11 @@ $contains($settings, '/admin/agent.php', 'AI settings must link to Admin Agent')
 $contains($adminUi, "'/admin/agent.php'", 'Admin Agent is missing from Admin navigation');
 $contains($adminUi, "'/admin/ai-settings.php'", 'AI Settings is missing from Admin navigation');
 $contains($adminUi, "'/admin/branding.php'", 'Branding is missing from Admin navigation');
+$contains($adminUi, "coveted_redirect('/admin/agent.php');", 'bare Admin GET must route to Admin Agent before output');
+$contains($adminUi, "(\$_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'", 'Admin Agent default route must be GET-only');
+$contains($adminUi, "!array_key_exists('view', \$_GET)", 'explicit Admin views must bypass the default Agent route');
+$missing($adminUi, 'window.location.replace', 'Admin default route must not use CSP-blocked inline JavaScript');
+
 $contains($agent, 'data-admin-agent', 'Admin Agent canvas root is missing');
 $contains($agent, 'cv-admin-agent-canvas', 'chat canvas is missing');
 $contains($agent, 'cv-admin-agent-composer-shell', 'sticky footer composer is missing');
@@ -84,6 +89,7 @@ $contains($endpoint, 'http_response_code(429)', 'chat endpoint must return 429 w
 $contains($endpoint, 'coveted_ai_chat(', 'chat endpoint must use server provider service');
 $contains($endpoint, 'coveted_admin_agent_snapshot(', 'chat endpoint must refresh live canonical Agent context');
 $contains($endpoint, 'coveted_admin_agent_context_message(', 'chat endpoint must send the live brain context to the provider');
+$contains($endpoint, '$messages = array_slice($messages, -20);', 'chat history must reserve room for live server context');
 
 $contains($brain, 'coveted_operations_snapshot(', 'Agent brain must reuse the canonical Operations snapshot');
 $contains($brain, 'FROM audit_events', 'Agent brain must use canonical audit history as operational memory');
