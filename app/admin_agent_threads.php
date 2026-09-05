@@ -222,9 +222,26 @@ function coveted_admin_agent_thread_archive(array $admin, string $ref, ?PDO $pdo
     $pdo ??= coveted_db();
     coveted_admin_agent_threads_ensure_schema($pdo);
     $thread = coveted_admin_agent_thread_by_ref($admin, $ref, $pdo);
-    if (!$thread) {
+    if (!$thread || $thread['status'] !== 'active') {
         throw new InvalidArgumentException('Admin Agent chat not found.');
     }
+
+    try {
+        $activeRun = $pdo->prepare(
+            "SELECT 1 FROM admin_agent_runs
+             WHERE thread_id = ? AND status = 'processing'
+             LIMIT 1"
+        );
+        $activeRun->execute([(int)$thread['id']]);
+        if ($activeRun->fetchColumn()) {
+            throw new InvalidArgumentException('Wait for the active Admin Agent request to finish before archiving this chat.');
+        }
+    } catch (PDOException $e) {
+        if ($e->getCode() !== '42S02' && (int)($e->errorInfo[1] ?? 0) !== 1146) {
+            throw $e;
+        }
+    }
+
     $pdo->prepare("UPDATE admin_agent_threads SET status = 'archived', updated_at = UTC_TIMESTAMP() WHERE id = ?")
         ->execute([(int)$thread['id']]);
     coveted_audit('admin.agent_thread_archived', 'admin_agent_thread', (string)$thread['public_id'], [], (int)$admin['id']);
@@ -301,7 +318,11 @@ function coveted_admin_agent_thread_append_message(
     }
 
     $content = trim($content);
-    $maxLength = $role === 'action' ? 4000 : 12000;
+    $maxLength = match ($role) {
+        'action' => 4000,
+        'assistant' => 30000,
+        default => 12000,
+    };
     if ($content === '' || mb_strlen($content) > $maxLength) {
         throw new InvalidArgumentException('Admin Agent message content is invalid.');
     }
@@ -365,7 +386,7 @@ function coveted_admin_agent_thread_append_message(
 /** @return array<int,array{role:string,content:string}> */
 function coveted_admin_agent_thread_chat_history(array $admin, string $ref, int $limit = 20, ?PDO $pdo = null): array
 {
-    $rows = coveted_admin_agent_thread_messages($admin, $ref, min(100, max(1, $limit * 2)), $pdo);
+    $rows = coveted_admin_agent_thread_messages($admin, $ref, 200, $pdo);
     $history = [];
     foreach ($rows as $row) {
         if (!in_array((string)$row['role'], ['user','assistant'], true)) {
@@ -376,7 +397,7 @@ function coveted_admin_agent_thread_chat_history(array $admin, string $ref, int 
             $history[] = ['role' => (string)$row['role'], 'content' => $content];
         }
     }
-    return array_slice($history, -$limit);
+    return array_slice($history, -max(1, min($limit, 100)));
 }
 
 /** @return array<string,mixed>|null */
