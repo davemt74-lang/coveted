@@ -4,9 +4,12 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $samplePath = $root . '/app/member_sample_data.php';
 $homePath = $root . '/app/member_home_v2.php';
+$pagesPath = $root . '/app/member_pages_v2.php';
+$invitationsPath = $root . '/invitations.php';
+$eventsPath = $root . '/events.php';
 $adminPath = $root . '/admin/sample-data.php';
 
-foreach ([$samplePath, $homePath, $adminPath] as $path) {
+foreach ([$samplePath, $homePath, $pagesPath, $invitationsPath, $eventsPath, $adminPath] as $path) {
     if (!is_file($path)) {
         fwrite(STDERR, "Missing required member sample-data file: {$path}\n");
         exit(1);
@@ -15,6 +18,9 @@ foreach ([$samplePath, $homePath, $adminPath] as $path) {
 
 $sample = (string)file_get_contents($samplePath);
 $home = (string)file_get_contents($homePath);
+$pages = (string)file_get_contents($pagesPath);
+$invitations = (string)file_get_contents($invitationsPath);
+$events = (string)file_get_contents($eventsPath);
 $admin = (string)file_get_contents($adminPath);
 
 $requiredSampleFragments = [
@@ -46,6 +52,23 @@ if (!str_contains($home, 'coveted_member_sample_mode($user, $pdo)')) {
     exit(1);
 }
 
+foreach (['coveted_member_v2_invitations', 'coveted_member_v2_events', 'coveted_member_sample_mode($user, $pdo)'] as $fragment) {
+    if (!str_contains($pages, $fragment)) {
+        fwrite(STDERR, "Member page adapter contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
+if (!str_contains($invitations, 'Sample invitations are preview-only')) {
+    fwrite(STDERR, "Invitations sample mode must block synthetic RSVP mutations.\n");
+    exit(1);
+}
+
+if (!str_contains($events, 'coveted_member_v2_events($user, $pdo)')) {
+    fwrite(STDERR, "Events page must use the guarded Member v2 event adapter.\n");
+    exit(1);
+}
+
 if (!str_contains($admin, 'coveted_require_system_admin()')) {
     fwrite(STDERR, "Sample Data control must remain System Admin-only.\n");
     exit(1);
@@ -69,6 +92,8 @@ $previewAssets = [
     'assets/images/sample/people/jordan-ellis.webp',
     'assets/images/sample/people/maya-rivera.webp',
     'assets/images/sample/people/leo-martinez.webp',
+    'assets/images/sample/people/sienna-cole.webp',
+    'assets/images/sample/people/noah-bennett.webp',
 ];
 
 foreach ($previewAssets as $relative) {
