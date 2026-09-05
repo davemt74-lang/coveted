@@ -1,0 +1,1 @@
+Binary sample assets are committed through the Git blob/tree API, not the text contents API.
