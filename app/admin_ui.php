@@ -52,6 +52,23 @@ function coveted_admin_nav_link(string $active, string $key, string $href, strin
     <?php
 }
 
+function coveted_admin_nav_toggle(string $key, string $label, bool $openByDefault = false): void
+{
+    $panelId = 'cv-admin-nav-' . preg_replace('/[^a-z0-9_-]+/i', '-', $key);
+    ?>
+    <button
+        class="cv-admin-nav-toggle"
+        type="button"
+        data-admin-nav-toggle="<?= coveted_e($key) ?>"
+        aria-expanded="<?= $openByDefault ? 'true' : 'false' ?>"
+        aria-controls="<?= coveted_e($panelId) ?>"
+    >
+        <span><?= coveted_e($label) ?></span>
+        <span class="cv-admin-nav-chevron" aria-hidden="true">⌄</span>
+    </button>
+    <?php
+}
+
 /**
  * Dedicated System Admin application shell. Admin pages never inherit the
  * member sidebar; switching back to the member app is always explicit.
@@ -69,56 +86,76 @@ function coveted_admin_ui_start(
     $avatarUrl = coveted_shell_avatar_url((int)$admin['id']);
     $name = trim((string)($admin['display_name'] ?? 'Admin')) ?: 'Admin';
     $initials = coveted_admin_ui_initials($name);
+    $adminUserKey = trim((string)($admin['public_id'] ?? '')) ?: ('user-' . (int)$admin['id']);
     $integrityNotice = trim((string)($_SESSION['admin_integrity_notice'] ?? ''));
     unset($_SESSION['admin_integrity_notice']);
     ?>
-<div class="cv-admin-app" data-admin-shell="control-center-v5">
+<div class="cv-admin-app" data-admin-shell="control-center-v5" data-admin-user-key="<?= coveted_e($adminUserKey) ?>">
     <aside class="cv-admin-sidebar" aria-label="System Admin navigation">
-        <a class="cv-admin-brand" href="/admin/">
+        <a class="cv-admin-brand" href="/admin/agent.php">
             <span>COVETED</span>
             <small>ADMIN</small>
         </a>
 
-        <nav class="cv-admin-primary-nav">
-            <div class="cv-admin-nav-group">
-                <span class="cv-admin-nav-label">OVERVIEW</span>
-                <?php coveted_admin_nav_link($active, 'dashboard', '/admin/', 'Dashboard'); ?>
-                <?php coveted_admin_nav_link($active, 'agent', '/admin/agent.php', 'Admin Agent'); ?>
-                <a class="<?= $active === 'onboarding' ? 'is-active' : '' ?>" href="/admin/onboarding.php">
-                    <span class="cv-admin-nav-text">Setup</span>
-                    <?php if (!$onboarding['is_complete']): ?><span class="cv-admin-nav-progress"><?= (int)$onboarding['completed'] ?>/<?= (int)$onboarding['total'] ?></span><?php endif; ?>
-                </a>
+        <nav class="cv-admin-primary-nav" data-admin-accordion-nav>
+            <div class="cv-admin-nav-group is-open" data-admin-nav-section="overview">
+                <?php coveted_admin_nav_toggle('overview', 'OVERVIEW', true); ?>
+                <div class="cv-admin-nav-items" id="cv-admin-nav-overview" data-admin-nav-items="overview">
+                    <?php coveted_admin_nav_link($active, 'dashboard', '/admin/?view=dashboard', 'Dashboard'); ?>
+                    <a class="<?= $active === 'onboarding' ? 'is-active' : '' ?>" href="/admin/onboarding.php">
+                        <span class="cv-admin-nav-text">Setup</span>
+                        <?php if (!$onboarding['is_complete']): ?><span class="cv-admin-nav-progress"><?= (int)$onboarding['completed'] ?>/<?= (int)$onboarding['total'] ?></span><?php endif; ?>
+                    </a>
+                </div>
             </div>
 
-            <div class="cv-admin-nav-group">
-                <span class="cv-admin-nav-label">PEOPLE</span>
-                <?php coveted_admin_nav_link($active, 'crm', '/admin/crm.php', 'Invite CRM', (int)($counts['invite_requests'] ?? 0)); ?>
-                <?php coveted_admin_nav_link($active, 'users', '/admin/?view=users', 'Users', (int)$counts['users']); ?>
-                <?php coveted_admin_nav_link($active, 'requests', '/admin/?view=requests', 'Role Requests', (int)$counts['pending_requests']); ?>
+            <div class="cv-admin-nav-group" data-admin-nav-section="people">
+                <?php coveted_admin_nav_toggle('people', 'PEOPLE'); ?>
+                <div class="cv-admin-nav-items" id="cv-admin-nav-people" data-admin-nav-items="people">
+                    <?php coveted_admin_nav_link($active, 'crm', '/admin/crm.php', 'Invite CRM', (int)($counts['invite_requests'] ?? 0)); ?>
+                    <?php coveted_admin_nav_link($active, 'users', '/admin/?view=users', 'Users', (int)$counts['users']); ?>
+                    <?php coveted_admin_nav_link($active, 'requests', '/admin/?view=requests', 'Role Requests', (int)$counts['pending_requests']); ?>
+                </div>
             </div>
 
-            <div class="cv-admin-nav-group">
-                <span class="cv-admin-nav-label">COMMUNITY</span>
-                <?php coveted_admin_nav_link($active, 'cities', '/admin/cities.php', 'Cities', (int)($counts['cities'] ?? 0)); ?>
-                <?php coveted_admin_nav_link($active, 'businesses', '/admin/?view=businesses', 'Businesses', (int)$counts['businesses']); ?>
-                <?php coveted_admin_nav_link($active, 'groups', '/admin/?view=groups', 'Groups', (int)$counts['groups']); ?>
-                <?php coveted_admin_nav_link($active, 'events', '/admin/?view=events', 'Events', (int)$counts['events']); ?>
-                <?php coveted_admin_nav_link($active, 'artists', '/admin/?view=artists', 'Artists', (int)$counts['artists']); ?>
+            <div class="cv-admin-nav-group" data-admin-nav-section="community">
+                <?php coveted_admin_nav_toggle('community', 'COMMUNITY'); ?>
+                <div class="cv-admin-nav-items" id="cv-admin-nav-community" data-admin-nav-items="community">
+                    <?php coveted_admin_nav_link($active, 'cities', '/admin/cities.php', 'Cities', (int)($counts['cities'] ?? 0)); ?>
+                    <?php coveted_admin_nav_link($active, 'businesses', '/admin/?view=businesses', 'Businesses', (int)$counts['businesses']); ?>
+                    <?php coveted_admin_nav_link($active, 'groups', '/admin/?view=groups', 'Groups', (int)$counts['groups']); ?>
+                    <?php coveted_admin_nav_link($active, 'events', '/admin/?view=events', 'Events', (int)$counts['events']); ?>
+                    <?php coveted_admin_nav_link($active, 'artists', '/admin/?view=artists', 'Artists', (int)$counts['artists']); ?>
+                </div>
             </div>
 
-            <div class="cv-admin-nav-group">
-                <span class="cv-admin-nav-label">VALUE</span>
-                <?php coveted_admin_nav_link($active, 'benefits', '/admin/?view=benefits', 'Benefits'); ?>
-                <?php coveted_admin_nav_link($active, 'distribution', '/admin/?view=distribution', 'Distribution'); ?>
+            <div class="cv-admin-nav-group" data-admin-nav-section="value">
+                <?php coveted_admin_nav_toggle('value', 'VALUE'); ?>
+                <div class="cv-admin-nav-items" id="cv-admin-nav-value" data-admin-nav-items="value">
+                    <?php coveted_admin_nav_link($active, 'benefits', '/admin/?view=benefits', 'Benefits'); ?>
+                    <?php coveted_admin_nav_link($active, 'distribution', '/admin/?view=distribution', 'Distribution'); ?>
+                </div>
             </div>
 
-            <div class="cv-admin-nav-group">
-                <span class="cv-admin-nav-label">PLATFORM</span>
-                <?php coveted_admin_nav_link($active, 'operations', '/admin/operations.php', 'Operations'); ?>
-                <?php coveted_admin_nav_link($active, 'landing', '/admin/landing.php', 'Landing Page'); ?>
-                <?php coveted_admin_nav_link($active, 'sample-data', '/admin/sample-data.php', 'Sample Data'); ?>
-                <?php coveted_admin_nav_link($active, 'ai-settings', '/admin/ai-settings.php', 'AI Settings'); ?>
-                <?php coveted_admin_nav_link($active, 'settings', '/admin/?view=settings', 'Settings'); ?>
+            <div class="cv-admin-nav-group" data-admin-nav-section="platform">
+                <?php coveted_admin_nav_toggle('platform', 'PLATFORM'); ?>
+                <div class="cv-admin-nav-items" id="cv-admin-nav-platform" data-admin-nav-items="platform">
+                    <?php coveted_admin_nav_link($active, 'operations', '/admin/operations.php', 'Operations'); ?>
+                    <?php coveted_admin_nav_link($active, 'landing', '/admin/landing.php', 'Landing Page'); ?>
+                    <?php coveted_admin_nav_link($active, 'sample-data', '/admin/sample-data.php', 'Sample Data'); ?>
+                    <?php coveted_admin_nav_link($active, 'ai-settings', '/admin/ai-settings.php', 'AI Settings'); ?>
+                    <?php coveted_admin_nav_link($active, 'settings', '/admin/?view=settings', 'Settings'); ?>
+                </div>
+            </div>
+
+            <div class="cv-admin-nav-group cv-admin-chat-nav-group is-open" data-admin-nav-section="chats">
+                <?php coveted_admin_nav_toggle('chats', 'CHATS', true); ?>
+                <div class="cv-admin-nav-items" id="cv-admin-nav-chats" data-admin-nav-items="chats">
+                    <a class="cv-admin-new-chat-link" href="/admin/agent.php?new=1" data-admin-new-chat>
+                        <span class="cv-admin-nav-text">＋ New chat</span>
+                    </a>
+                    <?php coveted_admin_nav_link($active, 'agent', '/admin/agent.php', 'Current chat'); ?>
+                </div>
             </div>
         </nav>
 
