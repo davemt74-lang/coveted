@@ -53,11 +53,11 @@ $requireContains($newsletter, 'DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)', 'ne
 $requireContains($newsletter, 'newsletter_signup.created', 'newsletter creation audit is missing');
 $requireContains($newsletter, 'newsletter_signup.refreshed', 'newsletter repeat opt-in audit is missing');
 
-$requireContains($crm, "$isNewsletter = trim((string)(\$request['how_heard'] ?? '')) === 'Newsletter signup';", 'CRM must identify newsletter signups');
+$requireContains($crm, '$isNewsletter = trim((string)($request[\'how_heard\'] ?? \'\')) === \'Newsletter signup\';', 'CRM must identify newsletter signups');
 $requireContains($crm, '>Newsletter</span>', 'CRM newsletter badge is missing');
-$requireContains($crm, "\$isNewsletter ? 'SIGNED UP' : 'REQUESTED'", 'CRM signup date label is missing');
+$requireContains($crm, '$isNewsletter ? \'SIGNED UP\' : \'REQUESTED\'', 'CRM signup date label is missing');
 $requireContains($crm, 'Email newsletter', 'CRM newsletter intent label is missing');
-$requireContains($crm, "\$sourceKeys || !empty(\$request['how_heard'])", 'CRM source metadata must show newsletter source');
+$requireContains($crm, '$sourceKeys || !empty($request[\'how_heard\'])', 'CRM source metadata must show newsletter source');
 
 $requireContains($cssEntry, 'landing-newsletter-v1.css', 'newsletter stylesheet is not loaded');
 $requireContains($css, '.cv-landing-newsletter', 'newsletter section styles are missing');
