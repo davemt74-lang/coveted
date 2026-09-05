@@ -4,9 +4,44 @@ declare(strict_types=1);
 require_once __DIR__ . '/member_sample_data.php';
 require_once __DIR__ . '/events.php';
 
+/**
+ * Home v2 is introduced without changing the global bootstrap contract yet.
+ * Install its CSS/JS through one output-buffer pass so the current page shell
+ * can be upgraded safely while the remaining member templates migrate.
+ */
+function coveted_member_home_v2_install_assets(): void
+{
+    static $installed = false;
+    if ($installed || PHP_SAPI === 'cli') {
+        return;
+    }
+    $installed = true;
+
+    $cssVersion = coveted_asset_version('assets/css/member-v2.css');
+    $jsVersion = coveted_asset_version('assets/js/member-v2.js');
+    $cssTag = '<link rel="stylesheet" href="/assets/css/member-v2.css?v=' . coveted_e($cssVersion) . '">';
+    $jsTag = '<script src="/assets/js/member-v2.js?v=' . coveted_e($jsVersion) . '" defer></script>';
+
+    ob_start(static function (string $html) use ($cssTag, $jsTag): string {
+        if (str_contains($html, '/assets/css/member-v2.css')) {
+            return $html;
+        }
+
+        if (str_contains($html, '</head>')) {
+            $html = str_replace('</head>', '    ' . $cssTag . "\n</head>", $html);
+        }
+        if (str_contains($html, '</body>')) {
+            $html = str_replace('</body>', $jsTag . "\n</body>", $html);
+        }
+
+        return $html;
+    });
+}
+
 /** @return array<string,mixed> */
 function coveted_member_home_v2_data(array $user, ?PDO $pdo = null): array
 {
+    coveted_member_home_v2_install_assets();
     $pdo ??= coveted_db();
 
     if (coveted_member_sample_mode($user, $pdo)) {
