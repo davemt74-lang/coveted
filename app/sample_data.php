@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/events.php';
+require_once __DIR__ . '/nationwide_cities.php';
 
 /**
  * Synthetic landing-page events used only when System Admin enables sample mode.
@@ -58,5 +59,33 @@ function coveted_sample_landing_events(?DateTimeImmutable $now = null): array
             'starts_at' => $makeStart($baseLocal, '+18 days'),
             'is_sample' => true,
         ],
+    ];
+}
+
+/**
+ * Public landing-page city strip. This is intentionally sample presentation
+ * data for now; the canonical city names mirror the nationwide city seed.
+ *
+ * @return array<int,array{name:string,region:string}>
+ */
+function coveted_sample_landing_cities(): array
+{
+    return array_map(
+        static fn(array $city): array => [
+            'name' => (string)$city['name'],
+            'region' => (string)$city['region'],
+        ],
+        coveted_nationwide_city_seed_rows()
+    );
+}
+
+/** @return array<string,int> */
+function coveted_sample_landing_network_stats(): array
+{
+    return [
+        'members' => 3248,
+        'events' => 126,
+        'business_partners' => 84,
+        'connections_made' => 9417,
     ];
 }
