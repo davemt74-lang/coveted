@@ -162,9 +162,11 @@ function coveted_member_v2_events(array $user, ?PDO $pdo = null): array
     $isSystemAdmin = coveted_is_system_admin($user);
 
     foreach ($events as &$event) {
-        $event['assigned_host_role'] = $isSystemAdmin
+        $assignedRole = $isSystemAdmin
             ? 'system_admin'
             : (coveted_event_assigned_host_role((int)$event['id'], (int)$user['id']) ?? '');
+        $event['assigned_host_role'] = $assignedRole;
+        $event['can_manage'] = $isSystemAdmin || in_array($assignedRole, ['lead', 'cohost'], true);
         $event['image'] = null;
         $event['attendee_images'] = [];
         $event['is_sample'] = false;
