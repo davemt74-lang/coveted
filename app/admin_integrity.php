@@ -185,11 +185,21 @@ function coveted_admin_integrity_guard_request(): void
     coveted_admin_integrity_guard_replay($action);
 
     $pdo = coveted_db();
-    match ($action) {
-        'create_user' => coveted_admin_integrity_assert_unique_user($pdo),
-        'create_business' => coveted_admin_integrity_assert_unique_business($pdo),
-        'create_group' => coveted_admin_integrity_assert_unique_group($pdo),
-        'create_event' => coveted_admin_integrity_assert_unique_event($pdo),
-        'create_artist' => coveted_admin_integrity_assert_unique_artist($pdo, (int)$user['id']),
-    };
+    switch ($action) {
+        case 'create_user':
+            coveted_admin_integrity_assert_unique_user($pdo);
+            break;
+        case 'create_business':
+            coveted_admin_integrity_assert_unique_business($pdo);
+            break;
+        case 'create_group':
+            coveted_admin_integrity_assert_unique_group($pdo);
+            break;
+        case 'create_event':
+            coveted_admin_integrity_assert_unique_event($pdo);
+            break;
+        case 'create_artist':
+            coveted_admin_integrity_assert_unique_artist($pdo, (int)$user['id']);
+            break;
+    }
 }
