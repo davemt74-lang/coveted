@@ -91,11 +91,6 @@
 }
 
 /* Users */
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content > .cv-section-head,
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content > .cv-section-head + form# create-user {
-    margin-top: 0;
-}
-
 .cv-admin-app[data-admin-shell="control-center-v5"] #create-user.cv-card {
     margin-bottom: 18px;
     padding: 20px;
@@ -122,11 +117,13 @@
     font-size: 9px;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content > .cv-stack {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue {
     gap: 8px;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content > .cv-stack > .cv-admin-row {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list > .cv-admin-row,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue > .cv-admin-row {
     display: grid;
     grid-template-columns: minmax(260px, 1fr) minmax(430px, auto);
     align-items: center;
@@ -140,7 +137,8 @@
     box-shadow: none;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row h3 {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-row h3,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-row h3 {
     margin: 5px 0 2px;
     color: #1c1b18;
     font-size: 14px;
@@ -148,19 +146,21 @@
     letter-spacing: -.02em;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row p {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-row p,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-row p {
     margin: 0;
     color: #89847c;
     font-size: 9px;
     line-height: 1.45;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-tag-row {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-tag-row,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-tag-row {
     gap: 5px;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-pill,
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-kicker {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-pill,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-kicker {
     min-height: 23px;
     padding: 0 7px;
     border: 1px solid #e7e2da;
@@ -172,7 +172,8 @@
     letter-spacing: .07em;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-admin-actions {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-actions,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-actions {
     display: flex;
     align-items: center;
     justify-content: flex-end;
@@ -180,17 +181,18 @@
     flex-wrap: wrap;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-inline-form {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-inline-form,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-inline-form {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     margin: 0;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-inline-form select,
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-inline-form input,
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-admin-actions > form input,
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-admin-actions > form select {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list select,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list input,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue select,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue input {
     min-height: 32px;
     border: 1px solid #ddd8d0;
     border-radius: 9px;
@@ -198,18 +200,19 @@
     font-size: 9px;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-button {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-button,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-button {
     min-height: 32px;
     padding: 0 10px;
     border-radius: 9px;
     font-size: 8px;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row details {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list details {
     position: relative;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row details > form {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list details > form {
     position: absolute;
     right: 0;
     top: calc(100% + 8px);
@@ -222,12 +225,12 @@
     box-shadow: 0 18px 50px rgba(30,28,24,.14);
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row.is-suspended {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-row.is-suspended {
     background: #fbfaf8;
     opacity: .78;
 }
 
-.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row.is-system-admin {
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-row.is-system-admin {
     border-left: 3px solid #27241f;
 }
 
@@ -294,6 +297,7 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    margin-top: 4px;
     color: #777169;
     font-size: 8px;
     font-weight: 700;
@@ -476,13 +480,14 @@
 }
 
 @media (max-width: 1100px) {
-    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content > .cv-stack > .cv-admin-row,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list > .cv-admin-row,
     .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue > .cv-admin-row {
         grid-template-columns: 1fr;
         align-items: start;
     }
 
-    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-admin-actions {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-actions,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-actions {
         justify-content: flex-start;
     }
 }
@@ -504,24 +509,29 @@
         grid-template-columns: 1fr;
     }
 
-    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content > .cv-stack > .cv-admin-row {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list > .cv-admin-row,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue > .cv-admin-row {
         padding: 13px;
     }
 
-    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-admin-actions,
-    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-inline-form {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-actions,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-actions,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-inline-form,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-inline-form {
         width: 100%;
     }
 
-    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-inline-form {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-inline-form,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-inline-form {
         flex-wrap: wrap;
     }
 
-    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row .cv-inline-form select {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-inline-form select,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-inline-form select {
         flex: 1 1 170px;
     }
 
-    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-row details > form {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list details > form {
         position: fixed;
         left: 12px;
         right: 12px;
