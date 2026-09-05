@@ -144,7 +144,6 @@ foreach (['.cv-admin-group-list', '.cv-admin-artist-grid', '.cv-admin-benefit-pa
 
 foreach ([
     '.cv-admin-platform-status',
-    '.cv-admin-platform-links',
     '.cv-admin-operations-v2',
     '.cv-admin-landing-v2',
     '.cv-admin-sample-data-v2',
@@ -196,7 +195,6 @@ foreach ([
     'initSettings',
     'initMobileQA',
     'cv-admin-platform-status',
-    'cv-admin-platform-links',
     "event.key !== 'Escape'",
     'scrollIntoView',
 ] as $fragment) {
