@@ -26,3 +26,26 @@ body:not(.cv-admin-body) a[href="/auth.php?action=register"]::after {
     content: "Request an Invite";
     font-size: 13px;
 }
+
+.cv-crm-toolbar select {
+    min-height: 42px;
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    background: #fff;
+    color: var(--ink);
+    padding: 0 34px 0 11px;
+}
+
+.cv-crm-results-summary {
+    margin: -6px 0 14px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+@media (max-width: 760px) {
+    .cv-crm-toolbar select {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+}
