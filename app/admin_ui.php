@@ -6,6 +6,22 @@ require_once __DIR__ . '/admin_integrity.php';
 
 coveted_admin_integrity_guard_request();
 
+// Admin Agent is the canonical Admin landing surface. This routing guard runs
+// while the shared Admin bootstrap is being required, before coveted_page_start
+// or any other HTML output. Only a bare GET is redirected; explicit views and
+// every POST action continue through their existing controllers unchanged.
+$covetedAdminRequestPath = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
+if (
+    PHP_SAPI !== 'cli'
+    && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'
+    && !array_key_exists('view', $_GET)
+    && in_array($covetedAdminRequestPath, ['/admin', '/admin/', '/admin/index.php'], true)
+) {
+    coveted_require_system_admin();
+    coveted_redirect('/admin/agent.php');
+}
+unset($covetedAdminRequestPath);
+
 /**
  * Read-only counts for the System Admin shell.
  *
