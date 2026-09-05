@@ -18,17 +18,26 @@ try {
 
     coveted_require_csrf();
 
+    $autonomous = coveted_admin_agent_autonomous_actions_enabled(coveted_db());
+    $maxRounds = $autonomous ? 3 : 1;
+    $maxActions = 8;
+
+    // Reserve the worst-case provider-call cost up front. This prevents one
+    // autonomous browser request from multiplying API usage beyond the same
+    // 30-calls / 5-minute session throttle used by ordinary chat requests.
     $now = time();
     $recent = array_values(array_filter(
         (array)($_SESSION['admin_ai_chat_timestamps'] ?? []),
         static fn(mixed $timestamp): bool => is_int($timestamp) && $timestamp >= $now - 300
     ));
-    if (count($recent) >= 30) {
+    if (count($recent) + $maxRounds > 30) {
         http_response_code(429);
         echo coveted_json(['ok' => false, 'error' => 'Too many Admin Agent requests. Wait a few minutes and try again.']);
         exit;
     }
-    $recent[] = $now;
+    for ($reservation = 0; $reservation < $maxRounds; $reservation++) {
+        $recent[] = $now;
+    }
     $_SESSION['admin_ai_chat_timestamps'] = $recent;
 
     $provider = trim((string)($_POST['provider'] ?? ''));
@@ -65,13 +74,10 @@ try {
     $dialogue = array_slice($dialogue, -20);
     $dialogue[] = ['role' => 'user', 'content' => $message];
 
-    $autonomous = coveted_admin_agent_autonomous_actions_enabled(coveted_db());
     $executedActions = [];
     $visibleChunks = [];
     $providerResult = null;
     $totalActionCount = 0;
-    $maxRounds = $autonomous ? 3 : 1;
-    $maxActions = 8;
     $brain = [];
 
     for ($round = 0; $round < $maxRounds; $round++) {
