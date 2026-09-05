@@ -11,7 +11,7 @@ $error = '';
 $saved = trim((string)($_GET['saved'] ?? ''));
 $notice = match ($saved) {
     'events' => 'Upcoming Events visibility updated.',
-    'sample' => 'Landing page sample data setting updated.',
+    'sample' => 'Landing page sample events updated.',
     default => '',
 };
 
@@ -25,10 +25,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($action) {
             case 'set_landing_events':
                 coveted_site_setting_set_bool(COVETED_SETTING_LANDING_EVENTS, $enabled, $admin, $pdo);
+
+                // The sample-event switch is a content source for this section, not a
+                // separate hidden mode. Hiding Upcoming Events also turns sample mode
+                // off so Admin can never be left with an ON sample state that is not
+                // visible on the public landing page.
+                if (!$enabled && coveted_site_setting_bool(COVETED_SETTING_LANDING_SAMPLE_EVENTS, false, $pdo)) {
+                    coveted_site_setting_set_bool(COVETED_SETTING_LANDING_SAMPLE_EVENTS, false, $admin, $pdo);
+                }
+
                 coveted_redirect('/admin/landing.php?saved=events');
                 break;
 
             case 'set_landing_sample_events':
+                // Turning sample events on must make them visible immediately. Keep
+                // the public Upcoming Events section enabled before selecting sample
+                // data as its source.
+                if ($enabled) {
+                    coveted_site_setting_set_bool(COVETED_SETTING_LANDING_EVENTS, true, $admin, $pdo);
+                }
                 coveted_site_setting_set_bool(COVETED_SETTING_LANDING_SAMPLE_EVENTS, $enabled, $admin, $pdo);
                 coveted_redirect('/admin/landing.php?saved=sample');
                 break;
@@ -79,7 +94,7 @@ coveted_admin_ui_start($admin, 'landing', 'Landing Page');
         <h1>Landing page.</h1>
         <p>Control which event content is visible before a visitor signs in.</p>
     </div>
-    <a class="cv-button cv-button-soft" href="/" target="_blank" rel="noopener">Preview Landing Page</a>
+    <a class="cv-button cv-button-soft" href="/" target="_blank" rel="noopener">Open Public Site</a>
 </div>
 
 <?php if ($error !== ''): ?><div class="cv-alert"><?= coveted_e($error) ?></div><?php endif; ?>
@@ -125,16 +140,17 @@ coveted_admin_ui_start($admin, 'landing', 'Landing Page');
             of live event records. Nothing is inserted into the database and no sample record can receive
             invitations, RSVPs, attendance, campaigns or rewards.
         </p>
-        <?php if (!$landingEventsEnabled): ?>
-            <p class="cv-form-help">Sample data is enabled independently, but it is not visible publicly while the Upcoming Events section is OFF.</p>
-        <?php endif; ?>
+        <p class="cv-form-help">
+            Turning sample events ON also turns the public Upcoming Events section ON, so the preview is visible immediately.
+            Hiding Upcoming Events turns sample mode OFF as well.
+        </p>
 
         <form method="post" class="cv-action-row">
             <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
             <input type="hidden" name="action" value="set_landing_sample_events">
             <input type="hidden" name="enabled" value="<?= $sampleEventsEnabled ? '0' : '1' ?>">
             <button class="cv-button <?= $sampleEventsEnabled ? 'cv-button-soft' : 'cv-button-primary' ?>" type="submit">
-                <?= $sampleEventsEnabled ? 'Turn Sample Data Off' : 'Turn Sample Data On' ?>
+                <?= $sampleEventsEnabled ? 'Turn Sample Events Off' : 'Show Sample Events' ?>
             </button>
         </form>
     </section>
@@ -142,9 +158,9 @@ coveted_admin_ui_start($admin, 'landing', 'Landing Page');
 
 <div class="cv-section-head cv-admin-section-gap">
     <div>
-        <span class="cv-eyebrow">PUBLIC PREVIEW</span>
-        <h2><?= $sampleEventsEnabled ? 'Synthetic events shown on the landing page' : 'Live events eligible for the section' ?></h2>
-        <p><?= $sampleEventsEnabled ? 'Sample mode replaces live event cards without writing any sample records.' : 'The public page uses this same filter and ordering.' ?></p>
+        <span class="cv-eyebrow">PUBLIC PREVIEW DATA</span>
+        <h2><?= $sampleEventsEnabled ? 'Synthetic events selected for the landing page' : 'Live events eligible for the section' ?></h2>
+        <p><?= $sampleEventsEnabled ? 'These four sample events replace live event cards without writing any sample records.' : 'The public page uses this same filter and ordering.' ?></p>
     </div>
     <span class="cv-pill"><?= count($previewEvents) ?> shown</span>
 </div>
