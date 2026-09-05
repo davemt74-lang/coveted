@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
+require_once dirname(__DIR__) . '/app/admin_agent_actions.php';
 require_once dirname(__DIR__) . '/app/site_branding.php';
 
 $admin = coveted_require_system_admin();
@@ -10,6 +11,7 @@ $pdo = coveted_db();
 $error = '';
 $brainError = '';
 $crmCursor = 0;
+$autonomousActionsEnabled = coveted_admin_agent_autonomous_actions_enabled($pdo);
 
 try {
     $providers = coveted_ai_provider_statuses($pdo);
@@ -59,6 +61,7 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
      data-endpoint="/api/admin-agent-chat.php"
      data-activity-endpoint="/api/admin-agent-activity.php"
      data-crm-cursor="<?= $crmCursor ?>"
+     data-autonomous-actions="<?= $autonomousActionsEnabled ? '1' : '0' ?>"
      data-csrf="<?= coveted_e(coveted_csrf_token()) ?>"
      data-start-new="<?= isset($_GET['new']) ? '1' : '0' ?>">
     <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
@@ -68,7 +71,10 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
         <div class="cv-admin-agent-empty" data-agent-empty>
             <div class="cv-admin-agent-mark" aria-hidden="true">C</div>
             <h2>What should Coveted work on next?</h2>
-            <p>The Agent reads the current Admin state, operational history and available Coveted tools before it recommends the next move.</p>
+            <p>
+                The Agent reads the current Admin state, operational history and available Coveted tools
+                before it <?= $autonomousActionsEnabled ? 'recommends or autonomously executes an allowlisted Admin action.' : 'recommends the next move.' ?>
+            </p>
 
             <div class="cv-stat-grid cv-stat-grid-compact" aria-label="Admin Agent readiness">
                 <div class="cv-card cv-stat">
@@ -82,6 +88,10 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
                 <div class="cv-card cv-stat">
                     <strong><?= count((array)($brain['memory'] ?? [])) ?></strong>
                     <span>Recent tracked changes</span>
+                </div>
+                <div class="cv-card cv-stat">
+                    <strong><?= $autonomousActionsEnabled ? 'ON' : 'OFF' ?></strong>
+                    <span>Autonomous actions</span>
                 </div>
             </div>
 
@@ -132,6 +142,9 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
                     <button type="button" data-agent-starter="Review my current Coveted opportunities and tell me the three highest-value actions to take next. Use the live server context and explain why each one matters.">Prioritize my opportunities</button>
                     <button type="button" data-agent-starter="Audit the current Coveted setup for launch readiness. Tell me what is complete, what is incomplete, and what I should do next without inventing requirements that are not in the system.">Audit launch readiness</button>
                     <button type="button" data-agent-starter="Review recent Coveted operational and audit history. What changed, what needs attention, and what opportunity should I act on now?">Review recent activity</button>
+                    <?php if ($autonomousActionsEnabled): ?>
+                        <button type="button" data-agent-starter="Review the live Coveted state and autonomously complete the highest-value allowlisted Admin action that is clearly justified by the current data. Do not invent missing IDs or requirements.">Act on the top opportunity</button>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
         </div>
@@ -156,8 +169,8 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
                 <button type="submit" class="cv-admin-agent-send" aria-label="Send message" <?= !$chatProviders ? 'disabled' : '' ?>>↑</button>
             </div>
             <div class="cv-admin-agent-composer-meta">
-                <span data-agent-status><?= $chatProviders ? 'Live platform context ready' : 'Provider required' ?></span>
-                <span>System Admin only · canonical state · server-side credentials</span>
+                <span data-agent-status><?= $chatProviders ? ($autonomousActionsEnabled ? 'Ready · Autonomous actions ON' : 'Ready · Read/advise mode') : 'Provider required' ?></span>
+                <span><a href="/admin/ai-settings.php">Autonomous actions <?= $autonomousActionsEnabled ? 'ON' : 'OFF' ?></a> · System Admin only · canonical services</span>
             </div>
         </form>
     </div>
