@@ -24,6 +24,8 @@ $mustContain = [
     ['app/events.php', $events, "function coveted_event_assign_host(array \$actor, string \$eventRef, int \$userId, string \$hostRole): void\n{\n    coveted_event_require_system_admin(\$actor);"],
     ['host.php', $host, '$canConfigure = $selectedEvent && $isSystemAdmin && !$isFinalEvent;'],
     ['host.php', $host, 'No assigned events yet.'],
+    ['host.php', $host, '$hasEventAssignment = (bool)$assignmentStmt->fetchColumn();'],
+    ['events.php', $calendar, '$hasHostWorkspaceAccess = $isApprovedHost || $hostingCount > 0;'],
     ['events.php', $calendar, "'hosting' => 'Your host assignments'"],
     ['group.php', $group, 'Coveted Admin creates and configures gatherings.'],
 ];

@@ -59,6 +59,7 @@ $hostHistory = array_values(array_filter(
 ));
 $hostingEvents = array_merge($hostUpcoming, $hostHistory);
 $hostingCount = count($hostingEvents);
+$hasHostWorkspaceAccess = $isApprovedHost || $hostingCount > 0;
 
 $view = strtolower(trim((string)($_GET['view'] ?? 'upcoming')));
 if ($view === 'past') {
@@ -108,9 +109,9 @@ coveted_page_start('Events', 'Events');
         <strong><?= $mysteryCount ?></strong>
         <span>Mystery</span>
     </a>
-    <a class="cv-card cv-stat" href="<?= $isApprovedHost ? '/events.php?view=hosting' : '/events.php?view=history' ?>">
-        <strong><?= $isApprovedHost ? $hostingCount : count($historyEvents) ?></strong>
-        <span><?= $isApprovedHost ? 'Hosting' : 'History' ?></span>
+    <a class="cv-card cv-stat" href="<?= $hasHostWorkspaceAccess ? '/events.php?view=hosting' : '/events.php?view=history' ?>">
+        <strong><?= $hasHostWorkspaceAccess ? $hostingCount : count($historyEvents) ?></strong>
+        <span><?= $hasHostWorkspaceAccess ? 'Hosting' : 'History' ?></span>
     </a>
 </section>
 
@@ -173,7 +174,7 @@ coveted_page_start('Events', 'Events');
         <?php if ($view === 'history' && $reconnectHistory): ?>
             <a class="cv-button" href="/reconnect.php">Mutual Reconnect</a>
         <?php endif; ?>
-        <?php if ($isApprovedHost): ?>
+        <?php if ($hasHostWorkspaceAccess): ?>
             <a class="cv-button cv-button-soft" href="/host.php">Host Workspace</a>
         <?php endif; ?>
     </div>
@@ -183,7 +184,7 @@ coveted_page_start('Events', 'Events');
     <a class="cv-tab <?= $view === 'upcoming' ? 'is-active' : '' ?>" href="/events.php?view=upcoming">Upcoming</a>
     <a class="cv-tab <?= $view === 'history' ? 'is-active' : '' ?>" href="/events.php?view=history">History</a>
     <a class="cv-tab <?= $view === 'mystery' ? 'is-active' : '' ?>" href="/events.php?view=mystery">Mystery</a>
-    <?php if ($isApprovedHost): ?>
+    <?php if ($hasHostWorkspaceAccess): ?>
         <a class="cv-tab <?= $view === 'hosting' ? 'is-active' : '' ?>" href="/events.php?view=hosting">Hosting</a>
     <?php endif; ?>
 </nav>
@@ -203,7 +204,7 @@ coveted_page_start('Events', 'Events');
                 'hosting' => 'Coveted Admin will assign you when a gathering needs host support.',
                 default => 'Join a group or accept an invitation and the gathering will appear here.',
             } ?></p>
-            <?php if ($view === 'hosting' && $isApprovedHost): ?><a class="cv-button" href="/host.php">Open Host Workspace</a><?php endif; ?>
+            <?php if ($view === 'hosting' && $hasHostWorkspaceAccess): ?><a class="cv-button" href="/host.php">Open Host Workspace</a><?php endif; ?>
         </div>
     <?php endif; ?>
 

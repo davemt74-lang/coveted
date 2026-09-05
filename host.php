@@ -5,8 +5,12 @@ require_once __DIR__ . '/app/event_management.php';
 
 $user = coveted_require_user();
 $isSystemAdmin = coveted_is_system_admin($user);
+$hasHostApproval = coveted_event_actor_has_host_approval($user);
+$assignmentStmt = coveted_db()->prepare('SELECT 1 FROM event_hosts WHERE user_id = ? LIMIT 1');
+$assignmentStmt->execute([(int)$user['id']]);
+$hasEventAssignment = (bool)$assignmentStmt->fetchColumn();
 
-if (!coveted_event_actor_has_host_approval($user)) {
+if (!$hasHostApproval && !$hasEventAssignment) {
     http_response_code(403);
     coveted_page_start('Host Workspace', 'Events');
     ?>
