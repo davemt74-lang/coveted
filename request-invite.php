@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/app/invite_profile.php';
+require_once __DIR__ . '/app/nationwide_cities.php';
 
 $pdo = coveted_db();
 $error = '';
@@ -11,6 +12,7 @@ $user = coveted_current_user();
 try {
     coveted_invite_crm_ensure_schema($pdo);
     coveted_invite_profile_ensure_schema($pdo);
+    coveted_sync_nationwide_cities($pdo);
     $cities = coveted_cities_list('active', $pdo);
 } catch (Throwable $e) {
     error_log('Invite request city/profile load failed: ' . $e->getMessage());
