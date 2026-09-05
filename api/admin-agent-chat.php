@@ -16,6 +16,19 @@ try {
 
     coveted_require_csrf();
 
+    $now = time();
+    $recent = array_values(array_filter(
+        (array)($_SESSION['admin_ai_chat_timestamps'] ?? []),
+        static fn(mixed $timestamp): bool => is_int($timestamp) && $timestamp >= $now - 300
+    ));
+    if (count($recent) >= 30) {
+        http_response_code(429);
+        echo coveted_json(['ok' => false, 'error' => 'Too many Admin Agent requests. Wait a few minutes and try again.']);
+        exit;
+    }
+    $recent[] = $now;
+    $_SESSION['admin_ai_chat_timestamps'] = $recent;
+
     $provider = trim((string)($_POST['provider'] ?? ''));
     $message = trim((string)($_POST['message'] ?? ''));
     if ($message === '') {
