@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/app/campaigns.php';
 require_once __DIR__ . '/app/outcomes.php';
+require_once __DIR__ . '/app/admin_ui.php';
 
 $user = coveted_require_user();
 $isSystemAdmin = coveted_is_system_admin($user);
@@ -199,7 +200,16 @@ $formatBusinessTime = static function (?string $value): string {
     return coveted_utc_datetime($value)->setTimezone(coveted_timezone())->format('M j, Y · g:i A');
 };
 
-coveted_page_start('Business');
+if ($isSystemAdmin) {
+    coveted_page_start('Business', '', true);
+    coveted_admin_ui_start(
+        $user,
+        'businesses',
+        $business ? (string)$business['name'] : 'Business Workspace'
+    );
+} else {
+    coveted_page_start('Business');
+}
 ?>
 <section class="cv-page-heading">
     <span class="cv-eyebrow">BUSINESS WORKSPACE</span>
@@ -229,7 +239,13 @@ coveted_page_start('Business');
             <a class="cv-text-link" href="/profile.php">Back to Profile →</a>
         </div>
     <?php endif; ?>
-    <?php coveted_page_end(); exit; ?>
+    <?php
+    if ($isSystemAdmin) {
+        coveted_admin_ui_end();
+    }
+    coveted_page_end();
+    exit;
+    ?>
 <?php endif; ?>
 
 <?php
@@ -772,4 +788,9 @@ if ($tab === 'admins') {
     </section>
 <?php endif; ?>
 
-<?php coveted_page_end(); ?>
+<?php
+if ($isSystemAdmin) {
+    coveted_admin_ui_end();
+}
+coveted_page_end();
+?>

@@ -1172,7 +1172,7 @@ body:has(.cv-auth-shell) .cv-main {
 .cv-distribution-form,
 .cv-claim-form {
     margin-top: 16px;
-    padding-top: 16px;
+    padding-top: 10px;
     border-top: 1px solid var(--line);
 }
 
@@ -2379,7 +2379,8 @@ body:has(.cv-app-topbar) .cv-main {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
-    padding: 22px 16px 18px;
+    padding: 18px 14px 14px;
+    border-right: 1px solid #e1e1de;
     background: #171716;
     color: #fff;
 }
@@ -2388,9 +2389,9 @@ body:has(.cv-app-topbar) .cv-main {
     display: flex;
     align-items: baseline;
     gap: 8px;
-    min-height: 48px;
-    padding: 0 10px 18px;
-    border-bottom: 1px solid rgba(255,255,255,.1);
+    min-height: 44px;
+    padding: 0 10px 12px;
+    border-bottom: 1px solid #e8e8e5;
 }
 
 .cv-admin-brand > span {
@@ -2400,7 +2401,7 @@ body:has(.cv-app-topbar) .cv-main {
 }
 
 .cv-admin-brand small {
-    color: rgba(255,255,255,.46);
+    color: #8a8a86;
     font-size: 9px;
     font-weight: 800;
     letter-spacing: .14em;
@@ -2409,19 +2410,19 @@ body:has(.cv-app-topbar) .cv-main {
 .cv-admin-primary-nav {
     display: grid;
     gap: 0;
-    padding-top: 8px;
+    padding-top: 6px;
 }
 
 .cv-admin-primary-nav .cv-admin-nav-group {
     display: grid;
-    gap: 3px;
-    padding: 13px 0;
-    border-bottom: 1px solid rgba(255,255,255,.08);
+    gap: 2px;
+    padding: 8px 0;
+    border-bottom: 1px solid #ececea;
 }
 
 .cv-admin-primary-nav .cv-admin-nav-label {
-    padding: 0 10px 5px;
-    color: rgba(255,255,255,.36);
+    padding: 0 10px 3px;
+    color: #9a9a96;
     font-size: 9px;
     font-weight: 850;
     letter-spacing: .14em;
@@ -2431,18 +2432,19 @@ body:has(.cv-app-topbar) .cv-main {
     display: flex;
     align-items: center;
     gap: 10px;
-    min-height: 38px;
+    min-height: 32px;
     padding: 0 10px;
-    border-radius: 8px;
-    color: rgba(255,255,255,.68);
-    font-size: 12px;
+    border-radius: 7px;
+    color: #62625f;
+    font-size: 11.5px;
     font-weight: 680;
+    line-height: 1.1;
     transition: background .14s ease, color .14s ease;
 }
 
 .cv-admin-primary-nav a:hover {
-    background: rgba(255,255,255,.07);
-    color: #fff;
+    background: #f3f3f1;
+    color: #171716;
 }
 
 .cv-admin-primary-nav a.is-active {
@@ -2463,8 +2465,8 @@ body:has(.cv-app-topbar) .cv-main {
     margin-left: auto;
     padding: 3px 6px;
     border-radius: 999px;
-    background: rgba(255,255,255,.08);
-    color: rgba(255,255,255,.62);
+    background: #efefec;
+    color: #747470;
     text-align: center;
     font-size: 9px;
     font-weight: 800;
@@ -2472,8 +2474,8 @@ body:has(.cv-app-topbar) .cv-main {
 
 .cv-admin-primary-nav a.is-active .cv-admin-nav-count,
 .cv-admin-primary-nav a.is-active .cv-admin-nav-progress {
-    background: #e9e9e6;
-    color: #252524;
+    background: rgba(255,255,255,.14);
+    color: #fff;
 }
 
 .cv-admin-sidebar-footer {
@@ -2483,16 +2485,16 @@ body:has(.cv-app-topbar) .cv-main {
 
 .cv-admin-sidebar-footer a {
     display: block;
-    padding: 10px;
-    border-radius: 8px;
-    color: rgba(255,255,255,.52);
+    padding: 8px 10px;
+    border-radius: 7px;
+    color: #7c7c78;
     font-size: 11px;
     font-weight: 700;
 }
 
 .cv-admin-sidebar-footer a:hover {
-    background: rgba(255,255,255,.06);
-    color: #fff;
+    background: #f3f3f1;
+    color: #171716;
 }
 
 .cv-admin-workspace {
@@ -3296,7 +3298,7 @@ body:has(.cv-app-topbar) .cv-main {
     .cv-admin-primary-nav a {
         flex: 0 0 auto;
         min-height: 36px;
-        border: 1px solid rgba(255,255,255,.1);
+        border: 1px solid #e1e1de;
     }
 
     .cv-admin-workspace { margin-left: 0; }
