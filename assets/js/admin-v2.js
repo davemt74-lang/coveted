@@ -56,9 +56,9 @@
         return toolbar;
     };
 
-    const attachFilterBehavior = ({toolbar, rows, matchesFilter, emptyText = 'No records match this filter.'}) => {
+    const attachFilterBehavior = ({toolbar, rows, matchesFilter, emptyText = 'No records match this filter.', emptyClass = 'cv-admin-filter-empty'}) => {
         const empty = document.createElement('div');
-        empty.className = 'cv-admin-filter-empty';
+        empty.className = emptyClass;
         empty.hidden = true;
         empty.textContent = emptyText;
         toolbar.insertAdjacentElement('afterend', empty);
@@ -126,6 +126,11 @@
         ];
 
         const toolbar = makeToolbar({className: 'cv-admin-event-toolbar', filters, searchPlaceholder: 'Search events, groups or status'});
+        toolbar.querySelector('.cv-admin-filter-set')?.classList.add('cv-admin-event-filters');
+        toolbar.querySelector('.cv-admin-toolbar-search')?.classList.add('cv-admin-event-search');
+        toolbar.querySelectorAll('[data-filter]').forEach((button) => {
+            button.dataset.status = button.dataset.filter || 'all';
+        });
         const scroll = eventCard.querySelector('.cv-admin-table-scroll');
         eventCard.insertBefore(toolbar, scroll || null);
         attachFilterBehavior({
@@ -133,6 +138,7 @@
             rows,
             matchesFilter: (row, filter) => row.dataset.adminEventStatus === filter,
             emptyText: 'No events match this filter.',
+            emptyClass: 'cv-admin-event-filter-empty',
         });
     };
 
