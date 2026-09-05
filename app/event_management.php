@@ -28,6 +28,7 @@ function coveted_event_manage_locked(PDO $pdo, array $actor, string $eventRef): 
 
 function coveted_event_update(array $actor, string $eventRef, array $data): void
 {
+    coveted_event_require_system_admin($actor);
     $input = coveted_event_validate_input($data);
     $pdo = coveted_db();
     $pdo->beginTransaction();
@@ -108,6 +109,7 @@ function coveted_event_set_location(
     string $privateLabel = '',
     string $revealNotes = ''
 ): void {
+    coveted_event_require_system_admin($actor);
     $privateLabel = trim($privateLabel);
     $revealNotes = trim($revealNotes);
     if (mb_strlen($privateLabel) > 255 || mb_strlen($revealNotes) > 5000) {
@@ -205,6 +207,7 @@ function coveted_event_set_artist(
     int $artistId,
     string $appearanceType = 'featured'
 ): void {
+    coveted_event_require_system_admin($actor);
     $appearanceType = strtolower(trim($appearanceType));
     if (!in_array($appearanceType, ['featured','support','dj','session','mystery'], true)) {
         throw new InvalidArgumentException('Invalid artist appearance type.');
@@ -247,6 +250,7 @@ function coveted_event_set_artist(
 
 function coveted_event_remove_artist(array $actor, string $eventRef, int $artistId): void
 {
+    coveted_event_require_system_admin($actor);
     $pdo = coveted_db();
     $pdo->beginTransaction();
     try {
@@ -420,6 +424,7 @@ function coveted_event_add_mystery_reveal(
     string $title,
     string $content
 ): int {
+    coveted_event_require_system_admin($actor);
     $revealType = strtolower(trim($revealType));
     $title = trim($title);
     $content = trim($content);

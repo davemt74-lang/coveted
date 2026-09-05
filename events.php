@@ -6,6 +6,13 @@ require_once __DIR__ . '/app/events.php';
 $user = coveted_require_user();
 $events = coveted_events_for_user($user, 100);
 $isApprovedHost = coveted_event_actor_has_host_approval($user);
+$isSystemAdmin = coveted_is_system_admin($user);
+foreach ($events as &$event) {
+    $event['assigned_host_role'] = $isSystemAdmin
+        ? 'system_admin'
+        : (coveted_event_assigned_host_role((int)$event['id'], (int)$user['id']) ?? '');
+}
+unset($event);
 $now = time();
 
 $upcomingEvents = array_values(array_filter(
@@ -44,14 +51,15 @@ $mysteryCount = count(array_filter(
 
 $hostUpcoming = array_values(array_filter(
     $upcomingEvents,
-    static fn(array $event): bool => !empty($event['can_manage'])
+    static fn(array $event): bool => !empty($event['assigned_host_role'])
 ));
 $hostHistory = array_values(array_filter(
     $historyEvents,
-    static fn(array $event): bool => !empty($event['can_manage'])
+    static fn(array $event): bool => !empty($event['assigned_host_role'])
 ));
 $hostingEvents = array_merge($hostUpcoming, $hostHistory);
 $hostingCount = count($hostingEvents);
+$hasHostWorkspaceAccess = $isApprovedHost || $hostingCount > 0;
 
 $view = strtolower(trim((string)($_GET['view'] ?? 'upcoming')));
 if ($view === 'past') {
@@ -101,16 +109,17 @@ coveted_page_start('Events', 'Events');
         <strong><?= $mysteryCount ?></strong>
         <span>Mystery</span>
     </a>
-    <a class="cv-card cv-stat" href="<?= $isApprovedHost ? '/events.php?view=hosting' : '/events.php?view=history' ?>">
-        <strong><?= $isApprovedHost ? $hostingCount : count($historyEvents) ?></strong>
-        <span><?= $isApprovedHost ? 'Hosting' : 'History' ?></span>
+    <a class="cv-card cv-stat" href="<?= $hasHostWorkspaceAccess ? '/events.php?view=hosting' : '/events.php?view=history' ?>">
+        <strong><?= $hasHostWorkspaceAccess ? $hostingCount : count($historyEvents) ?></strong>
+        <span><?= $hasHostWorkspaceAccess ? 'Hosting' : 'History' ?></span>
     </a>
 </section>
 
 <?php if ($featuredEvent): ?>
     <?php
     $featuredCanManage = (bool)$featuredEvent['can_manage'];
-    $featuredShowLocation = $featuredCanManage
+    $featuredIsHost = $featuredCanManage || !empty($featuredEvent['assigned_host_role']);
+    $featuredShowLocation = $featuredIsHost
         || $featuredEvent['location_visibility'] === 'immediate'
         || (
             $featuredEvent['location_visibility'] === 'scheduled_reveal'
@@ -118,7 +127,7 @@ coveted_page_start('Events', 'Events');
         );
     $featuredLabel = $featuredEvent['response'] === 'attending'
         ? 'NEXT GATHERING'
-        : ($featuredCanManage
+        : ($featuredIsHost
             ? 'NEXT EVENT YOU HOST'
             : ($featuredEvent['invitation_status'] === 'pending' ? 'INVITATION WAITING' : 'UPCOMING'));
     ?>
@@ -138,12 +147,12 @@ coveted_page_start('Events', 'Events');
             <?php if ($featuredEvent['response'] === 'waitlist'): ?><span class="cv-pill">Waitlist</span><?php endif; ?>
             <?php if ($featuredEvent['event_type'] === 'mystery'): ?><span class="cv-pill">Mystery gathering</span><?php endif; ?>
             <?php if ($featuredEvent['audience'] === 'invitation_only'): ?><span class="cv-pill">Invitation only</span><?php endif; ?>
-            <?php if ($featuredCanManage): ?><span class="cv-pill">Host</span><?php endif; ?>
+            <?php if ($featuredIsHost): ?><span class="cv-pill">Host</span><?php endif; ?>
         </div>
         <div class="cv-action-row">
             <a class="cv-button" href="/event.php?event=<?= coveted_e(rawurlencode((string)$featuredEvent['public_id'])) ?>">View Event</a>
-            <?php if ($featuredCanManage): ?>
-                <a class="cv-button cv-button-soft" href="/host.php?event=<?= coveted_e($featuredEvent['public_id']) ?>">Manage Event</a>
+            <?php if ($featuredIsHost): ?>
+                <a class="cv-button cv-button-soft" href="/host.php?event=<?= coveted_e($featuredEvent['public_id']) ?>">Host Workspace</a>
             <?php elseif ($featuredEvent['invitation_status'] === 'pending'): ?>
                 <a class="cv-button cv-button-soft" href="/invitations.php?view=pending">Respond</a>
             <?php endif; ?>
@@ -157,7 +166,7 @@ coveted_page_start('Events', 'Events');
         <h2><?= match ($view) {
             'history' => 'Event history',
             'mystery' => 'Mystery gatherings',
-            'hosting' => 'Events you manage',
+            'hosting' => 'Your host assignments',
             default => 'Upcoming gatherings',
         } ?></h2>
     </div>
@@ -165,7 +174,7 @@ coveted_page_start('Events', 'Events');
         <?php if ($view === 'history' && $reconnectHistory): ?>
             <a class="cv-button" href="/reconnect.php">Mutual Reconnect</a>
         <?php endif; ?>
-        <?php if ($isApprovedHost): ?>
+        <?php if ($hasHostWorkspaceAccess): ?>
             <a class="cv-button cv-button-soft" href="/host.php">Host Workspace</a>
         <?php endif; ?>
     </div>
@@ -175,7 +184,7 @@ coveted_page_start('Events', 'Events');
     <a class="cv-tab <?= $view === 'upcoming' ? 'is-active' : '' ?>" href="/events.php?view=upcoming">Upcoming</a>
     <a class="cv-tab <?= $view === 'history' ? 'is-active' : '' ?>" href="/events.php?view=history">History</a>
     <a class="cv-tab <?= $view === 'mystery' ? 'is-active' : '' ?>" href="/events.php?view=mystery">Mystery</a>
-    <?php if ($isApprovedHost): ?>
+    <?php if ($hasHostWorkspaceAccess): ?>
         <a class="cv-tab <?= $view === 'hosting' ? 'is-active' : '' ?>" href="/events.php?view=hosting">Hosting</a>
     <?php endif; ?>
 </nav>
@@ -191,11 +200,11 @@ coveted_page_start('Events', 'Events');
             } ?></h2>
             <p><?= match ($view) {
                 'history' => 'Past and cancelled events will remain here so your calendar stays understandable.',
-                'mystery' => 'Mystery events will appear here when your groups or hosts create them.',
-                'hosting' => 'Create an event when one of your groups is ready to meet.',
+                'mystery' => 'Mystery events will appear here when Coveted Admin schedules them for your groups.',
+                'hosting' => 'Coveted Admin will assign you when a gathering needs host support.',
                 default => 'Join a group or accept an invitation and the gathering will appear here.',
             } ?></p>
-            <?php if ($view === 'hosting' && $isApprovedHost): ?><a class="cv-button" href="/host.php">Create an Event</a><?php endif; ?>
+            <?php if ($view === 'hosting' && $hasHostWorkspaceAccess): ?><a class="cv-button" href="/host.php">Open Host Workspace</a><?php endif; ?>
         </div>
     <?php endif; ?>
 
@@ -203,12 +212,13 @@ coveted_page_start('Events', 'Events');
         <?php
         $future = coveted_event_is_future($event);
         $canManage = (bool)$event['can_manage'];
+        $isHostAssignment = $canManage || !empty($event['assigned_host_role']);
         $verifiedAttendance = in_array(
             (string)($event['attendance_status'] ?? ''),
             ['checked_in', 'attended', 'left_early'],
             true
         );
-        $showLocation = $canManage
+        $showLocation = $isHostAssignment
             || $event['location_visibility'] === 'immediate'
             || (
                 $event['location_visibility'] === 'scheduled_reveal'
@@ -256,7 +266,7 @@ coveted_page_start('Events', 'Events');
                         <span class="cv-pill">Invitation only</span>
                     <?php endif; ?>
                     <?php if ($event['event_type'] === 'mystery'): ?><span class="cv-pill">Mystery</span><?php endif; ?>
-                    <?php if ($canManage): ?><span class="cv-pill">Host</span><?php endif; ?>
+                    <?php if ($isHostAssignment): ?><span class="cv-pill">Host</span><?php endif; ?>
                 </div>
 
                 <div class="cv-action-row">
@@ -264,8 +274,8 @@ coveted_page_start('Events', 'Events');
                     <?php if ($canReconnect): ?>
                         <a class="cv-button cv-button-soft" href="/reconnect.php?event=<?= coveted_e(rawurlencode((string)$event['public_id'])) ?>">Reconnect</a>
                     <?php endif; ?>
-                    <?php if ($canManage): ?>
-                        <a class="cv-button cv-button-soft" href="/host.php?event=<?= coveted_e($event['public_id']) ?>">Manage Event</a>
+                    <?php if ($isHostAssignment): ?>
+                        <a class="cv-button cv-button-soft" href="/host.php?event=<?= coveted_e($event['public_id']) ?>">Host Workspace</a>
                     <?php elseif ($event['invitation_status'] === 'pending' && $future): ?>
                         <a class="cv-button cv-button-soft" href="/invitations.php?view=pending">Respond</a>
                     <?php endif; ?>
