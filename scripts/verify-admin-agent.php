@@ -30,6 +30,7 @@ $providers = $read('app/ai_providers.php');
 $settings = $read('admin/ai-settings.php');
 $agent = $read('admin/agent.php');
 $endpoint = $read('api/admin-agent-chat.php');
+$activityEndpoint = $read('api/admin-agent-activity.php');
 $brain = $read('app/admin_agent_brain.php');
 $branding = $read('app/site_branding.php');
 $brandingPage = $read('admin/branding.php');
@@ -81,6 +82,9 @@ $contains($agent, '/admin/ai-settings.php', 'Admin Agent must link to provider s
 $contains($agent, 'PROACTIVE OPPORTUNITIES', 'Admin Agent proactive opportunity surface is missing');
 $contains($agent, 'Launch readiness', 'Admin Agent readiness score is missing');
 $contains($agent, 'coveted_site_branding_enrich_agent_snapshot', 'branding readiness must be included in the Agent home');
+$contains($agent, 'data-activity-endpoint="/api/admin-agent-activity.php"', 'Admin Agent live activity endpoint is missing');
+$contains($agent, 'data-crm-cursor=', 'Admin Agent must expose a canonical CRM baseline cursor');
+$contains($agent, 'SELECT COALESCE(MAX(id), 0) FROM invite_requests', 'Admin Agent CRM cursor must come from canonical invite requests');
 
 $contains($endpoint, 'coveted_require_system_admin()', 'chat endpoint must require System Admin');
 $contains($endpoint, 'coveted_require_csrf()', 'chat endpoint must enforce CSRF');
@@ -90,6 +94,15 @@ $contains($endpoint, 'coveted_ai_chat(', 'chat endpoint must use server provider
 $contains($endpoint, 'coveted_admin_agent_snapshot(', 'chat endpoint must refresh live canonical Agent context');
 $contains($endpoint, 'coveted_admin_agent_context_message(', 'chat endpoint must send the live brain context to the provider');
 $contains($endpoint, '$messages = array_slice($messages, -20);', 'chat history must reserve room for live server context');
+
+$contains($activityEndpoint, 'coveted_require_system_admin()', 'CRM activity endpoint must require System Admin');
+$contains($activityEndpoint, "(\$_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET'", 'CRM activity endpoint must be read-only GET');
+$contains($activityEndpoint, 'FROM invite_requests ir', 'CRM activity endpoint must read canonical Invite CRM records');
+$contains($activityEndpoint, 'WHERE ir.id > ?', 'CRM activity endpoint must use an incremental cursor');
+$contains($activityEndpoint, 'LIMIT 26', 'CRM activity endpoint must batch results');
+$contains($activityEndpoint, "'available' => false", 'CRM activity endpoint must fail soft when CRM is unavailable');
+$contains($activityEndpoint, "'Cache-Control: no-store", 'CRM activity responses must not be cached');
+$missing($activityEndpoint, 'coveted_ai_chat(', 'CRM polling must never call an AI provider');
 
 $contains($brain, 'coveted_operations_snapshot(', 'Agent brain must reuse the canonical Operations snapshot');
 $contains($brain, 'FROM audit_events', 'Agent brain must use canonical audit history as operational memory');
@@ -127,5 +140,12 @@ $contains($css, '@media (max-width: 720px)', 'Admin Agent mobile layout is missi
 $contains($js, 'sessionStorage', 'chat should preserve the current browser-session conversation');
 $contains($js, 'textContent = entry.content', 'chat response rendering must avoid raw HTML injection');
 $contains($js, "credentials: 'same-origin'", 'chat request must retain the authenticated Admin session');
+$contains($js, "const crmCursorKey = 'coveted.adminAgent.crmCursor.v1';", 'CRM cursor persistence is missing');
+$contains($js, "entry.role === 'activity'", 'CRM activity must render inside the Agent conversation timeline');
+$contains($js, '.filter((entry) => entry.role === \'user\' || entry.role === \'assistant\')', 'CRM activity must not be sent back to the LLM as chat history');
+$contains($js, 'window.setInterval(pollCrm, 60000);', 'CRM activity must poll on a 60-second cadence');
+$contains($js, 'document.hidden', 'CRM polling must pause while the tab is hidden');
+$contains($js, "cache: 'no-store'", 'CRM polling must bypass browser caches');
+$contains($js, 'data.has_more === true', 'CRM activity must continue batched catch-up when needed');
 
 fwrite(STDOUT, "Admin Agent contract verified.\n");
