@@ -1,0 +1,532 @@
+/* Coveted Admin v2 — Platform, public controls, sample data, settings & mobile QA */
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 0 0 18px;
+    padding: 14px 16px;
+    border: 1px solid #e4dfd7;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status-copy {
+    min-width: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status-copy span {
+    display: block;
+    color: #9b958c;
+    font-size: 7px;
+    font-weight: 820;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status-copy strong {
+    display: block;
+    margin-top: 4px;
+    color: #1d1b18;
+    font-size: 13px;
+    font-weight: 720;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status-copy small {
+    display: block;
+    margin-top: 3px;
+    color: #858077;
+    font-size: 9px;
+    line-height: 1.45;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status-pill {
+    flex: 0 0 auto;
+    min-height: 30px;
+    padding: 0 10px;
+    border: 1px solid #ddd8d0;
+    border-radius: 999px;
+    background: #f8f6f2;
+    color: #666159;
+    font-size: 8px;
+    font-weight: 800;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status.is-clear {
+    border-color: #d8e3db;
+    background: #fbfdfb;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status.is-clear .cv-admin-platform-status-pill {
+    border-color: #cbd9cf;
+    background: #eef6f0;
+    color: #3f6d4e;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status.is-attention {
+    border-color: #e8dcc8;
+    background: #fffdf8;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status.is-attention .cv-admin-platform-status-pill {
+    border-color: #e2d2b5;
+    background: #fbf1df;
+    color: #806334;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-links {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 18px;
+    padding: 5px;
+    overflow-x: auto;
+    border: 1px solid #e5e0d9;
+    border-radius: 12px;
+    background: #f7f5f1;
+    scrollbar-width: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-links::-webkit-scrollbar {
+    display: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-links a {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    color: #777169;
+    font-size: 8px;
+    font-weight: 780;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-links a:hover,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-links a.is-active {
+    background: #fff;
+    color: #1e1c19;
+    box-shadow: 0 1px 0 rgba(25,24,21,.05);
+}
+
+/* Operations */
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-page-heading {
+    margin: 0 0 22px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-page-heading h1 {
+    max-width: 760px;
+    margin: 7px 0 8px;
+    color: #191815;
+    font-size: clamp(36px, 4.2vw, 54px);
+    font-weight: 550;
+    line-height: .98;
+    letter-spacing: -.05em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-page-heading p {
+    max-width: 760px;
+    color: #817c74;
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 9px;
+    margin: 0 0 18px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid > .cv-stat {
+    min-height: 108px;
+    margin: 0;
+    padding: 15px;
+    border: 1px solid #e6e2db;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid > .cv-stat strong {
+    display: block;
+    margin: 0 0 20px;
+    color: #1d1b18;
+    font-size: 26px;
+    font-weight: 620;
+    letter-spacing: -.04em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid > .cv-stat span {
+    color: #8b867e;
+    font-size: 8px;
+    font-weight: 780;
+    line-height: 1.35;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid > .cv-stat.is-attention {
+    border-color: #e5d8c2;
+    background: #fffdf8;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid > .cv-stat.is-clear {
+    background: #fbfcfa;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid > .cv-stat.is-activity {
+    background: #f8f7f4;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-admin-platform-list {
+    display: grid;
+    gap: 7px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-admin-platform-list > .cv-admin-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    min-height: 82px;
+    margin: 0;
+    padding: 13px 15px;
+    border: 1px solid #e8e4dd;
+    border-radius: 13px;
+    background: #fff;
+    box-shadow: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-admin-platform-list > .cv-admin-row h3 {
+    margin: 5px 0 2px;
+    color: #1f1d1a;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-admin-platform-list > .cv-admin-row p {
+    margin: 2px 0 0;
+    color: #88837b;
+    font-size: 9px;
+    line-height: 1.4;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-admin-section-gap {
+    margin-top: 24px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-section-head {
+    align-items: end;
+    margin-bottom: 10px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-section-head h2 {
+    margin: 4px 0 0;
+    color: #1e1c19;
+    font-size: 20px;
+    font-weight: 620;
+    letter-spacing: -.035em;
+}
+
+/* Landing page controls */
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-settings-grid > .cv-admin-panel {
+    min-height: 270px;
+    display: flex;
+    flex-direction: column;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-settings-grid > .cv-admin-panel p {
+    color: #7f7a72;
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-settings-grid > .cv-admin-panel .cv-action-row {
+    margin-top: auto;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-settings-grid > .cv-admin-panel.is-enabled {
+    border-color: #d7dfd8;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-settings-grid > .cv-admin-panel.is-disabled {
+    background: #fbfaf8;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-status.is-on,
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-sample-data-v2 .cv-status.is-on {
+    border-color: #cad9cd;
+    background: #eef6f0;
+    color: #3f6c4d;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-status.is-off,
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-sample-data-v2 .cv-status.is-off {
+    background: #f4f2ee;
+    color: #847f77;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-landing-preview-list {
+    display: grid;
+    gap: 8px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-landing-preview-list > .cv-admin-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    min-height: 78px;
+    margin: 0;
+    padding: 13px 15px;
+    border: 1px solid #e8e4dd;
+    border-radius: 13px;
+    background: #fff;
+    box-shadow: none;
+}
+
+/* Sample data */
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-sample-data-v2 .cv-admin-panel:first-of-type {
+    margin-bottom: 16px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-sample-data-v2 .cv-admin-panel:first-of-type p {
+    max-width: 880px;
+    color: #7f7a72;
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-sample-data-v2 .cv-admin-definition-list {
+    display: grid;
+    gap: 0;
+    margin-top: 6px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-sample-data-v2 .cv-admin-definition-list > div {
+    display: grid;
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 18px;
+    padding: 12px 0;
+    border-top: 1px solid #efebe5;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-sample-data-v2 .cv-admin-definition-list > div:first-child {
+    border-top: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-sample-data-v2 .cv-admin-definition-list dt {
+    color: #989289;
+    font-size: 7px;
+    font-weight: 820;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-sample-data-v2 .cv-admin-definition-list dd {
+    margin: 0;
+    color: #4e4a44;
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+/* Settings */
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-settings-grid > .cv-admin-panel {
+    min-height: 220px;
+    position: relative;
+    overflow: hidden;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-settings-grid > .cv-admin-panel::before {
+    content: attr(data-admin-settings-index);
+    position: absolute;
+    right: 16px;
+    top: 14px;
+    color: #d2cdc4;
+    font-size: 11px;
+    font-weight: 760;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-settings-grid h2 {
+    margin: 7px 0 8px;
+    color: #1d1b18;
+    font-size: 20px;
+    font-weight: 620;
+    letter-spacing: -.03em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-settings-grid p {
+    color: #827d75;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-definition-list > div {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+    padding: 8px 0;
+    border-top: 1px solid #efebe5;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-definition-list > div:first-child {
+    border-top: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-definition-list dt {
+    color: #979188;
+    font-size: 7px;
+    font-weight: 820;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-definition-list dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: #514d47;
+    font-size: 9px;
+}
+
+/* Final Admin mobile QA */
+@media (max-width: 980px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-settings-grid,
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-settings-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header {
+        z-index: 80;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header-copy {
+        min-width: 0;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header-copy strong {
+        display: block;
+        max-width: 42vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header-actions {
+        flex: 0 0 auto;
+        gap: 6px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-menu > summary {
+        min-height: 34px;
+        padding: 0 10px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-menu {
+        position: fixed;
+        top: 64px;
+        right: 12px;
+        left: auto;
+        max-height: calc(100dvh - 78px);
+        overflow-y: auto;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content {
+        padding-top: 24px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-page-head,
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-page-heading {
+        margin-bottom: 20px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-page-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-page-head > .cv-button {
+        align-self: flex-start;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-platform-status {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid > .cv-stat {
+        min-height: 96px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-settings-grid,
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-admin-platform-list > .cv-admin-row,
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-landing-v2 .cv-admin-landing-preview-list > .cv-admin-row {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-sample-data-v2 .cv-admin-definition-list > div,
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-settings-v2 .cv-admin-definition-list > div {
+        grid-template-columns: 1fr;
+        gap: 5px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav a {
+        min-height: 38px;
+        padding: 0 11px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav a.is-active {
+        box-shadow: inset 0 -2px 0 #1d1b18;
+    }
+}
+
+@media (max-width: 440px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header-copy strong {
+        max-width: 34vw;
+        font-size: 12px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-menu > summary {
+        font-size: 9px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-avatar-button {
+        width: 34px;
+        height: 34px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid {
+        gap: 7px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid > .cv-stat {
+        padding: 12px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-operations-v2 .cv-stat-grid > .cv-stat strong {
+        font-size: 22px;
+    }
+}
