@@ -59,7 +59,13 @@ if ($existingUser = coveted_current_user()) {
     coveted_redirect($returnPath);
 }
 
-if (!in_array($action, ['login', 'register'], true)) {
+// Coveted is invite-led. Legacy/public registration URLs now enter the CRM
+// request flow instead of creating an unreviewed member account.
+if ($action === 'register') {
+    coveted_redirect('/request-invite.php');
+}
+
+if ($action !== 'login') {
     $action = 'login';
 }
 
@@ -69,17 +75,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     coveted_require_csrf();
 
     try {
-        if ($action === 'register') {
-            $created = coveted_register(
-                (string)($_POST['name'] ?? ''),
-                (string)($_POST['email'] ?? ''),
-                (string)($_POST['password'] ?? '')
-            );
-
-            coveted_establish_session((int)$created['id']);
-            coveted_redirect($returnPath);
-        }
-
         $loggedIn = coveted_login(
             (string)($_POST['email'] ?? ''),
             (string)($_POST['password'] ?? '')
@@ -103,41 +98,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$isRegister = $action === 'register';
-$switchAction = $isRegister ? 'login' : 'register';
-
-coveted_page_start($isRegister ? 'Join' : 'Sign in');
+coveted_page_start('Sign in');
 ?>
 <section class="cv-auth-shell">
     <div class="cv-auth-copy">
         <span class="cv-eyebrow">COVETED</span>
-        <h1><?= $isRegister ? 'Belong somewhere worth showing up for.' : 'Welcome back.' ?></h1>
-        <p><?= $isRegister
-            ? 'Join the people, places, gatherings, artists and benefits that make real life more interesting.'
-            : 'Your invitations, gatherings and member benefits are waiting.' ?></p>
+        <h1>Welcome back.</h1>
+        <p>Your invitations, gatherings and member benefits are waiting.</p>
     </div>
 
-    <form class="cv-card cv-auth-card" method="post" action="/auth.php?action=<?= $isRegister ? 'register' : 'login' ?>">
+    <form class="cv-card cv-auth-card" method="post" action="/auth.php?action=login">
         <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
         <input type="hidden" name="return" value="<?= coveted_e($returnPath) ?>">
 
-        <h2><?= $isRegister ? 'Create your account' : 'Sign in' ?></h2>
+        <h2>Sign in</h2>
 
         <?php if ($error !== ''): ?>
             <div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div>
-        <?php endif; ?>
-
-        <?php if ($isRegister): ?>
-            <label>
-                Name
-                <input
-                    name="name"
-                    autocomplete="name"
-                    maxlength="180"
-                    required
-                    value="<?= coveted_e($_POST['name'] ?? '') ?>"
-                >
-            </label>
         <?php endif; ?>
 
         <label>
@@ -157,22 +134,18 @@ coveted_page_start($isRegister ? 'Join' : 'Sign in');
             <input
                 type="password"
                 name="password"
-                autocomplete="<?= $isRegister ? 'new-password' : 'current-password' ?>"
+                autocomplete="current-password"
                 minlength="10"
                 maxlength="4096"
                 required
             >
         </label>
 
-        <button class="cv-button cv-button-primary cv-button-block" type="submit">
-            <?= $isRegister ? 'Join Coveted' : 'Sign in' ?>
-        </button>
+        <button class="cv-button cv-button-primary cv-button-block" type="submit">Sign in</button>
 
         <p class="cv-auth-switch">
-            <?= $isRegister ? 'Already a member?' : 'New to Coveted?' ?>
-            <a href="/auth.php?action=<?= $switchAction ?>&amp;return=<?= rawurlencode($returnPath) ?>">
-                <?= $isRegister ? 'Sign in' : 'Create an account' ?>
-            </a>
+            New to Coveted?
+            <a href="/request-invite.php">Request an Invite</a>
         </p>
     </form>
 </section>

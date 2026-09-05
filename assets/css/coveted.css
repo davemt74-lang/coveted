@@ -10,3 +10,42 @@
 @import url("./admin-platform-v2.css?v=admin-platform-v2-20260905");
 @import url("./admin-community-cleanup-v2.css?v=admin-community-cleanup-v2-20260905");
 @import url("./landing-event-images.css?v=landing-event-images-20260905");
+@import url("./invite-crm-v2.css?v=invite-crm-v2-20260905");
+
+/* Invite-led public access: legacy register links still redirect server-side,
+   but never present themselves as open self-signup while JS is loading. */
+body:not(.cv-admin-body) a[href="/auth.php?action=register"] {
+    font-size: 0;
+}
+
+body:not(.cv-admin-body) a[href="/auth.php?action=register"] > * {
+    display: none;
+}
+
+body:not(.cv-admin-body) a[href="/auth.php?action=register"]::after {
+    content: "Request an Invite";
+    font-size: 13px;
+}
+
+.cv-crm-toolbar select {
+    min-height: 42px;
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    background: #fff;
+    color: var(--ink);
+    padding: 0 34px 0 11px;
+}
+
+.cv-crm-results-summary {
+    margin: -6px 0 14px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+@media (max-width: 760px) {
+    .cv-crm-toolbar select {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+}

@@ -1,0 +1,635 @@
+/* Invite request + CRM + Cities */
+.cv-invite-request-page {
+    width: min(1120px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 68px 0 96px;
+}
+
+.cv-invite-request-intro {
+    max-width: 780px;
+    margin-bottom: 34px;
+}
+
+.cv-invite-request-back {
+    display: inline-flex;
+    margin-bottom: 42px;
+    color: var(--muted-strong);
+    font-size: 12px;
+    font-weight: 720;
+    text-decoration: none;
+}
+
+.cv-invite-request-intro h1 {
+    max-width: 720px;
+    margin: 10px 0 18px;
+    font-size: clamp(44px, 7vw, 82px);
+    line-height: .95;
+    letter-spacing: -.065em;
+}
+
+.cv-invite-request-intro p {
+    max-width: 720px;
+    color: var(--muted-strong);
+    font-size: 17px;
+    line-height: 1.65;
+}
+
+.cv-invite-request-form {
+    overflow: hidden;
+    padding: 0;
+    border-radius: 22px;
+}
+
+.cv-invite-form-section {
+    display: grid;
+    grid-template-columns: minmax(190px, .34fr) minmax(0, 1fr);
+    gap: 36px;
+    padding: 34px;
+    border-bottom: 1px solid var(--line);
+}
+
+.cv-invite-form-section > div:first-child > span {
+    display: block;
+    margin-bottom: 12px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .12em;
+}
+
+.cv-invite-form-section h2 {
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: -.04em;
+}
+
+.cv-invite-form-section > div:first-child p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.cv-invite-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.cv-invite-form-grid label,
+.cv-activation-form label {
+    display: grid;
+    gap: 8px;
+    color: var(--muted-strong);
+    font-size: 12px;
+    font-weight: 740;
+}
+
+.cv-invite-form-grid label small {
+    color: var(--muted);
+    font-weight: 560;
+}
+
+.cv-invite-form-grid input,
+.cv-invite-form-grid select,
+.cv-invite-form-grid textarea,
+.cv-crm-toolbar input,
+.cv-city-toolbar input,
+.cv-crm-activation-link input,
+.cv-crm-review-form select,
+.cv-crm-review-form textarea {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    padding: 12px 13px;
+    font: inherit;
+}
+
+.cv-invite-form-grid input:focus,
+.cv-invite-form-grid select:focus,
+.cv-invite-form-grid textarea:focus,
+.cv-crm-toolbar input:focus,
+.cv-city-toolbar input:focus,
+.cv-crm-review-form select:focus,
+.cv-crm-review-form textarea:focus {
+    outline: 2px solid rgba(15, 15, 15, .12);
+    outline-offset: 2px;
+}
+
+.cv-invite-grid-wide {
+    grid-column: 1 / -1;
+}
+
+.cv-invite-interest-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.cv-invite-interest-grid label {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 56px;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.cv-invite-interest-grid label:hover {
+    border-color: var(--line-strong);
+    background: #fafafa;
+}
+
+.cv-invite-interest-grid input {
+    width: 18px;
+    height: 18px;
+    accent-color: #111;
+}
+
+.cv-invite-interest-grid span {
+    font-size: 13px;
+    font-weight: 720;
+}
+
+.cv-invite-request-submit {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 28px;
+    padding: 28px 34px;
+    background: #f8f8f6;
+}
+
+.cv-invite-request-submit p {
+    max-width: 650px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.cv-invite-request-submit .cv-button {
+    flex: 0 0 auto;
+}
+
+.cv-invite-honeypot {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+}
+
+.cv-invite-request-success {
+    max-width: 760px;
+    padding: 36px;
+}
+
+.cv-invite-request-success h2 {
+    margin: 8px 0 12px;
+    font-size: 32px;
+    letter-spacing: -.04em;
+}
+
+.cv-invite-request-success p {
+    max-width: 620px;
+    margin-bottom: 22px;
+    color: var(--muted-strong);
+    line-height: 1.6;
+}
+
+.cv-activation-page {
+    max-width: 920px;
+}
+
+.cv-activation-form {
+    max-width: 820px;
+}
+
+.cv-crm-metrics,
+.cv-city-metrics {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.cv-city-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cv-crm-metrics a,
+.cv-city-metrics a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 70px;
+    padding: 16px 17px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.cv-crm-metrics a:hover,
+.cv-city-metrics a:hover,
+.cv-crm-metrics a.is-active,
+.cv-city-metrics a.is-active {
+    border-color: #111;
+}
+
+.cv-crm-metrics span,
+.cv-city-metrics span {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.cv-crm-metrics strong,
+.cv-city-metrics strong {
+    font-size: 24px;
+    letter-spacing: -.04em;
+}
+
+.cv-crm-toolbar,
+.cv-city-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.cv-crm-toolbar label,
+.cv-city-toolbar label {
+    flex: 1 1 460px;
+    margin: 0;
+}
+
+.cv-crm-list {
+    display: grid;
+    gap: 12px;
+}
+
+.cv-crm-record {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 26px;
+    padding: 24px;
+}
+
+.cv-crm-record-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 22px;
+}
+
+.cv-crm-record-head h2 {
+    margin: 9px 0 4px;
+    font-size: 25px;
+    letter-spacing: -.04em;
+}
+
+.cv-crm-record-head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.cv-crm-record-date {
+    display: grid;
+    align-content: start;
+    justify-items: end;
+    min-width: 86px;
+}
+
+.cv-crm-record-date span,
+.cv-crm-copy > span,
+.cv-crm-converted-state > span {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .1em;
+}
+
+.cv-crm-record-date strong {
+    margin-top: 4px;
+    font-size: 18px;
+}
+
+.cv-crm-record-date small {
+    color: var(--muted);
+}
+
+.cv-crm-interest-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 16px;
+}
+
+.cv-crm-interest-row span {
+    padding: 6px 8px;
+    border-radius: 7px;
+    background: #f1f1ef;
+    font-size: 10px;
+    font-weight: 720;
+}
+
+.cv-crm-copy {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+}
+
+.cv-crm-copy p {
+    margin: 7px 0 0;
+    color: var(--muted-strong);
+    line-height: 1.55;
+}
+
+.cv-crm-inline-meta {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 11px;
+}
+
+.cv-crm-inline-meta strong {
+    min-width: 54px;
+}
+
+.cv-crm-inline-meta span {
+    color: var(--muted);
+}
+
+.cv-crm-record-actions {
+    border-left: 1px solid var(--line);
+    padding-left: 24px;
+}
+
+.cv-crm-review-form {
+    display: grid;
+    gap: 11px;
+}
+
+.cv-crm-review-form label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.cv-crm-convert-form {
+    display: grid;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+}
+
+.cv-crm-convert-form small,
+.cv-crm-activation-link small,
+.cv-crm-converted-state small {
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.cv-crm-converted-state {
+    display: grid;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fafafa;
+}
+
+.cv-crm-conversion-notice {
+    margin-bottom: 18px;
+    padding: 22px;
+    border-color: #111;
+}
+
+.cv-crm-activation-link {
+    display: grid;
+    gap: 7px;
+    margin-top: 16px;
+}
+
+.cv-crm-activation-link label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.cv-city-database-panel {
+    padding: 20px;
+}
+
+.cv-city-table-wrap {
+    overflow-x: auto;
+}
+
+.cv-city-table {
+    min-width: 980px;
+}
+
+.cv-city-table td > strong,
+.cv-city-table td > small {
+    display: block;
+}
+
+.cv-city-table td > small {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 9px;
+}
+
+.cv-city-table .cv-inline-form {
+    flex-wrap: nowrap;
+}
+
+.cv-city-table .cv-inline-form select {
+    width: auto;
+    min-width: 100px;
+}
+
+.cv-city-create-dialog {
+    width: min(720px, calc(100% - 28px));
+    max-height: calc(100vh - 40px);
+    padding: 0;
+    border: 0;
+    border-radius: 18px;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, .24);
+}
+
+.cv-city-create-dialog::backdrop {
+    background: rgba(10, 10, 10, .48);
+}
+
+.cv-city-create-dialog .cv-admin-create-dialog-content {
+    padding: 26px;
+}
+
+.cv-admin-dialog-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 22px;
+    margin-bottom: 20px;
+}
+
+.cv-admin-dialog-head h2 {
+    margin: 5px 0;
+    font-size: 27px;
+    letter-spacing: -.04em;
+}
+
+.cv-admin-dialog-head p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.cv-admin-dialog-close {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: #fff;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+.cv-city-create-dialog .cv-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.cv-city-create-dialog .cv-form-grid label {
+    display: grid;
+    gap: 7px;
+    color: var(--muted-strong);
+    font-size: 11px;
+    font-weight: 720;
+}
+
+.cv-city-create-dialog .cv-form-grid input {
+    width: 100%;
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    padding: 11px 12px;
+}
+
+.cv-admin-dialog-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+}
+
+@media (max-width: 900px) {
+    .cv-crm-record {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-crm-record-actions {
+        border-top: 1px solid var(--line);
+        border-left: 0;
+        padding-top: 20px;
+        padding-left: 0;
+    }
+
+    .cv-crm-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .cv-invite-request-page {
+        width: min(100% - 24px, 1120px);
+        padding: 34px 0 64px;
+    }
+
+    .cv-invite-request-back {
+        margin-bottom: 28px;
+    }
+
+    .cv-invite-request-intro h1 {
+        font-size: clamp(42px, 14vw, 62px);
+    }
+
+    .cv-invite-form-section {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        padding: 24px 20px;
+    }
+
+    .cv-invite-form-grid,
+    .cv-invite-interest-grid,
+    .cv-city-create-dialog .cv-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-invite-grid-wide,
+    .cv-admin-dialog-actions {
+        grid-column: auto;
+    }
+
+    .cv-invite-request-submit {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 22px 20px;
+    }
+
+    .cv-invite-request-submit .cv-button {
+        width: 100%;
+    }
+
+    .cv-crm-metrics,
+    .cv-city-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cv-crm-toolbar,
+    .cv-city-toolbar {
+        align-items: stretch;
+        flex-wrap: wrap;
+    }
+
+    .cv-crm-toolbar label,
+    .cv-city-toolbar label {
+        flex-basis: 100%;
+    }
+
+    .cv-crm-record {
+        padding: 18px;
+    }
+
+    .cv-crm-record-head {
+        flex-direction: column;
+    }
+
+    .cv-crm-record-date {
+        justify-items: start;
+    }
+}

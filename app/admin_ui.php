@@ -9,7 +9,7 @@ coveted_admin_integrity_guard_request();
 /**
  * Read-only counts for the System Admin shell.
  *
- * @return array{users:int,groups:int,events:int,businesses:int,artists:int,pending_requests:int}
+ * @return array{users:int,groups:int,events:int,businesses:int,artists:int,pending_requests:int,invite_requests:int,cities:int}
  */
 function coveted_admin_ui_safe_count(PDO $pdo, string $sql, string $label): int
 {
@@ -32,6 +32,8 @@ function coveted_admin_ui_counts(?PDO $pdo = null): array
         'businesses' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM businesses WHERE status <> 'archived'", 'businesses'),
         'artists' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM artist_profiles WHERE status <> 'archived'", 'artists'),
         'pending_requests' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM role_requests WHERE status = 'pending'", 'pending_requests'),
+        'invite_requests' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM invite_requests WHERE status IN ('new','contacted','qualified')", 'invite_requests'),
+        'cities' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM cities WHERE status = 'active'", 'cities'),
     ];
 }
 
@@ -89,12 +91,14 @@ function coveted_admin_ui_start(
 
             <div class="cv-admin-nav-group">
                 <span class="cv-admin-nav-label">PEOPLE</span>
+                <?php coveted_admin_nav_link($active, 'crm', '/admin/crm.php', 'Invite CRM', (int)($counts['invite_requests'] ?? 0)); ?>
                 <?php coveted_admin_nav_link($active, 'users', '/admin/?view=users', 'Users', (int)$counts['users']); ?>
                 <?php coveted_admin_nav_link($active, 'requests', '/admin/?view=requests', 'Role Requests', (int)$counts['pending_requests']); ?>
             </div>
 
             <div class="cv-admin-nav-group">
                 <span class="cv-admin-nav-label">COMMUNITY</span>
+                <?php coveted_admin_nav_link($active, 'cities', '/admin/cities.php', 'Cities', (int)($counts['cities'] ?? 0)); ?>
                 <?php coveted_admin_nav_link($active, 'businesses', '/admin/?view=businesses', 'Businesses', (int)$counts['businesses']); ?>
                 <?php coveted_admin_nav_link($active, 'groups', '/admin/?view=groups', 'Groups', (int)$counts['groups']); ?>
                 <?php coveted_admin_nav_link($active, 'events', '/admin/?view=events', 'Events', (int)$counts['events']); ?>
