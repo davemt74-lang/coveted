@@ -178,7 +178,7 @@ function coveted_admin_agent_run_complete(
     ?PDO $pdo = null
 ): void {
     $responseText = trim($responseText);
-    if ($responseText === '' || mb_strlen($responseText) > 12000) {
+    if ($responseText === '' || mb_strlen($responseText) > 30000) {
         throw new InvalidArgumentException('Admin Agent response is invalid.');
     }
     $provider = $provider !== null ? trim($provider) : null;
