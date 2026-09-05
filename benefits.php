@@ -77,7 +77,7 @@ if ($sampleMode) {
     $sample = coveted_member_sample_data();
     $inboxRewards = [];
     $claimRewards = [];
-    foreach ((array)($sample['benefits'] ?? []) as $index => $benefit) {
+    foreach ((array)($sample['benefits'] ?? []) as $benefit) {
         $state = (string)($benefit['state'] ?? 'inbox');
         $row = [
             'reward_template_id' => 0,
@@ -142,7 +142,7 @@ $claimableCount = $sampleMode
     : count(array_filter($inboxRewards, static fn(array $reward): bool => !empty($eligibleLocationsByReward[(string)$reward['public_id']])));
 $mediaCount = $sampleMode
     ? 0
-    : count(array_filter($inboxRewards, static fn(array $reward): bool => !empty($mediaByTemplate[(int)$reward['reward_template_id']]));
+    : count(array_filter($inboxRewards, static fn(array $reward): bool => !empty($mediaByTemplate[(int)$reward['reward_template_id']])));
 
 $displayTimezone = coveted_timezone();
 $formatMemberTime = static function (?string $value) use ($displayTimezone): string {
