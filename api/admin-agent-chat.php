@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/ai_providers.php';
+require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -60,6 +60,15 @@ try {
             $messages[] = ['role' => $role, 'content' => $content];
         }
     }
+
+    // Refresh the brain for every request. This makes the Agent state-aware
+    // without caching or duplicating product state: once an Admin fixes an
+    // opportunity, the next message sees the updated canonical records.
+    $brain = coveted_admin_agent_snapshot($admin);
+    array_unshift($messages, [
+        'role' => 'user',
+        'content' => coveted_admin_agent_context_message($brain),
+    ]);
     $messages[] = ['role' => 'user', 'content' => $message];
 
     $result = coveted_ai_chat($admin, $provider, $messages);
@@ -68,6 +77,8 @@ try {
         'provider' => $result['provider'],
         'model' => $result['model'],
         'text' => $result['text'],
+        'readiness' => (int)($brain['readiness']['percent'] ?? 0),
+        'opportunity_count' => count((array)($brain['opportunities'] ?? [])),
     ]);
 } catch (InvalidArgumentException $e) {
     http_response_code(422);
