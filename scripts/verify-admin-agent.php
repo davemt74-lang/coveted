@@ -61,12 +61,15 @@ $contains($settings, 'Leave blank to keep the saved key', 'saved keys must not b
 $contains($settings, '/admin/agent.php', 'AI settings must link to Admin Agent');
 
 $contains($adminUi, "'/admin/agent.php'", 'Admin Agent is missing from Admin navigation');
+$contains($adminUi, "'/admin/ai-settings.php'", 'AI Settings is missing from Admin navigation');
 $contains($agent, 'data-admin-agent', 'Admin Agent canvas root is missing');
 $contains($agent, 'cv-admin-agent-canvas', 'chat canvas is missing');
 $contains($agent, 'cv-admin-agent-composer-shell', 'sticky footer composer is missing');
 $contains($agent, '/admin/ai-settings.php', 'Admin Agent must link to provider settings');
 $contains($endpoint, 'coveted_require_system_admin()', 'chat endpoint must require System Admin');
 $contains($endpoint, 'coveted_require_csrf()', 'chat endpoint must enforce CSRF');
+$contains($endpoint, 'admin_ai_chat_timestamps', 'chat endpoint request throttling is missing');
+$contains($endpoint, 'http_response_code(429)', 'chat endpoint must return 429 when throttled');
 $contains($endpoint, 'coveted_ai_chat(', 'chat endpoint must use server provider service');
 
 $contains($config, "'ai_credentials_key'", 'config example must document AI credential encryption key');
