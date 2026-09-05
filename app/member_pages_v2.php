@@ -88,7 +88,11 @@ function coveted_member_v2_invitations(array $user, ?PDO $pdo = null): array
 function coveted_member_v2_invitation_bucket(array $invite, int $now): string
 {
     $future = coveted_utc_datetime((string)$invite['starts_at'])->getTimestamp() > $now;
-    if (!$future || in_array((string)$invite['event_status'], ['completed', 'cancelled'], true)) {
+    if (
+        !$future
+        || in_array((string)$invite['event_status'], ['completed', 'cancelled'], true)
+        || in_array((string)$invite['status'], ['expired', 'revoked'], true)
+    ) {
         return 'past';
     }
 
@@ -116,7 +120,7 @@ function coveted_member_v2_events(array $user, ?PDO $pdo = null): array
         foreach ((array)($sample['events'] ?? []) as $index => $event) {
             $attendees = array_map(
                 static fn(array $person): string => (string)$person['image'],
-                array_slice($people, $index * 2, 4)
+                array_slice($people, $index * 2, 2)
             );
 
             $events[] = [
