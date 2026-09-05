@@ -38,9 +38,12 @@
     menu.append(summary, drawer);
     headerActions.append(menu);
 
-    menu.addEventListener('toggle', () => {
+    const syncOpenState = () => {
         summary.setAttribute('aria-label', menu.open ? 'Close sign in menu' : 'Open sign in menu');
-    });
+        document.body.classList.toggle('cv-public-mobile-menu-open', menu.open);
+    };
+
+    menu.addEventListener('toggle', syncOpenState);
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && menu.open) {
@@ -48,4 +51,10 @@
             summary.focus();
         }
     });
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 680 && menu.open) {
+            menu.open = false;
+        }
+    }, { passive: true });
 })();
