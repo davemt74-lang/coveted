@@ -50,6 +50,9 @@ jobs:
       - name: Verify Admin Event Workspace contract
         run: php scripts/verify-admin-event-workspace.php
 
+      - name: Verify Admin Agent contract
+        run: php scripts/verify-admin-agent.php
+
       - name: Verify member sample-data contract
         run: php scripts/verify-member-sample-data.php
 

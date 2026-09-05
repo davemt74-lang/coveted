@@ -83,6 +83,7 @@ function coveted_admin_ui_start(
             <div class="cv-admin-nav-group">
                 <span class="cv-admin-nav-label">OVERVIEW</span>
                 <?php coveted_admin_nav_link($active, 'dashboard', '/admin/', 'Dashboard'); ?>
+                <?php coveted_admin_nav_link($active, 'agent', '/admin/agent.php', 'Admin Agent'); ?>
                 <a class="<?= $active === 'onboarding' ? 'is-active' : '' ?>" href="/admin/onboarding.php">
                     <span class="cv-admin-nav-text">Setup</span>
                     <?php if (!$onboarding['is_complete']): ?><span class="cv-admin-nav-progress"><?= (int)$onboarding['completed'] ?>/<?= (int)$onboarding['total'] ?></span><?php endif; ?>
@@ -116,6 +117,7 @@ function coveted_admin_ui_start(
                 <?php coveted_admin_nav_link($active, 'operations', '/admin/operations.php', 'Operations'); ?>
                 <?php coveted_admin_nav_link($active, 'landing', '/admin/landing.php', 'Landing Page'); ?>
                 <?php coveted_admin_nav_link($active, 'sample-data', '/admin/sample-data.php', 'Sample Data'); ?>
+                <?php coveted_admin_nav_link($active, 'ai-settings', '/admin/ai-settings.php', 'AI Settings'); ?>
                 <?php coveted_admin_nav_link($active, 'settings', '/admin/?view=settings', 'Settings'); ?>
             </div>
         </nav>

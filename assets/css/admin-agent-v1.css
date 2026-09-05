@@ -1,0 +1,495 @@
+/* Coveted Admin Agent + provider settings */
+
+.cv-ai-settings-head,
+.cv-admin-agent-head {
+    gap: 18px;
+}
+
+.cv-ai-provider-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.cv-ai-provider-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.cv-ai-provider-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: #e8e4dd;
+}
+
+.cv-ai-provider-card.is-enabled::before {
+    background: #171714;
+}
+
+.cv-ai-provider-head,
+.cv-ai-provider-actions,
+.cv-admin-agent-head-actions,
+.cv-ai-provider-toggle,
+.cv-admin-agent-composer-meta {
+    display: flex;
+    align-items: center;
+}
+
+.cv-ai-provider-head {
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.cv-ai-provider-head h2 {
+    margin: 4px 0 0;
+    font-size: 24px;
+    font-weight: 620;
+    letter-spacing: -.04em;
+}
+
+.cv-ai-provider-state {
+    flex: 0 0 auto;
+    padding: 6px 9px;
+    border: 1px solid #e3dfd8;
+    border-radius: 999px;
+    background: #faf9f6;
+    color: #8d8880;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.cv-ai-provider-state.is-ready {
+    border-color: #cfc9bf;
+    background: #171714;
+    color: #fff;
+}
+
+.cv-ai-provider-form {
+    display: grid;
+    gap: 14px;
+}
+
+.cv-ai-provider-form label {
+    display: grid;
+    gap: 6px;
+    color: #5f5b55;
+    font-size: 9px;
+    font-weight: 750;
+}
+
+.cv-ai-provider-form input[type="password"],
+.cv-ai-provider-form input[type="text"],
+.cv-ai-provider-form input:not([type]) {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid #ddd8d0;
+    border-radius: 10px;
+    background: #fff;
+    color: #1b1a18;
+    font: inherit;
+    font-size: 11px;
+}
+
+.cv-ai-provider-form small,
+.cv-ai-provider-note span,
+.cv-ai-security-note p,
+.cv-ai-credentials-warning span {
+    color: #8e8981;
+    font-size: 9px;
+    line-height: 1.55;
+}
+
+.cv-ai-provider-note {
+    display: grid;
+    gap: 5px;
+    min-height: 80px;
+    padding: 12px;
+    border: 1px solid #eeeae4;
+    border-radius: 12px;
+    background: #faf9f7;
+}
+
+.cv-ai-provider-note strong {
+    font-size: 10px;
+}
+
+.cv-ai-provider-toggle {
+    justify-content: flex-start;
+    gap: 9px !important;
+    min-height: 38px;
+    padding: 0 2px;
+}
+
+.cv-ai-provider-toggle input {
+    width: 16px;
+    height: 16px;
+}
+
+.cv-ai-provider-actions {
+    justify-content: flex-end;
+}
+
+.cv-ai-provider-clear {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f0ede8;
+}
+
+.cv-ai-provider-clear button {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #9a605c;
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: 720;
+}
+
+.cv-ai-credentials-warning {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.cv-ai-credentials-warning code {
+    font-size: .95em;
+}
+
+.cv-ai-security-note {
+    margin-bottom: 16px;
+}
+
+.cv-ai-security-note h2 {
+    margin: 5px 0 7px;
+    font-size: 20px;
+    letter-spacing: -.03em;
+}
+
+/* Chat workspace */
+.cv-admin-agent-page {
+    min-height: calc(100vh - 96px);
+    padding-bottom: 116px;
+}
+
+.cv-admin-agent-head {
+    margin-bottom: 12px !important;
+}
+
+.cv-admin-agent-head-actions {
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cv-admin-agent-canvas {
+    width: min(920px, 100%);
+    min-height: calc(100vh - 300px);
+    margin: 0 auto;
+    padding: 26px 0 70px;
+}
+
+.cv-admin-agent-empty {
+    display: grid;
+    place-items: center;
+    max-width: 720px;
+    margin: 8vh auto 0;
+    text-align: center;
+}
+
+.cv-admin-agent-empty[hidden] {
+    display: none;
+}
+
+.cv-admin-agent-mark {
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    margin-bottom: 18px;
+    border-radius: 17px;
+    background: #171714;
+    color: #fff;
+    font-size: 22px;
+    font-weight: 760;
+}
+
+.cv-admin-agent-empty h2 {
+    margin: 0;
+    color: #1b1a18;
+    font-size: clamp(30px, 4vw, 46px);
+    font-weight: 560;
+    letter-spacing: -.05em;
+}
+
+.cv-admin-agent-empty > p {
+    max-width: 600px;
+    margin: 12px 0 0;
+    color: #87827a;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.cv-admin-agent-starters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
+    width: 100%;
+    margin-top: 30px;
+}
+
+.cv-admin-agent-starters button {
+    min-height: 72px;
+    padding: 14px;
+    border: 1px solid #e4e0d9;
+    border-radius: 14px;
+    background: #fff;
+    color: #5f5a53;
+    cursor: pointer;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 650;
+    line-height: 1.35;
+    text-align: left;
+}
+
+.cv-admin-agent-starters button:hover {
+    border-color: #cfc9bf;
+    background: #faf9f6;
+    color: #171714;
+}
+
+.cv-admin-agent-setup-callout {
+    display: grid;
+    gap: 6px;
+    width: min(520px, 100%);
+    margin-top: 28px;
+    padding: 18px;
+    border: 1px solid #e4dfd7;
+    border-radius: 16px;
+    background: #fff;
+    text-align: left;
+}
+
+.cv-admin-agent-setup-callout strong {
+    font-size: 12px;
+}
+
+.cv-admin-agent-setup-callout span,
+.cv-admin-agent-setup-callout a {
+    color: #817c74;
+    font-size: 10px;
+}
+
+.cv-admin-agent-setup-callout a {
+    color: #171714;
+    font-weight: 760;
+}
+
+.cv-admin-agent-message {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 16px;
+    padding: 24px 0;
+    border-bottom: 1px solid #ece8e2;
+}
+
+.cv-admin-agent-message-label {
+    padding-top: 3px;
+    color: #aaa49b;
+    font-size: 8px;
+    font-weight: 850;
+    letter-spacing: .12em;
+}
+
+.cv-admin-agent-message-body {
+    color: #26231f;
+    font-size: 13px;
+    line-height: 1.72;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.cv-admin-agent-message.is-user .cv-admin-agent-message-body {
+    color: #555049;
+}
+
+.cv-admin-agent-message small {
+    grid-column: 2;
+    margin-top: -7px;
+    color: #a09a91;
+    font-size: 8px;
+}
+
+.cv-admin-agent-error {
+    margin: 18px 0;
+    padding: 13px 15px;
+    border: 1px solid #ead7d4;
+    border-radius: 12px;
+    background: #fff8f7;
+    color: #955d58;
+    font-size: 10px;
+}
+
+.cv-admin-agent-composer-shell {
+    position: fixed;
+    z-index: 70;
+    right: 0;
+    bottom: 0;
+    left: 216px;
+    padding: 10px 28px 16px;
+    background: linear-gradient(to bottom, rgba(251,250,248,0), rgba(251,250,248,.94) 22%, #fbfaf8 54%);
+    pointer-events: none;
+}
+
+.cv-admin-agent-composer {
+    width: min(920px, calc(100vw - 216px - 56px));
+    margin: 0 auto;
+    padding: 8px;
+    border: 1px solid #dcd7cf;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 18px 55px rgba(28,26,22,.1);
+    pointer-events: auto;
+}
+
+.cv-admin-agent-provider select {
+    width: auto;
+    max-width: 100%;
+    min-height: 28px;
+    margin: 0 0 4px 5px;
+    padding: 0 24px 0 4px;
+    border: 0;
+    background-color: transparent;
+    color: #827d75;
+    font-size: 8px;
+    font-weight: 760;
+}
+
+.cv-admin-agent-input-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 9px;
+}
+
+.cv-admin-agent-input-wrap textarea {
+    flex: 1 1 auto;
+    min-height: 42px;
+    max-height: 160px;
+    padding: 11px 10px 8px;
+    border: 0;
+    outline: 0;
+    resize: none;
+    background: transparent;
+    color: #211f1c;
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.cv-admin-agent-input-wrap textarea::placeholder {
+    color: #aaa59d;
+}
+
+.cv-admin-agent-send {
+    display: grid;
+    place-items: center;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    margin: 0 2px 2px 0;
+    border: 0;
+    border-radius: 12px;
+    background: #171714;
+    color: #fff;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.cv-admin-agent-send:disabled {
+    background: #d8d4cd;
+    cursor: default;
+}
+
+.cv-admin-agent-composer-meta {
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 7px 0;
+    color: #aaa59d;
+    font-size: 7px;
+}
+
+.cv-admin-agent-page.is-thinking .cv-admin-agent-composer {
+    border-color: #beb8af;
+}
+
+@media (max-width: 1080px) {
+    .cv-ai-provider-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) and (min-width: 721px) {
+    .cv-admin-agent-composer-shell {
+        left: 190px;
+        padding-right: 16px;
+        padding-left: 16px;
+    }
+
+    .cv-admin-agent-composer {
+        width: min(920px, calc(100vw - 190px - 32px));
+    }
+}
+
+@media (max-width: 720px) {
+    .cv-admin-agent-page {
+        padding-bottom: 128px;
+    }
+
+    .cv-admin-agent-head-actions {
+        width: 100%;
+    }
+
+    .cv-admin-agent-canvas {
+        min-height: calc(100vh - 250px);
+        padding-top: 12px;
+    }
+
+    .cv-admin-agent-empty {
+        margin-top: 4vh;
+    }
+
+    .cv-admin-agent-starters {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-admin-agent-message {
+        grid-template-columns: 1fr;
+        gap: 7px;
+        padding: 18px 0;
+    }
+
+    .cv-admin-agent-message small {
+        grid-column: 1;
+    }
+
+    .cv-admin-agent-composer-shell {
+        left: 0;
+        padding: 9px 12px max(12px, env(safe-area-inset-bottom));
+    }
+
+    .cv-admin-agent-composer {
+        width: 100%;
+        border-radius: 16px;
+    }
+
+    .cv-admin-agent-composer-meta span:last-child {
+        display: none;
+    }
+}
