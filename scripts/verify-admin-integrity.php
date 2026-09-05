@@ -21,6 +21,9 @@ $css = (string)file_get_contents($cssPath);
 
 $requiredIntegrity = [
     'coveted_admin_integrity_guard_replay',
+    'coveted_admin_integrity_lock_create',
+    'GET_LOCK',
+    'RELEASE_LOCK',
     'coveted_admin_integrity_assert_unique_user',
     'coveted_admin_integrity_assert_unique_business',
     'coveted_admin_integrity_assert_unique_group',
