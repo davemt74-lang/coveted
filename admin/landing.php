@@ -3,24 +3,39 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/site_settings.php';
+require_once dirname(__DIR__) . '/app/sample_data.php';
 
 $admin = coveted_require_system_admin();
 $pdo = coveted_db();
 $error = '';
-$notice = isset($_GET['saved']) ? 'Landing page setting updated.' : '';
+$saved = trim((string)($_GET['saved'] ?? ''));
+$notice = match ($saved) {
+    'events' => 'Upcoming Events visibility updated.',
+    'sample' => 'Landing page sample data setting updated.',
+    default => '',
+};
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     coveted_require_csrf();
 
     try {
         $action = trim((string)($_POST['action'] ?? ''));
-        if ($action !== 'set_landing_events') {
-            throw new InvalidArgumentException('Unsupported landing page action.');
-        }
-
         $enabled = (string)($_POST['enabled'] ?? '0') === '1';
-        coveted_site_setting_set_bool(COVETED_SETTING_LANDING_EVENTS, $enabled, $admin, $pdo);
-        coveted_redirect('/admin/landing.php?saved=1');
+
+        switch ($action) {
+            case 'set_landing_events':
+                coveted_site_setting_set_bool(COVETED_SETTING_LANDING_EVENTS, $enabled, $admin, $pdo);
+                coveted_redirect('/admin/landing.php?saved=events');
+                break;
+
+            case 'set_landing_sample_events':
+                coveted_site_setting_set_bool(COVETED_SETTING_LANDING_SAMPLE_EVENTS, $enabled, $admin, $pdo);
+                coveted_redirect('/admin/landing.php?saved=sample');
+                break;
+
+            default:
+                throw new InvalidArgumentException('Unsupported landing page action.');
+        }
     } catch (InvalidArgumentException $e) {
         $error = $e->getMessage();
     } catch (Throwable $e) {
@@ -30,23 +45,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $landingEventsEnabled = coveted_site_setting_bool(COVETED_SETTING_LANDING_EVENTS, false, $pdo);
+$sampleEventsEnabled = coveted_site_setting_bool(COVETED_SETTING_LANDING_SAMPLE_EVENTS, false, $pdo);
 $previewEvents = [];
 
-try {
-    $previewEvents = $pdo->query(
-        "SELECT e.public_id, e.title, e.event_type, e.timezone, e.starts_at, g.name AS group_name
-         FROM events e
-         JOIN social_groups g ON g.id = e.group_id
-         WHERE e.status = 'published'
-           AND e.audience = 'group'
-           AND e.starts_at >= UTC_TIMESTAMP()
-         ORDER BY e.starts_at ASC
-         LIMIT 4"
-    )->fetchAll();
-} catch (Throwable $e) {
-    error_log('Coveted landing event preview unavailable: ' . $e->getMessage());
-    if ($error === '') {
-        $error = 'The landing setting is available, but upcoming event preview data could not be loaded.';
+if ($sampleEventsEnabled) {
+    $previewEvents = coveted_sample_landing_events();
+} else {
+    try {
+        $previewEvents = $pdo->query(
+            "SELECT e.public_id, e.title, e.event_type, e.timezone, e.starts_at, g.name AS group_name
+             FROM events e
+             JOIN social_groups g ON g.id = e.group_id
+             WHERE e.status = 'published'
+               AND e.audience = 'group'
+               AND e.starts_at >= UTC_TIMESTAMP()
+             ORDER BY e.starts_at ASC
+             LIMIT 4"
+        )->fetchAll();
+    } catch (Throwable $e) {
+        error_log('Coveted landing event preview unavailable: ' . $e->getMessage());
+        if ($error === '') {
+            $error = 'The landing setting is available, but upcoming event preview data could not be loaded.';
+        }
     }
 }
 
@@ -57,7 +77,7 @@ coveted_admin_ui_start($admin, 'landing', 'Landing Page');
     <div>
         <span class="cv-eyebrow">PUBLIC EXPERIENCE</span>
         <h1>Landing page.</h1>
-        <p>Control which live event content is visible before a visitor signs in.</p>
+        <p>Control which event content is visible before a visitor signs in.</p>
     </div>
     <a class="cv-button cv-button-soft" href="/" target="_blank" rel="noopener">Preview Landing Page</a>
 </div>
@@ -65,36 +85,66 @@ coveted_admin_ui_start($admin, 'landing', 'Landing Page');
 <?php if ($error !== ''): ?><div class="cv-alert"><?= coveted_e($error) ?></div><?php endif; ?>
 <?php if ($notice !== ''): ?><div class="cv-alert"><?= coveted_e($notice) ?></div><?php endif; ?>
 
-<section class="cv-admin-panel">
-    <div class="cv-admin-panel-head">
-        <div>
-            <span class="cv-eyebrow">UPCOMING EVENTS</span>
-            <h2>Landing page event section</h2>
+<div class="cv-admin-settings-grid">
+    <section class="cv-admin-panel">
+        <div class="cv-admin-panel-head">
+            <div>
+                <span class="cv-eyebrow">UPCOMING EVENTS</span>
+                <h2>Landing page event section</h2>
+            </div>
+            <span class="cv-status"><?= $landingEventsEnabled ? 'ON' : 'OFF' ?></span>
         </div>
-        <span class="cv-status"><?= $landingEventsEnabled ? 'ON' : 'OFF' ?></span>
-    </div>
 
-    <p>
-        When enabled, an Upcoming Events section appears directly below the landing-page hero.
-        It shows up to four future published group events. Invitation-only events, group names,
-        locations, RSVP counts and private reveal information are never exposed.
-    </p>
+        <p>
+            When enabled, an Upcoming Events section appears directly below the landing-page hero.
+            Live mode shows up to four future published group events. Invitation-only events, group
+            names, locations, RSVP counts and private reveal information are never exposed.
+        </p>
 
-    <form method="post" class="cv-action-row">
-        <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
-        <input type="hidden" name="action" value="set_landing_events">
-        <input type="hidden" name="enabled" value="<?= $landingEventsEnabled ? '0' : '1' ?>">
-        <button class="cv-button <?= $landingEventsEnabled ? 'cv-button-soft' : 'cv-button-primary' ?>" type="submit">
-            <?= $landingEventsEnabled ? 'Hide Upcoming Events' : 'Show Upcoming Events' ?>
-        </button>
-    </form>
-</section>
+        <form method="post" class="cv-action-row">
+            <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+            <input type="hidden" name="action" value="set_landing_events">
+            <input type="hidden" name="enabled" value="<?= $landingEventsEnabled ? '0' : '1' ?>">
+            <button class="cv-button <?= $landingEventsEnabled ? 'cv-button-soft' : 'cv-button-primary' ?>" type="submit">
+                <?= $landingEventsEnabled ? 'Hide Upcoming Events' : 'Show Upcoming Events' ?>
+            </button>
+        </form>
+    </section>
+
+    <section class="cv-admin-panel">
+        <div class="cv-admin-panel-head">
+            <div>
+                <span class="cv-eyebrow">SAMPLE DATA</span>
+                <h2>Landing page sample events</h2>
+            </div>
+            <span class="cv-status"><?= $sampleEventsEnabled ? 'ON' : 'OFF' ?></span>
+        </div>
+
+        <p>
+            When enabled, the public Upcoming Events section uses four synthetic preview events instead
+            of live event records. Nothing is inserted into the database and no sample record can receive
+            invitations, RSVPs, attendance, campaigns or rewards.
+        </p>
+        <?php if (!$landingEventsEnabled): ?>
+            <p class="cv-form-help">Sample data is enabled independently, but it is not visible publicly while the Upcoming Events section is OFF.</p>
+        <?php endif; ?>
+
+        <form method="post" class="cv-action-row">
+            <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+            <input type="hidden" name="action" value="set_landing_sample_events">
+            <input type="hidden" name="enabled" value="<?= $sampleEventsEnabled ? '0' : '1' ?>">
+            <button class="cv-button <?= $sampleEventsEnabled ? 'cv-button-soft' : 'cv-button-primary' ?>" type="submit">
+                <?= $sampleEventsEnabled ? 'Turn Sample Data Off' : 'Turn Sample Data On' ?>
+            </button>
+        </form>
+    </section>
+</div>
 
 <div class="cv-section-head cv-admin-section-gap">
     <div>
         <span class="cv-eyebrow">PUBLIC PREVIEW</span>
-        <h2>Events eligible for the section</h2>
-        <p>The public page uses this same filter and ordering.</p>
+        <h2><?= $sampleEventsEnabled ? 'Synthetic events shown on the landing page' : 'Live events eligible for the section' ?></h2>
+        <p><?= $sampleEventsEnabled ? 'Sample mode replaces live event cards without writing any sample records.' : 'The public page uses this same filter and ordering.' ?></p>
     </div>
     <span class="cv-pill"><?= count($previewEvents) ?> shown</span>
 </div>
@@ -108,16 +158,24 @@ coveted_admin_ui_start($admin, 'landing', 'Landing Page');
     <?php endif; ?>
 
     <?php foreach ($previewEvents as $event): ?>
+        <?php $isSample = !empty($event['is_sample']); ?>
         <article class="cv-card cv-admin-row">
             <div>
                 <div class="cv-tag-row">
                     <span class="cv-kicker"><?= coveted_e(strtoupper(str_replace('_', ' ', (string)$event['event_type']))) ?></span>
-                    <span class="cv-pill">Published</span>
+                    <span class="cv-pill"><?= $isSample ? 'Sample' : 'Published' ?></span>
                 </div>
-                <h3><?= coveted_e($event['title']) ?></h3>
-                <p><?= coveted_e(coveted_event_format($event, 'D, M j · g:i A')) ?> · <?= coveted_e($event['group_name']) ?></p>
+                <h3><?= coveted_e($event['event_type'] === 'mystery' ? 'Mystery gathering' : (string)$event['title']) ?></h3>
+                <p>
+                    <?= coveted_e(coveted_event_format($event, 'D, M j · g:i A')) ?>
+                    <?php if (!$isSample): ?> · <?= coveted_e((string)$event['group_name']) ?><?php endif; ?>
+                </p>
             </div>
-            <a class="cv-button cv-button-soft" href="/host.php?event=<?= coveted_e(rawurlencode((string)$event['public_id'])) ?>">Manage Event</a>
+            <?php if ($isSample): ?>
+                <span class="cv-pill">Synthetic preview</span>
+            <?php else: ?>
+                <a class="cv-button cv-button-soft" href="/host.php?event=<?= coveted_e(rawurlencode((string)$event['public_id'])) ?>">Manage Event</a>
+            <?php endif; ?>
         </article>
     <?php endforeach; ?>
 </section>

@@ -5,29 +5,36 @@ require_once __DIR__ . '/app/events.php';
 require_once __DIR__ . '/app/rewards.php';
 require_once __DIR__ . '/app/member_home.php';
 require_once __DIR__ . '/app/site_settings.php';
+require_once __DIR__ . '/app/sample_data.php';
 
 $user = coveted_current_user();
 $landingEventsEnabled = false;
+$landingSampleEventsEnabled = false;
 $landingEvents = [];
 
 if (!$user) {
     $landingPdo = coveted_db();
     $landingEventsEnabled = coveted_site_setting_bool(COVETED_SETTING_LANDING_EVENTS, false, $landingPdo);
+    $landingSampleEventsEnabled = coveted_site_setting_bool(COVETED_SETTING_LANDING_SAMPLE_EVENTS, false, $landingPdo);
 
     if ($landingEventsEnabled) {
-        try {
-            $landingEvents = $landingPdo->query(
-                "SELECT e.public_id, e.title, e.event_type, e.timezone, e.starts_at
-                 FROM events e
-                 WHERE e.status = 'published'
-                   AND e.audience = 'group'
-                   AND e.starts_at >= UTC_TIMESTAMP()
-                 ORDER BY e.starts_at ASC
-                 LIMIT 4"
-            )->fetchAll();
-        } catch (Throwable $e) {
-            error_log('Coveted landing events unavailable: ' . $e->getMessage());
-            $landingEvents = [];
+        if ($landingSampleEventsEnabled) {
+            $landingEvents = coveted_sample_landing_events();
+        } else {
+            try {
+                $landingEvents = $landingPdo->query(
+                    "SELECT e.public_id, e.title, e.event_type, e.timezone, e.starts_at
+                     FROM events e
+                     WHERE e.status = 'published'
+                       AND e.audience = 'group'
+                       AND e.starts_at >= UTC_TIMESTAMP()
+                     ORDER BY e.starts_at ASC
+                     LIMIT 4"
+                )->fetchAll();
+            } catch (Throwable $e) {
+                error_log('Coveted landing events unavailable: ' . $e->getMessage());
+                $landingEvents = [];
+            }
         }
     }
 }
@@ -92,6 +99,9 @@ if (!$user):
                         ? 'Mystery gathering'
                         : (string)$event['title'];
                     $eventTypeLabel = ucwords(str_replace('_', ' ', $eventType));
+                    if (!empty($event['is_sample'])) {
+                        $eventTypeLabel = 'Preview · ' . $eventTypeLabel;
+                    }
                     ?>
                     <article>
                         <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="7" width="22" height="20" rx="2"></rect><path d="M10 4v6M22 4v6M5 13h22"></path></svg>
