@@ -10,31 +10,13 @@
     const pageTitle = normalize(app.querySelector('.cv-admin-header-copy strong')?.textContent || '');
 
     const platformPages = {
-        operations: ['cv-admin-operations-v2', '/admin/operations.php'],
-        'landing page': ['cv-admin-landing-v2', '/admin/landing.php'],
-        'sample data': ['cv-admin-sample-data-v2', '/admin/sample-data.php'],
-        settings: ['cv-admin-settings-v2', '/admin/?view=settings'],
+        operations: 'cv-admin-operations-v2',
+        'landing page': 'cv-admin-landing-v2',
+        'sample data': 'cv-admin-sample-data-v2',
+        settings: 'cv-admin-settings-v2',
     };
 
-    const platformEntry = platformPages[pageTitle];
-    if (platformEntry) app.classList.add(platformEntry[0]);
-
-    const makePlatformLinks = () => {
-        if (!platformEntry || app.querySelector('.cv-admin-platform-links')) return;
-        const links = document.createElement('nav');
-        links.className = 'cv-admin-platform-links';
-        links.setAttribute('aria-label', 'Platform administration');
-        links.innerHTML = `
-            <a href="/admin/operations.php" data-page="operations">Operations</a>
-            <a href="/admin/landing.php" data-page="landing page">Landing Page</a>
-            <a href="/admin/sample-data.php" data-page="sample data">Sample Data</a>
-            <a href="/admin/?view=settings" data-page="settings">Settings</a>
-        `;
-        links.querySelector(`[data-page="${pageTitle}"]`)?.classList.add('is-active');
-
-        const heading = app.querySelector('.cv-admin-page-head, .cv-page-heading');
-        if (heading) heading.insertAdjacentElement('afterend', links);
-    };
+    if (platformPages[pageTitle]) app.classList.add(platformPages[pageTitle]);
 
     const insertStatus = ({anchor, eyebrow, title, detail, state = 'clear', pill}) => {
         if (!anchor || anchor.nextElementSibling?.classList.contains('cv-admin-platform-status')) return null;
@@ -184,7 +166,6 @@
         app.classList.add('cv-admin-mobile-qa-ready');
     };
 
-    makePlatformLinks();
     initOperations();
     initLanding();
     initSampleData();
