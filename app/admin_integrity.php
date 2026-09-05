@@ -31,11 +31,53 @@ function coveted_admin_integrity_flash_and_redirect(string $message): never
     coveted_redirect(coveted_admin_integrity_return_path());
 }
 
+function coveted_admin_integrity_semantic_key(string $action, int $adminUserId): string
+{
+    return match ($action) {
+        'create_user' => strtolower(trim((string)($_POST['email'] ?? ''))),
+        'create_business' => coveted_admin_integrity_normalize((string)($_POST['name'] ?? '')),
+        'create_group' => coveted_admin_integrity_normalize((string)($_POST['name'] ?? ''))
+            . '|' . coveted_admin_integrity_normalize((string)($_POST['city'] ?? '')),
+        'create_event' => (int)($_POST['group_id'] ?? 0)
+            . '|' . coveted_admin_integrity_normalize((string)($_POST['title'] ?? ''))
+            . '|' . trim((string)($_POST['starts_at'] ?? ''))
+            . '|' . trim((string)($_POST['timezone'] ?? '')),
+        'create_artist' => $adminUserId . '|'
+            . coveted_admin_integrity_normalize((string)($_POST['artist_name'] ?? '')),
+        default => $action,
+    };
+}
+
+/**
+ * MySQL advisory locks keep two different Admin sessions from passing the
+ * same pre-insert duplicate check at the same time. The lock is held until
+ * request shutdown, after the canonical create service has committed.
+ */
+function coveted_admin_integrity_lock_create(PDO $pdo, string $action, int $adminUserId): void
+{
+    $semanticKey = coveted_admin_integrity_semantic_key($action, $adminUserId);
+    $lockName = 'coveted:create:' . substr(hash('sha256', $action . '|' . $semanticKey), 0, 40);
+
+    $stmt = $pdo->prepare('SELECT GET_LOCK(?, 5)');
+    $stmt->execute([$lockName]);
+    if ((int)$stmt->fetchColumn() !== 1) {
+        coveted_admin_integrity_flash_and_redirect('Another matching Admin create action is already in progress. Try again in a moment.');
+    }
+
+    register_shutdown_function(static function () use ($pdo, $lockName): void {
+        try {
+            $release = $pdo->prepare('SELECT RELEASE_LOCK(?)');
+            $release->execute([$lockName]);
+        } catch (Throwable $e) {
+            error_log('Coveted Admin create lock release failed: ' . $e->getMessage());
+        }
+    });
+}
+
 /**
  * Stop browser resubmits/double-clicks before they can execute the same Admin
  * create mutation twice. PHP session locking serializes same-session requests,
- * so marking the payload before the handler executes also protects concurrent
- * double-clicks from the same Admin session.
+ * while the advisory lock above covers concurrent System Admin sessions.
  */
 function coveted_admin_integrity_guard_replay(string $action): void
 {
@@ -43,7 +85,8 @@ function coveted_admin_integrity_guard_replay(string $action): void
     unset($payload['csrf_token']);
     ksort($payload);
 
-    $fingerprint = hash('sha256', $action . '|' . json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    $encoded = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $fingerprint = hash('sha256', $action . '|' . ($encoded !== false ? $encoded : serialize($payload)));
     $now = time();
     $recent = (array)($_SESSION['admin_recent_mutations'] ?? []);
 
@@ -162,8 +205,8 @@ function coveted_admin_integrity_assert_unique_artist(PDO $pdo, int $adminUserId
 
 /**
  * Central Admin-only integrity gate. It intentionally runs before the page's
- * mutation switch so every canonical create action receives the same replay
- * and semantic duplicate protection.
+ * mutation switch so every canonical create action receives the same replay,
+ * cross-session serialization and semantic duplicate protection.
  */
 function coveted_admin_integrity_guard_request(): void
 {
@@ -182,9 +225,10 @@ function coveted_admin_integrity_guard_request(): void
         return;
     }
 
+    $pdo = coveted_db();
+    coveted_admin_integrity_lock_create($pdo, $action, (int)$user['id']);
     coveted_admin_integrity_guard_replay($action);
 
-    $pdo = coveted_db();
     switch ($action) {
         case 'create_user':
             coveted_admin_integrity_assert_unique_user($pdo);
