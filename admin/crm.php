@@ -1,0 +1,214 @@
+<?php
+declare(strict_types=1);
+
+require_once dirname(__DIR__) . '/app/admin_ui.php';
+require_once dirname(__DIR__) . '/app/invite_crm.php';
+
+$admin = coveted_require_system_admin();
+$pdo = coveted_db();
+coveted_invite_crm_ensure_schema($pdo);
+
+$error = '';
+$notice = '';
+$status = strtolower(trim((string)($_GET['status'] ?? 'new')));
+$search = trim((string)($_GET['q'] ?? ''));
+$allowedStatuses = ['new', 'contacted', 'qualified', 'converted', 'declined', 'all'];
+if (!in_array($status, $allowedStatuses, true)) {
+    $status = 'new';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    coveted_require_csrf();
+    try {
+        $action = trim((string)($_POST['action'] ?? ''));
+        $requestId = (int)($_POST['request_id'] ?? 0);
+
+        if ($action === 'crm_update') {
+            coveted_invite_request_update(
+                $admin,
+                $requestId,
+                (string)($_POST['status'] ?? 'new'),
+                (string)($_POST['admin_note'] ?? ''),
+                $pdo
+            );
+            $_SESSION['crm_notice'] = 'CRM record updated.';
+            coveted_redirect('/admin/crm.php?status=' . rawurlencode($status));
+        }
+
+        if ($action === 'crm_convert') {
+            $conversion = coveted_invite_request_convert($admin, $requestId, $pdo);
+            $_SESSION['crm_conversion'] = $conversion;
+            coveted_redirect('/admin/crm.php?status=converted');
+        }
+
+        throw new InvalidArgumentException('Unsupported CRM action.');
+    } catch (InvalidArgumentException $e) {
+        $error = $e->getMessage();
+    } catch (Throwable $e) {
+        error_log('Invite CRM action failed: ' . $e->getMessage());
+        $error = 'Unable to complete that CRM action.';
+    }
+}
+
+$notice = trim((string)($_SESSION['crm_notice'] ?? ''));
+unset($_SESSION['crm_notice']);
+$conversion = is_array($_SESSION['crm_conversion'] ?? null) ? (array)$_SESSION['crm_conversion'] : null;
+unset($_SESSION['crm_conversion']);
+
+$counts = coveted_invite_request_counts($pdo);
+$requests = coveted_invite_requests_list($status, $search, $pdo);
+$interestOptions = coveted_invite_event_interest_options();
+$adminCounts = coveted_admin_ui_counts($pdo);
+
+coveted_page_start('Invite CRM', '', true);
+coveted_admin_ui_start($admin, 'crm', 'Invite CRM', $adminCounts);
+?>
+<div class="cv-admin-page-head">
+    <div>
+        <span class="cv-eyebrow">PEOPLE · CRM</span>
+        <h1>Invite requests</h1>
+        <p>Review public interest, qualify people by city and event fit, then convert approved submissions into Coveted member accounts.</p>
+    </div>
+    <a class="cv-button cv-button-soft" href="/request-invite.php" target="_blank" rel="noopener">Open Public Form</a>
+</div>
+
+<?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
+<?php if ($notice !== ''): ?><div class="cv-alert"><?= coveted_e($notice) ?></div><?php endif; ?>
+
+<?php if ($conversion): ?>
+    <section class="cv-admin-panel cv-crm-conversion-notice">
+        <div class="cv-admin-panel-head">
+            <div>
+                <span class="cv-eyebrow">CONVERSION COMPLETE</span>
+                <h2><?= !empty($conversion['existing_user']) ? 'Linked to an existing user' : 'Member account created' ?></h2>
+            </div>
+            <span class="cv-status">Converted</span>
+        </div>
+        <p><?= coveted_e((string)$conversion['email']) ?> is now linked to a Coveted user record.</p>
+        <?php if (!empty($conversion['activation_url'])): ?>
+            <div class="cv-crm-activation-link">
+                <label>One-time activation link · expires in 7 days</label>
+                <input readonly value="<?= coveted_e((string)$conversion['activation_url']) ?>" onclick="this.select()">
+                <small>Copy this link now and send it to the approved member. For security it is only shown in this Admin confirmation.</small>
+            </div>
+        <?php endif; ?>
+    </section>
+<?php endif; ?>
+
+<div class="cv-crm-metrics">
+    <a class="<?= $status === 'new' ? 'is-active' : '' ?>" href="/admin/crm.php?status=new"><span>New</span><strong><?= (int)$counts['new'] ?></strong></a>
+    <a class="<?= $status === 'qualified' ? 'is-active' : '' ?>" href="/admin/crm.php?status=qualified"><span>Qualified</span><strong><?= (int)$counts['qualified'] ?></strong></a>
+    <a class="<?= $status === 'contacted' ? 'is-active' : '' ?>" href="/admin/crm.php?status=contacted"><span>Contacted</span><strong><?= (int)$counts['contacted'] ?></strong></a>
+    <a class="<?= $status === 'converted' ? 'is-active' : '' ?>" href="/admin/crm.php?status=converted"><span>Converted</span><strong><?= (int)$counts['converted'] ?></strong></a>
+    <a class="<?= $status === 'declined' ? 'is-active' : '' ?>" href="/admin/crm.php?status=declined"><span>Declined</span><strong><?= (int)$counts['declined'] ?></strong></a>
+</div>
+
+<form class="cv-admin-toolbar cv-crm-toolbar" method="get" action="/admin/crm.php">
+    <input type="hidden" name="status" value="<?= coveted_e($status) ?>">
+    <label>
+        <span class="cv-sr-only">Search CRM</span>
+        <input type="search" name="q" value="<?= coveted_e($search) ?>" placeholder="Search name, email, phone or city">
+    </label>
+    <button class="cv-button cv-button-soft" type="submit">Search</button>
+    <?php if ($search !== ''): ?><a class="cv-button cv-button-soft" href="/admin/crm.php?status=<?= coveted_e($status) ?>">Clear</a><?php endif; ?>
+    <a class="cv-button cv-button-soft" href="/admin/crm.php?status=all">All records</a>
+</form>
+
+<section class="cv-crm-list">
+    <?php if (!$requests): ?>
+        <div class="cv-card cv-empty"><h3>No CRM records here.</h3><p>New public invite requests will appear in this queue.</p></div>
+    <?php endif; ?>
+
+    <?php foreach ($requests as $request): ?>
+        <?php
+        $interestKeys = [];
+        try {
+            $decoded = json_decode((string)$request['event_interests_json'], true, 32, JSON_THROW_ON_ERROR);
+            $interestKeys = is_array($decoded) ? coveted_invite_normalize_interests($decoded) : [];
+        } catch (Throwable) {
+            $interestKeys = [];
+        }
+        $cityLabel = trim((string)$request['city_other']);
+        if (!empty($request['city_name'])) {
+            $cityLabel = (string)$request['city_name'];
+            if (!empty($request['city_region'])) {
+                $cityLabel .= ', ' . (string)$request['city_region'];
+            }
+        }
+        ?>
+        <article class="cv-admin-panel cv-crm-record">
+            <div class="cv-crm-record-main">
+                <div class="cv-crm-record-head">
+                    <div>
+                        <div class="cv-tag-row">
+                            <span class="cv-status"><?= coveted_e(ucfirst((string)$request['status'])) ?></span>
+                            <span class="cv-pill"><?= coveted_e($cityLabel !== '' ? $cityLabel : 'City not provided') ?></span>
+                        </div>
+                        <h2><?= coveted_e((string)$request['full_name']) ?></h2>
+                        <p><?= coveted_e((string)$request['email']) ?><?php if (!empty($request['phone'])): ?> · <?= coveted_e((string)$request['phone']) ?><?php endif; ?></p>
+                    </div>
+                    <div class="cv-crm-record-date">
+                        <span>REQUESTED</span>
+                        <strong><?= coveted_e(coveted_utc_datetime((string)$request['created_at'])->setTimezone(coveted_timezone())->format('M j')) ?></strong>
+                        <small><?= coveted_e(coveted_utc_datetime((string)$request['created_at'])->setTimezone(coveted_timezone())->format('Y')) ?></small>
+                    </div>
+                </div>
+
+                <div class="cv-crm-interest-row">
+                    <?php foreach ($interestKeys as $key): ?>
+                        <span><?= coveted_e($interestOptions[$key] ?? $key) ?></span>
+                    <?php endforeach; ?>
+                </div>
+
+                <?php if (!empty($request['message'])): ?>
+                    <div class="cv-crm-copy"><span>WHAT THEY’RE LOOKING FOR</span><p><?= nl2br(coveted_e((string)$request['message'])) ?></p></div>
+                <?php endif; ?>
+                <?php if (!empty($request['how_heard'])): ?>
+                    <div class="cv-crm-inline-meta"><strong>Source</strong><span><?= coveted_e((string)$request['how_heard']) ?></span></div>
+                <?php endif; ?>
+                <?php if (!empty($request['converted_user_id'])): ?>
+                    <div class="cv-crm-inline-meta"><strong>User</strong><span><?= coveted_e((string)($request['converted_user_name'] ?? 'Coveted user')) ?></span></div>
+                <?php endif; ?>
+            </div>
+
+            <div class="cv-crm-record-actions">
+                <?php if ($request['status'] !== 'converted'): ?>
+                    <form method="post" class="cv-crm-review-form">
+                        <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+                        <input type="hidden" name="action" value="crm_update">
+                        <input type="hidden" name="request_id" value="<?= (int)$request['id'] ?>">
+                        <label>
+                            CRM status
+                            <select name="status">
+                                <?php foreach (['new' => 'New', 'contacted' => 'Contacted', 'qualified' => 'Qualified', 'declined' => 'Declined'] as $key => $label): ?>
+                                    <option value="<?= coveted_e($key) ?>" <?= $request['status'] === $key ? 'selected' : '' ?>><?= coveted_e($label) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <label>
+                            Admin note
+                            <textarea name="admin_note" maxlength="3000" rows="3" placeholder="Private CRM note"><?= coveted_e((string)($request['admin_note'] ?? '')) ?></textarea>
+                        </label>
+                        <button class="cv-button cv-button-soft" type="submit">Save CRM</button>
+                    </form>
+
+                    <form method="post" class="cv-crm-convert-form" onsubmit="return confirm('Convert this submission into a Coveted user account?');">
+                        <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+                        <input type="hidden" name="action" value="crm_convert">
+                        <input type="hidden" name="request_id" value="<?= (int)$request['id'] ?>">
+                        <button class="cv-button cv-button-primary" type="submit">Convert to User</button>
+                        <small>Name, email, city and event interests will carry into the member record.</small>
+                    </form>
+                <?php else: ?>
+                    <div class="cv-crm-converted-state">
+                        <span>USER ACCOUNT</span>
+                        <strong>Converted</strong>
+                        <small>This CRM submission is locked to preserve conversion history.</small>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </article>
+    <?php endforeach; ?>
+</section>
+<?php coveted_admin_ui_end(); ?>
+<?php coveted_page_end(); ?>
