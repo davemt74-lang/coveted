@@ -435,7 +435,19 @@
     }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) and (min-width: 721px) {
+    .cv-admin-agent-composer-shell {
+        left: 190px;
+        padding-right: 16px;
+        padding-left: 16px;
+    }
+
+    .cv-admin-agent-composer {
+        width: min(920px, calc(100vw - 190px - 32px));
+    }
+}
+
+@media (max-width: 720px) {
     .cv-admin-agent-page {
         padding-bottom: 128px;
     }
