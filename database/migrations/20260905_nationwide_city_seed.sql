@@ -1,5 +1,6 @@
 -- Replace the original Phoenix-metro launch seed with a nationwide city list.
 -- Legacy seed rows are archived, not deleted, so historical references remain valid.
+-- Existing matching city rows are preserved so Admin status choices are not overwritten.
 
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
@@ -14,7 +15,7 @@ WHERE public_id IN (
   'city_gilbert_az'
 );
 
-INSERT INTO cities (public_id,name,region,country,timezone,status,sort_order) VALUES
+INSERT IGNORE INTO cities (public_id,name,region,country,timezone,status,sort_order) VALUES
 ('city_san_francisco_ca','San Francisco','California','US','America/Los_Angeles','active',10),
 ('city_san_diego_ca','San Diego','California','US','America/Los_Angeles','active',20),
 ('city_phoenix_az','Phoenix','Arizona','US','America/Phoenix','active',30),
@@ -26,12 +27,4 @@ INSERT INTO cities (public_id,name,region,country,timezone,status,sort_order) VA
 ('city_nashville_tn','Nashville','Tennessee','US','America/Chicago','active',90),
 ('city_denver_co','Denver','Colorado','US','America/Denver','active',100),
 ('city_seattle_wa','Seattle','Washington','US','America/Los_Angeles','active',110),
-('city_atlanta_ga','Atlanta','Georgia','US','America/New_York','active',120)
-ON DUPLICATE KEY UPDATE
-  name = VALUES(name),
-  region = VALUES(region),
-  country = VALUES(country),
-  timezone = VALUES(timezone),
-  status = 'active',
-  sort_order = VALUES(sort_order),
-  updated_at = UTC_TIMESTAMP();
+('city_atlanta_ga','Atlanta','Georgia','US','America/New_York','active',120);
