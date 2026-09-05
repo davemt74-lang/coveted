@@ -10,9 +10,13 @@ $eventCssPath = $root . '/assets/css/admin-events-v2.css';
 $peopleBusinessCssPath = $root . '/assets/css/admin-people-business-v2.css';
 $communityValueCssPath = $root . '/assets/css/admin-community-value-v2.css';
 $platformCssPath = $root . '/assets/css/admin-platform-v2.css';
+$communityCleanupCssPath = $root . '/assets/css/admin-community-cleanup-v2.css';
 $jsIndexPath = $root . '/assets/js/coveted.js';
 $jsPath = $root . '/assets/js/admin-v2.js';
 $platformJsPath = $root . '/assets/js/admin-platform-v2.js';
+$communityCleanupJsPath = $root . '/assets/js/admin-community-cleanup-v2.js';
+$adminIndexPath = $root . '/admin/index.php';
+$businessWorkspacePath = $root . '/business.php';
 $operationsPath = $root . '/admin/operations.php';
 $landingPath = $root . '/admin/landing.php';
 $sampleDataPath = $root . '/admin/sample-data.php';
@@ -26,9 +30,13 @@ foreach ([
     $peopleBusinessCssPath,
     $communityValueCssPath,
     $platformCssPath,
+    $communityCleanupCssPath,
     $jsIndexPath,
     $jsPath,
     $platformJsPath,
+    $communityCleanupJsPath,
+    $adminIndexPath,
+    $businessWorkspacePath,
     $operationsPath,
     $landingPath,
     $sampleDataPath,
@@ -47,9 +55,13 @@ $eventCss = (string)file_get_contents($eventCssPath);
 $peopleBusinessCss = (string)file_get_contents($peopleBusinessCssPath);
 $communityValueCss = (string)file_get_contents($communityValueCssPath);
 $platformCss = (string)file_get_contents($platformCssPath);
+$communityCleanupCss = (string)file_get_contents($communityCleanupCssPath);
 $jsIndex = (string)file_get_contents($jsIndexPath);
 $js = (string)file_get_contents($jsPath);
 $platformJs = (string)file_get_contents($platformJsPath);
+$communityCleanupJs = (string)file_get_contents($communityCleanupJsPath);
+$adminIndex = (string)file_get_contents($adminIndexPath);
+$businessWorkspace = (string)file_get_contents($businessWorkspacePath);
 $operations = (string)file_get_contents($operationsPath);
 $landing = (string)file_get_contents($landingPath);
 $sampleData = (string)file_get_contents($sampleDataPath);
@@ -107,6 +119,7 @@ foreach ([
     'admin-people-business-v2.css',
     'admin-community-value-v2.css',
     'admin-platform-v2.css',
+    'admin-community-cleanup-v2.css',
 ] as $stylesheet) {
     if (!str_contains($cssIndex, $stylesheet)) {
         fwrite(STDERR, "Admin v2 stylesheet missing from canonical CSS entrypoint: {$stylesheet}\n");
@@ -156,9 +169,25 @@ foreach ([
     }
 }
 
-if (!str_contains($jsIndex, 'admin-v2.js') || !str_contains($jsIndex, 'admin-platform-v2.js')) {
-    fwrite(STDERR, "Admin v2 interaction layers must be loaded by the canonical JS entrypoint.\n");
-    exit(1);
+foreach ([
+    '.cv-admin-create-dialog',
+    '.cv-admin-create-dialog-content',
+    '.cv-business-workspace-v2',
+    '.cv-business-tabs-v2',
+    '.cv-business-selector-v2',
+    'padding-top: 76px !important',
+] as $fragment) {
+    if (!str_contains($communityCleanupCss, $fragment)) {
+        fwrite(STDERR, "Admin community cleanup style contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
+foreach (['admin-v2.js', 'admin-platform-v2.js', 'admin-community-cleanup-v2.js'] as $script) {
+    if (!str_contains($jsIndex, $script)) {
+        fwrite(STDERR, "Admin v2 interaction layer missing from canonical JS entrypoint: {$script}\n");
+        exit(1);
+    }
 }
 
 foreach ([
@@ -200,6 +229,41 @@ foreach ([
 ] as $fragment) {
     if (!str_contains($platformJs, $fragment)) {
         fwrite(STDERR, "Admin v2 platform interaction contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
+foreach ([
+    'communityPages',
+    "createId: 'create-business'",
+    "createId: 'create-group'",
+    "createId: 'create-event'",
+    "createId: 'create-artist'",
+    "defaultFilter: 'status-active'",
+    "defaultFilter: 'published'",
+    'initCommunityCreateDialog',
+    'initActiveDefault',
+    'initBusinessWorkspace',
+    'cv-business-workspace-v2',
+    'cv-business-tabs-v2',
+    "=== 'current business'",
+] as $fragment) {
+    if (!str_contains($communityCleanupJs, $fragment)) {
+        fwrite(STDERR, "Admin community cleanup interaction contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
+foreach (['create-business', 'create-group', 'create-event', 'create-artist'] as $createId) {
+    if (!str_contains($adminIndex, 'id="' . $createId . '"')) {
+        fwrite(STDERR, "Community create dialog source missing from Admin page: {$createId}\n");
+        exit(1);
+    }
+}
+
+foreach (['CURRENT BUSINESS', 'cv-business-selector', 'aria-label="Business workspace"'] as $fragment) {
+    if (!str_contains($businessWorkspace, $fragment)) {
+        fwrite(STDERR, "Business workspace cleanup hook missing: {$fragment}\n");
         exit(1);
     }
 }
