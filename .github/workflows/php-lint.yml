@@ -62,6 +62,9 @@ jobs:
       - name: Verify invite CRM and city contract
         run: php scripts/verify-invite-crm.php
 
+      - name: Verify newsletter CRM contract
+        run: php scripts/verify-newsletter-crm.php
+
       - name: Verify invite profile edge contract
         run: php scripts/verify-invite-profile-edgecases.php
 

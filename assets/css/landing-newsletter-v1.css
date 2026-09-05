@@ -1,0 +1,167 @@
+.cv-landing-newsletter {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 560px);
+    gap: clamp(42px, 7vw, 110px);
+    align-items: center;
+    padding: clamp(72px, 9vw, 132px) clamp(24px, 6vw, 96px);
+    background: #f1eee8;
+    color: #151515;
+    border-top: 1px solid rgba(21, 21, 21, 0.08);
+}
+
+.cv-landing-newsletter-copy {
+    max-width: 720px;
+}
+
+.cv-landing-newsletter-copy h2 {
+    margin: 15px 0 20px;
+    max-width: 680px;
+    font-size: clamp(44px, 5.6vw, 82px);
+    line-height: 0.98;
+    letter-spacing: -0.055em;
+    font-weight: 560;
+}
+
+.cv-landing-newsletter-copy > p {
+    max-width: 610px;
+    margin: 0;
+    color: rgba(21, 21, 21, 0.64);
+    font-size: clamp(16px, 1.35vw, 20px);
+    line-height: 1.55;
+}
+
+.cv-landing-newsletter-form-wrap {
+    width: 100%;
+    max-width: 560px;
+    justify-self: end;
+}
+
+.cv-landing-newsletter-form {
+    display: grid;
+    gap: 17px;
+    padding: clamp(24px, 3vw, 38px);
+    border: 1px solid rgba(21, 21, 21, 0.12);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.64);
+    box-shadow: 0 22px 70px rgba(30, 25, 18, 0.07);
+}
+
+.cv-landing-newsletter-form label {
+    display: grid;
+    gap: 8px;
+    color: rgba(21, 21, 21, 0.76);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.cv-landing-newsletter-form input {
+    width: 100%;
+    min-height: 52px;
+    box-sizing: border-box;
+    border: 0;
+    border-bottom: 1px solid rgba(21, 21, 21, 0.2);
+    border-radius: 0;
+    outline: none;
+    background: transparent;
+    color: #151515;
+    padding: 10px 0;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.cv-landing-newsletter-form input:focus {
+    border-bottom-color: #151515;
+}
+
+.cv-landing-newsletter-form input::placeholder {
+    color: rgba(21, 21, 21, 0.36);
+}
+
+.cv-landing-newsletter-form .cv-landing-button {
+    width: 100%;
+    justify-content: center;
+    margin-top: 5px;
+}
+
+.cv-landing-newsletter-legal {
+    margin: 0;
+    color: rgba(21, 21, 21, 0.5);
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.cv-landing-newsletter-legal a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.cv-landing-newsletter-success {
+    padding: clamp(28px, 4vw, 44px);
+    border: 1px solid rgba(21, 21, 21, 0.12);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.68);
+}
+
+.cv-landing-newsletter-success h3 {
+    margin: 0 0 10px;
+    font-size: clamp(28px, 3vw, 42px);
+    letter-spacing: -0.04em;
+}
+
+.cv-landing-newsletter-success p {
+    margin: 0;
+    color: rgba(21, 21, 21, 0.62);
+    line-height: 1.55;
+}
+
+.cv-landing-newsletter-error {
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(150, 35, 35, 0.22);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.58);
+    color: #7c2020;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.cv-landing-newsletter .cv-invite-honeypot {
+    position: absolute !important;
+    left: -10000px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+}
+
+@media (max-width: 900px) {
+    .cv-landing-newsletter {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+
+    .cv-landing-newsletter-form-wrap {
+        max-width: none;
+        justify-self: stretch;
+    }
+}
+
+@media (max-width: 560px) {
+    .cv-landing-newsletter {
+        padding: 64px 20px;
+    }
+
+    .cv-landing-newsletter-copy h2 {
+        font-size: clamp(40px, 13vw, 58px);
+    }
+
+    .cv-landing-newsletter-form {
+        padding: 22px 20px;
+        border-radius: 16px;
+    }
+}
