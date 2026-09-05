@@ -5,56 +5,26 @@
     const hero = landing?.querySelector('.cv-landing-hero');
     if (!landing || !hero) return;
 
-    const escapeText = (value) => String(value ?? '');
     const numberFormatter = new Intl.NumberFormat('en-US');
 
     const buildCitySection = (cities) => {
         const section = document.createElement('section');
         section.className = 'cv-landing-city-strip';
-        section.setAttribute('aria-labelledby', 'cv-landing-cities-title');
-
-        const head = document.createElement('div');
-        head.className = 'cv-landing-city-strip-head';
-        head.innerHTML = `
-            <div>
-                <span class="cv-landing-overline cv-landing-overline-dark">COVETED CITIES</span>
-                <h2 id="cv-landing-cities-title">Find your city.</h2>
-            </div>
-            <p>A growing network of real-world gatherings, local partners and member communities across the country.</p>
-        `;
-
-        const controls = document.createElement('div');
-        controls.className = 'cv-landing-city-controls';
-        controls.innerHTML = `
-            <button class="cv-landing-city-control" type="button" data-city-prev aria-label="Previous cities">←</button>
-            <button class="cv-landing-city-control" type="button" data-city-next aria-label="Next cities">→</button>
-        `;
-        head.appendChild(controls);
+        section.setAttribute('aria-label', 'Coveted cities');
 
         const track = document.createElement('div');
         track.className = 'cv-landing-city-track';
         track.setAttribute('tabindex', '0');
         track.setAttribute('aria-label', 'Coveted cities');
 
-        cities.forEach((city, index) => {
-            const card = document.createElement('article');
-            card.className = 'cv-landing-city-card';
-            const region = document.createElement('span');
-            region.textContent = escapeText(city.region);
-            const name = document.createElement('strong');
-            name.textContent = escapeText(city.name);
-            card.append(region, name);
-            track.appendChild(card);
+        cities.forEach((city) => {
+            const name = document.createElement('span');
+            name.className = 'cv-landing-city-name';
+            name.textContent = String(city?.name ?? '');
+            if (name.textContent !== '') track.appendChild(name);
         });
 
-        const scrollTrack = (direction) => {
-            const amount = Math.max(track.clientWidth * 0.78, 260);
-            track.scrollBy({ left: amount * direction, behavior: 'smooth' });
-        };
-        controls.querySelector('[data-city-prev]')?.addEventListener('click', () => scrollTrack(-1));
-        controls.querySelector('[data-city-next]')?.addEventListener('click', () => scrollTrack(1));
-
-        section.append(head, track);
+        section.appendChild(track);
         return section;
     };
 
@@ -154,17 +124,20 @@
         .then((payload) => {
             if (!payload?.ok) return;
 
-            const sections = [];
             if (payload.city_strip_enabled && Array.isArray(payload.cities) && payload.cities.length) {
-                sections.push(buildCitySection(payload.cities));
-            }
-            if (payload.network_stats_enabled && payload.stats && typeof payload.stats === 'object') {
-                const statsSection = buildStatsSection(payload.stats);
-                sections.push(statsSection);
-                requestAnimationFrame(() => animateCounts(statsSection));
+                hero.after(buildCitySection(payload.cities));
             }
 
-            if (sections.length) hero.after(...sections);
+            if (payload.network_stats_enabled && payload.stats && typeof payload.stats === 'object') {
+                const statsSection = buildStatsSection(payload.stats);
+                const appSection = landing.querySelector('.cv-landing-app');
+                if (appSection) {
+                    appSection.after(statsSection);
+                } else {
+                    landing.appendChild(statsSection);
+                }
+                requestAnimationFrame(() => animateCounts(statsSection));
+            }
         })
         .catch((error) => console.error('Coveted landing network failed to load:', error));
 })();
