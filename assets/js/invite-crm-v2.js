@@ -12,6 +12,21 @@
         }
     });
 
+    const citySelect = document.querySelector('[data-city-select]');
+    const cityOther = document.querySelector('[data-city-other]');
+    const cityOtherInput = document.querySelector('[data-city-other-input]');
+    const syncCityOther = () => {
+        if (!citySelect || !cityOther || !cityOtherInput) return;
+        const isOther = citySelect.value === '0';
+        cityOther.hidden = !isOther;
+        cityOtherInput.required = isOther;
+        if (!isOther) cityOtherInput.value = '';
+    };
+    if (citySelect) {
+        citySelect.addEventListener('change', syncCityOther);
+        syncCityOther();
+    }
+
     const dialogs = new Map();
     document.querySelectorAll('[data-dialog]').forEach((dialog) => {
         dialogs.set(dialog.getAttribute('data-dialog'), dialog);
