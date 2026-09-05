@@ -13,6 +13,7 @@
     const newChat = root.querySelector('[data-agent-new-chat]');
     const endpoint = root.dataset.endpoint || '/api/admin-agent-chat.php';
     const csrf = root.dataset.csrf || '';
+    const startNew = root.dataset.startNew === '1';
     const storageKey = 'coveted.adminAgent.v1';
     const maxStoredMessages = 24;
     let busy = false;
@@ -135,6 +136,13 @@
     };
 
     load();
+    if (startNew) {
+        messages = [];
+        save();
+        try {
+            window.history.replaceState({}, '', '/admin/agent.php');
+        } catch (_) {}
+    }
     render();
     resizeInput();
 
