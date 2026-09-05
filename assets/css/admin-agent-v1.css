@@ -238,7 +238,7 @@
 
 .cv-admin-agent-starters {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 9px;
     width: 100%;
     margin-top: 30px;
@@ -318,6 +318,33 @@
 
 .cv-admin-agent-message.is-user .cv-admin-agent-message-body {
     color: #555049;
+}
+
+.cv-admin-agent-message.is-action {
+    margin: 10px 0;
+    padding: 16px;
+    border: 1px solid #ddd8d0;
+    border-radius: 14px;
+    background: #faf9f6;
+}
+
+.cv-admin-agent-message.is-action .cv-admin-agent-message-label {
+    color: #4f4b45;
+}
+
+.cv-admin-agent-message.is-action .cv-admin-agent-message-body {
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.cv-admin-agent-message.is-action.is-failed {
+    border-color: #ead7d4;
+    background: #fff8f7;
+}
+
+.cv-admin-agent-message.is-action.is-failed .cv-admin-agent-message-label,
+.cv-admin-agent-message.is-action.is-failed .cv-admin-agent-message-body {
+    color: #955d58;
 }
 
 .cv-admin-agent-message small {
@@ -425,6 +452,15 @@
     font-size: 7px;
 }
 
+.cv-admin-agent-composer-meta a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.cv-admin-agent-composer-meta a:hover {
+    color: #4f4b45;
+}
+
 .cv-admin-agent-page.is-thinking .cv-admin-agent-composer {
     border-color: #beb8af;
 }
@@ -477,6 +513,10 @@
 
     .cv-admin-agent-message small {
         grid-column: 1;
+    }
+
+    .cv-admin-agent-message.is-action {
+        padding: 14px;
     }
 
     .cv-admin-agent-composer-shell {
