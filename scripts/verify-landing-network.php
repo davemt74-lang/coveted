@@ -43,7 +43,8 @@ foreach ([
     "'Atlanta'",
     'city_scottsdale_az',
     "status = 'archived'",
-    "status = 'active'",
+    'INSERT IGNORE INTO cities',
+    '$rolloutAlreadyApplied',
 ] as $fragment) {
     if (!str_contains($citySeed, $fragment)) {
         fwrite(STDERR, "Nationwide city contract missing: {$fragment}\n");
@@ -75,7 +76,7 @@ foreach (['COVETED_SETTING_LANDING_CITY_STRIP', 'COVETED_SETTING_LANDING_NETWORK
 }
 
 $api = $files['api/landing-network.php'];
-foreach (['city_strip_enabled', 'network_stats_enabled', 'coveted_sample_landing_cities', 'coveted_sample_landing_network_stats', 'sample' => 'sample'] as $key => $fragment) {
+foreach (['city_strip_enabled', 'network_stats_enabled', 'coveted_sample_landing_cities', 'coveted_sample_landing_network_stats', "'sample' => true"] as $fragment) {
     if (!str_contains($api, $fragment)) {
         fwrite(STDERR, "Landing network endpoint contract missing: {$fragment}\n");
         exit(1);
@@ -136,7 +137,7 @@ if (!str_contains($files['assets/js/coveted.js'], 'landing-network-v2.js')) {
 }
 
 $migration = $files['database/migrations/20260905_nationwide_city_seed.sql'];
-foreach (['city_san_francisco_ca', 'city_minneapolis_mn', 'city_new_york_ny', 'city_austin_tx', 'city_scottsdale_az'] as $fragment) {
+foreach (['city_san_francisco_ca', 'city_minneapolis_mn', 'city_new_york_ny', 'city_austin_tx', 'city_scottsdale_az', 'INSERT IGNORE INTO cities'] as $fragment) {
     if (!str_contains($migration, $fragment)) {
         fwrite(STDERR, "Nationwide city migration missing: {$fragment}\n");
         exit(1);
