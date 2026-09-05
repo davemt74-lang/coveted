@@ -287,4 +287,16 @@ foreach (['coveted_require_csrf();', 'coveted_site_setting_set_bool'] as $fragme
     }
 }
 
+foreach ([
+    'coveted_site_setting_set_bool(COVETED_SETTING_LANDING_EVENTS, true, $admin, $pdo);',
+    'coveted_site_setting_set_bool(COVETED_SETTING_LANDING_SAMPLE_EVENTS, false, $admin, $pdo);',
+    'Show Sample Events',
+    'Hiding Upcoming Events turns sample mode OFF as well.',
+] as $fragment) {
+    if (!str_contains($landing, $fragment)) {
+        fwrite(STDERR, "Landing sample visibility contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
 echo "Admin v2 integrity contract OK\n";
