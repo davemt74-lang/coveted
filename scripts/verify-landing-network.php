@@ -10,9 +10,12 @@ $paths = [
     'admin/sample-data.php',
     'admin/cities.php',
     'request-invite.php',
+    'assets/css/coveted-base.css',
     'assets/css/landing-network-v2.css',
+    'assets/css/public-mobile-header-v2.css',
     'assets/css/coveted.css',
     'assets/js/landing-network-v2.js',
+    'assets/js/public-mobile-header-v2.js',
     'assets/js/coveted.js',
     'database/migrations/20260905_nationwide_city_seed.sql',
 ];
@@ -128,6 +131,12 @@ foreach (['COVETED CITIES', 'Find your city.', 'A growing network of real-world 
     }
 }
 
+$baseCss = $files['assets/css/coveted-base.css'];
+if (!str_contains($baseCss, '.cv-landing-app') || !str_contains($baseCss, 'background: #f1eee8;')) {
+    fwrite(STDERR, "Landing phone section background contract missing.\n");
+    exit(1);
+}
+
 $css = $files['assets/css/landing-network-v2.css'];
 foreach ([
     '.cv-landing-city-strip',
@@ -136,7 +145,9 @@ foreach ([
     'color: rgba(17,17,17,.42)',
     'font-size: clamp(14px, 1.45vw, 19px)',
     '.cv-landing-network-stats',
+    'background: #f1eee8',
     '.cv-landing-stat-grid',
+    'border-top: 1px solid #d2cec4',
 ] as $fragment) {
     if (!str_contains($css, $fragment)) {
         fwrite(STDERR, "Landing network CSS contract missing: {$fragment}\n");
@@ -144,12 +155,50 @@ foreach ([
     }
 }
 
-if (!str_contains($files['assets/css/coveted.css'], 'landing-network-v2-layout-20260905')) {
-    fwrite(STDERR, "Canonical CSS entrypoint does not load the revised landing network styles.\n");
+$mobileCss = $files['assets/css/public-mobile-header-v2.css'];
+foreach ([
+    '@media (max-width: 680px)',
+    '.cv-public-invite-link',
+    'margin-left: auto',
+    '.cv-public-mobile-menu',
+    '.cv-public-mobile-drawer',
+    'position: fixed',
+    '.cv-public-mobile-drawer-login',
+] as $fragment) {
+    if (!str_contains($mobileCss, $fragment)) {
+        fwrite(STDERR, "Public mobile header CSS contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
+$mobileJs = $files['assets/js/public-mobile-header-v2.js'];
+foreach ([
+    "a[href=\"/auth.php?action=login\"]",
+    "a[href=\"/auth.php?action=register\"]",
+    "menu.className = 'cv-public-mobile-menu'",
+    "login.href = '/auth.php?action=login'",
+    "event.key === 'Escape'",
+] as $fragment) {
+    if (!str_contains($mobileJs, $fragment)) {
+        fwrite(STDERR, "Public mobile header JS contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
+if (!str_contains($files['assets/css/coveted.css'], 'landing-network-v2-phone-match-20260905')) {
+    fwrite(STDERR, "Canonical CSS entrypoint does not load the phone-matched landing network styles.\n");
+    exit(1);
+}
+if (!str_contains($files['assets/css/coveted.css'], 'public-mobile-header-v2-20260905')) {
+    fwrite(STDERR, "Canonical CSS entrypoint does not load public mobile header styles.\n");
     exit(1);
 }
 if (!str_contains($files['assets/js/coveted.js'], 'landing-network-v2-layout-20260905')) {
     fwrite(STDERR, "Canonical JS entrypoint does not load the revised landing network script.\n");
+    exit(1);
+}
+if (!str_contains($files['assets/js/coveted.js'], 'public-mobile-header-v2-20260905')) {
+    fwrite(STDERR, "Canonical JS entrypoint does not load public mobile header behavior.\n");
     exit(1);
 }
 
@@ -161,4 +210,4 @@ foreach (['city_san_francisco_ca', 'city_minneapolis_mn', 'city_new_york_ny', 'c
     }
 }
 
-echo "Landing network + nationwide city contract OK\n";
+echo "Landing network + nationwide city + mobile header contract OK\n";
