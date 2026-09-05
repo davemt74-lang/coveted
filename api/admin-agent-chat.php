@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
+require_once dirname(__DIR__) . '/app/site_branding.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -64,7 +65,7 @@ try {
     // Refresh the brain for every request. This makes the Agent state-aware
     // without caching or duplicating product state: once an Admin fixes an
     // opportunity, the next message sees the updated canonical records.
-    $brain = coveted_admin_agent_snapshot($admin);
+    $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin));
     array_unshift($messages, [
         'role' => 'user',
         'content' => coveted_admin_agent_context_message($brain),
