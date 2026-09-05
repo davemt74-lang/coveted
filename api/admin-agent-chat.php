@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/ai_providers.php';
+require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
+require_once dirname(__DIR__) . '/app/site_branding.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -60,6 +61,21 @@ try {
             $messages[] = ['role' => $role, 'content' => $content];
         }
     }
+
+    // Keep enough conversation continuity while reserving space for the
+    // server-generated live context and the current user message. The provider
+    // service retains at most 24 messages, so this clamp guarantees that the
+    // canonical Admin context cannot be pushed out by a custom/long client.
+    $messages = array_slice($messages, -20);
+
+    // Refresh the brain for every request. This makes the Agent state-aware
+    // without caching or duplicating product state: once an Admin fixes an
+    // opportunity, the next message sees the updated canonical records.
+    $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin));
+    array_unshift($messages, [
+        'role' => 'user',
+        'content' => coveted_admin_agent_context_message($brain),
+    ]);
     $messages[] = ['role' => 'user', 'content' => $message];
 
     $result = coveted_ai_chat($admin, $provider, $messages);
@@ -68,6 +84,8 @@ try {
         'provider' => $result['provider'],
         'model' => $result['model'],
         'text' => $result['text'],
+        'readiness' => (int)($brain['readiness']['percent'] ?? 0),
+        'opportunity_count' => count((array)($brain['opportunities'] ?? [])),
     ]);
 } catch (InvalidArgumentException $e) {
     http_response_code(422);

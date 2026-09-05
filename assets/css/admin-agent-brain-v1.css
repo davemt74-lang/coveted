@@ -1,0 +1,60 @@
+/* Admin Agent live brain / opportunity surface */
+
+.cv-admin-agent-empty > .cv-stat-grid {
+    width: 100%;
+    margin-top: 24px;
+}
+
+.cv-admin-agent-empty > .cv-admin-panel {
+    width: 100%;
+    margin-top: 14px;
+    text-align: left;
+}
+
+.cv-admin-agent-empty .cv-admin-panel-head h3 {
+    margin: 5px 0 0;
+    font-size: 18px;
+    letter-spacing: -.03em;
+}
+
+.cv-admin-agent-empty .cv-admin-list-row {
+    gap: 18px;
+    align-items: center;
+}
+
+.cv-admin-agent-empty .cv-admin-list-row > span:last-child {
+    flex: 0 0 auto;
+    color: #8c877f;
+    font-size: 8px;
+    font-weight: 760;
+    white-space: nowrap;
+}
+
+.cv-admin-agent-empty .cv-admin-list-copy small + small {
+    margin-top: 2px;
+    color: #9b958d;
+}
+
+@media (max-width: 720px) {
+    .cv-admin-agent-empty {
+        place-items: stretch;
+        text-align: left;
+    }
+
+    .cv-admin-agent-mark {
+        justify-self: center;
+    }
+
+    .cv-admin-agent-empty > h2,
+    .cv-admin-agent-empty > p {
+        text-align: center;
+    }
+
+    .cv-admin-agent-empty .cv-admin-list-row {
+        align-items: flex-start;
+    }
+
+    .cv-admin-agent-empty .cv-admin-list-row > span:last-child {
+        white-space: normal;
+    }
+}
