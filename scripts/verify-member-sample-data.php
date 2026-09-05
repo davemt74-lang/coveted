@@ -47,7 +47,7 @@ $requiredSampleFragments = [
     'Member welcome',
     'First Friday Supper',
     'Listening Room Night',
-    "'profile' => $profile",
+    "'profile' => \$profile",
     'Phoenix, Arizona',
 ];
 
