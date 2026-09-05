@@ -33,8 +33,8 @@ function coveted_admin_integrity_flash_and_redirect(string $message): never
 
 /**
  * Stop browser resubmits/double-clicks before they can execute the same Admin
- * mutation twice. PHP session locking serializes same-session requests, so
- * marking the payload before the handler executes also protects concurrent
+ * create mutation twice. PHP session locking serializes same-session requests,
+ * so marking the payload before the handler executes also protects concurrent
  * double-clicks from the same Admin session.
  */
 function coveted_admin_integrity_guard_replay(string $action): void
@@ -55,7 +55,7 @@ function coveted_admin_integrity_guard_replay(string $action): void
 
     if (isset($recent[$fingerprint])) {
         $_SESSION['admin_recent_mutations'] = $recent;
-        coveted_admin_integrity_flash_and_redirect('Duplicate submission blocked. The original Admin action was already received.');
+        coveted_admin_integrity_flash_and_redirect('Duplicate submission blocked. The original Admin create action was already received.');
     }
 
     $recent[$fingerprint] = $now;
@@ -177,7 +177,8 @@ function coveted_admin_integrity_guard_request(): void
     }
 
     $action = trim((string)($_POST['action'] ?? ''));
-    if ($action === '') {
+    $protectedActions = ['create_user', 'create_business', 'create_group', 'create_event', 'create_artist'];
+    if (!in_array($action, $protectedActions, true)) {
         return;
     }
 
@@ -190,6 +191,5 @@ function coveted_admin_integrity_guard_request(): void
         'create_group' => coveted_admin_integrity_assert_unique_group($pdo),
         'create_event' => coveted_admin_integrity_assert_unique_event($pdo),
         'create_artist' => coveted_admin_integrity_assert_unique_artist($pdo, (int)$user['id']),
-        default => null,
     };
 }
