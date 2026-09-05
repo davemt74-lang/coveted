@@ -52,3 +52,6 @@ jobs:
 
       - name: Verify Admin v2 integrity contract
         run: php scripts/verify-admin-integrity.php
+
+      - name: Verify landing sample event image contract
+        run: php scripts/verify-landing-sample-images.php
