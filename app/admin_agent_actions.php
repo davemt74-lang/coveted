@@ -135,7 +135,17 @@ function coveted_admin_agent_resolve_crm_request(string $ref, ?PDO $pdo = null):
 
 function coveted_admin_agent_arg_string(array $args, string $key, bool $required = false): string
 {
-    $value = trim((string)($args[$key] ?? ''));
+    if (!array_key_exists($key, $args) || $args[$key] === null) {
+        if ($required) {
+            throw new InvalidArgumentException('Missing action argument: ' . $key . '.');
+        }
+        return '';
+    }
+    if (!is_scalar($args[$key])) {
+        throw new InvalidArgumentException('Invalid action argument type: ' . $key . '.');
+    }
+
+    $value = trim((string)$args[$key]);
     if ($required && $value === '') {
         throw new InvalidArgumentException('Missing action argument: ' . $key . '.');
     }
@@ -147,7 +157,7 @@ function coveted_admin_agent_arg_string(array $args, string $key, bool $required
 
 function coveted_admin_agent_arg_bool(array $args, string $key, bool $default = false): bool
 {
-    if (!array_key_exists($key, $args)) {
+    if (!array_key_exists($key, $args) || $args[$key] === null) {
         return $default;
     }
     $value = $args[$key];
@@ -155,9 +165,19 @@ function coveted_admin_agent_arg_bool(array $args, string $key, bool $default = 
         return $value;
     }
     if (is_int($value)) {
-        return $value === 1;
+        if ($value === 1) {
+            return true;
+        }
+        if ($value === 0) {
+            return false;
+        }
+        throw new InvalidArgumentException('Invalid boolean action argument: ' . $key . '.');
     }
-    $normalized = strtolower(trim((string)$value));
+    if (!is_string($value)) {
+        throw new InvalidArgumentException('Invalid boolean action argument: ' . $key . '.');
+    }
+
+    $normalized = strtolower(trim($value));
     if (in_array($normalized, ['1','true','yes','on'], true)) {
         return true;
     }
@@ -170,10 +190,15 @@ function coveted_admin_agent_arg_bool(array $args, string $key, bool $default = 
 /** @return array{action:string,arguments:array<string,mixed>} */
 function coveted_admin_agent_validate_action_request(array $request): array
 {
-    $action = strtolower(trim((string)($request['action'] ?? '')));
-    if (!isset(coveted_admin_agent_action_registry()[$action])) {
+    if (!isset($request['action']) || !is_string($request['action'])) {
+        throw new InvalidArgumentException('Admin Agent action name is invalid.');
+    }
+    $action = strtolower(trim($request['action']));
+    $registry = coveted_admin_agent_action_registry();
+    if (!isset($registry[$action])) {
         throw new InvalidArgumentException('Unsupported Admin Agent action.');
     }
+
     $args = $request['arguments'] ?? [];
     if (!is_array($args)) {
         throw new InvalidArgumentException('Admin Agent action arguments are invalid.');
@@ -181,6 +206,17 @@ function coveted_admin_agent_validate_action_request(array $request): array
     if (count($args) > 24) {
         throw new InvalidArgumentException('Admin Agent action has too many arguments.');
     }
+
+    $allowed = array_flip((array)$registry[$action]['arguments']);
+    foreach ($args as $key => $value) {
+        if (!is_string($key) || !isset($allowed[$key])) {
+            throw new InvalidArgumentException('Unsupported action argument for ' . $action . '.');
+        }
+        if ($value !== null && !is_scalar($value)) {
+            throw new InvalidArgumentException('Invalid action argument type: ' . $key . '.');
+        }
+    }
+
     return ['action' => $action, 'arguments' => $args];
 }
 
