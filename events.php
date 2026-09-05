@@ -23,11 +23,12 @@ $historyEvents = array_values(array_filter(
 ));
 usort($historyEvents, static fn(array $a, array $b): int => strcmp((string)$b['starts_at'], (string)$a['starts_at']));
 
-$hostUpcoming = array_values(array_filter($upcomingEvents, static fn(array $event): bool => !empty($event['assigned_host_role'])));
-$hostHistory = array_values(array_filter($historyEvents, static fn(array $event): bool => !empty($event['assigned_host_role'])));
+$hostRoleMatches = static fn(array $event): bool => in_array((string)($event['assigned_host_role'] ?? ''), ['lead', 'cohost', 'checkin'], true);
+$hostUpcoming = array_values(array_filter($upcomingEvents, $hostRoleMatches));
+$hostHistory = array_values(array_filter($historyEvents, $hostRoleMatches));
 $hostingEvents = array_merge($hostUpcoming, $hostHistory);
 $hostingCount = count($hostingEvents);
-$isApprovedHost = !$sampleMode && coveted_event_actor_has_host_approval($user);
+$isApprovedHost = !$sampleMode && in_array('attendee_host', (array)$user['roles'], true);
 $hasHostWorkspaceAccess = !$sampleMode && ($isApprovedHost || $hostingCount > 0);
 
 $view = strtolower(trim((string)($_GET['view'] ?? 'upcoming')));
@@ -83,8 +84,11 @@ coveted_page_start('Events', 'Events');
     <?php if ($featuredEvent && $view === 'upcoming'): ?>
         <?php
         $featuredImage = trim((string)($featuredEvent['image'] ?? ''));
-        $featuredIsHost = !empty($featuredEvent['assigned_host_role']) || (bool)($featuredEvent['can_manage'] ?? false);
-        $featuredShowLocation = $featuredIsHost
+        $featuredHostRole = (string)($featuredEvent['assigned_host_role'] ?? '');
+        $featuredIsHost = in_array($featuredHostRole, ['lead', 'cohost', 'checkin'], true);
+        $featuredCanManage = (bool)($featuredEvent['can_manage'] ?? false);
+        $featuredShowLocation = $featuredCanManage
+            || $featuredIsHost
             || $featuredEvent['location_visibility'] === 'immediate'
             || ($featuredEvent['location_visibility'] === 'scheduled_reveal' && (bool)$featuredEvent['location_revealed']);
         ?>
@@ -170,9 +174,12 @@ coveted_page_start('Events', 'Events');
                 <?php
                 $image = trim((string)($event['image'] ?? ''));
                 $future = coveted_event_is_future($event);
-                $isHostAssignment = !empty($event['assigned_host_role']) || (bool)($event['can_manage'] ?? false);
+                $hostRole = (string)($event['assigned_host_role'] ?? '');
+                $isHostAssignment = in_array($hostRole, ['lead', 'cohost', 'checkin'], true);
+                $canManage = (bool)($event['can_manage'] ?? false);
                 $verifiedAttendance = in_array((string)($event['attendance_status'] ?? ''), ['checked_in', 'attended', 'left_early'], true);
-                $showLocation = $isHostAssignment
+                $showLocation = $canManage
+                    || $isHostAssignment
                     || $event['location_visibility'] === 'immediate'
                     || ($event['location_visibility'] === 'scheduled_reveal' && ((bool)$event['location_revealed'] || ($event['status'] === 'completed' && $verifiedAttendance)));
                 $canReconnect = !$sampleMode && $event['status'] === 'completed' && $verifiedAttendance;
