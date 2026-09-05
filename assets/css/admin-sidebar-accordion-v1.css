@@ -1,0 +1,116 @@
+/* Coveted Admin sidebar accordions */
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav {
+    display: grid;
+    gap: 6px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group {
+    display: grid;
+    gap: 1px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 24px;
+    padding: 0 10px;
+    border: 0;
+    background: transparent;
+    color: #aaa59d;
+    cursor: pointer;
+    font: inherit;
+    font-size: 7px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: .17em;
+    text-align: left;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-toggle:hover {
+    color: #68645e;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-chevron {
+    color: #b5b0a8;
+    font-size: 11px;
+    line-height: 1;
+    transform: rotate(-90deg);
+    transition: transform .14s ease;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group.is-open .cv-admin-nav-chevron {
+    transform: rotate(0deg);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-items {
+    display: none;
+    gap: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group.is-open .cv-admin-nav-items {
+    display: grid;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-chat-nav-group {
+    margin-top: 5px;
+    padding-top: 6px;
+    border-top: 1px solid #efebe5;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-new-chat-link {
+    color: #292722;
+    font-weight: 760;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-new-chat-link .cv-admin-nav-text {
+    letter-spacing: -.01em;
+}
+
+@media (min-width: 981px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav {
+        gap: 5px;
+        margin-top: 9px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-toggle {
+        min-height: 20px;
+        padding-top: 1px;
+        padding-bottom: 1px;
+    }
+}
+
+@media (max-width: 720px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar {
+        display: block;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav {
+        display: grid !important;
+        gap: 6px;
+        overflow: visible;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group {
+        display: grid !important;
+        min-width: 0;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-toggle {
+        min-height: 30px;
+        padding: 0 8px;
+        border-radius: 8px;
+        background: #f8f6f2;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-items {
+        gap: 3px;
+        padding: 4px 0 2px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav a {
+        width: 100%;
+        min-height: 34px;
+    }
+}
