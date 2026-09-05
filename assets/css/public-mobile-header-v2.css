@@ -3,6 +3,10 @@ body.cv-public-home .cv-public-mobile-menu {
 }
 
 @media (max-width: 680px) {
+    body.cv-public-home.cv-public-mobile-menu-open {
+        overflow: hidden;
+    }
+
     body.cv-public-home .cv-header {
         display: flex;
         align-items: center;
@@ -25,9 +29,9 @@ body.cv-public-home .cv-public-mobile-menu {
     }
 
     body.cv-public-home .cv-header-actions > .cv-public-invite-link {
-        order: 1;
+        order: 2;
         flex: 0 0 auto;
-        margin-left: auto;
+        margin-left: 0;
         min-height: 38px;
         padding: 0 13px;
         white-space: nowrap;
@@ -35,7 +39,7 @@ body.cv-public-home .cv-public-mobile-menu {
 
     body.cv-public-home .cv-public-mobile-menu {
         position: static;
-        order: 2;
+        order: 1;
         display: block;
         flex: 0 0 auto;
     }
