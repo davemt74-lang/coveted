@@ -105,6 +105,7 @@ function coveted_admin_ui_start(
             <div class="cv-admin-nav-group">
                 <span class="cv-admin-nav-label">PLATFORM</span>
                 <?php coveted_admin_nav_link($active, 'operations', '/admin/operations.php', 'Operations'); ?>
+                <?php coveted_admin_nav_link($active, 'landing', '/admin/landing.php', 'Landing Page'); ?>
                 <?php coveted_admin_nav_link($active, 'settings', '/admin/?view=settings', 'Settings'); ?>
             </div>
         </nav>
