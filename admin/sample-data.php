@@ -101,7 +101,7 @@ coveted_admin_ui_start($admin, 'sample-data', 'Sample Data');
             <dt>Nationwide city slider</dt>
             <dd>
                 <strong><?= $cityStripEnabled ? 'ON' : 'OFF' ?></strong> · <?= count($landingCities) ?> launch cities
-                <form method="post" class="cv-action-row" style="margin-top:10px">
+                <form method="post" class="cv-action-row cv-sample-toggle-row">
                     <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
                     <input type="hidden" name="action" value="set_landing_city_strip">
                     <input type="hidden" name="enabled" value="<?= $cityStripEnabled ? '0' : '1' ?>">
@@ -115,7 +115,7 @@ coveted_admin_ui_start($admin, 'sample-data', 'Sample Data');
             <dt>Network count-up totals</dt>
             <dd>
                 <strong><?= $networkStatsEnabled ? 'ON' : 'OFF' ?></strong> · sample members, events, partners and connections
-                <form method="post" class="cv-action-row" style="margin-top:10px">
+                <form method="post" class="cv-action-row cv-sample-toggle-row">
                     <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
                     <input type="hidden" name="action" value="set_landing_network_stats">
                     <input type="hidden" name="enabled" value="<?= $networkStatsEnabled ? '0' : '1' ?>">
@@ -144,7 +144,7 @@ coveted_admin_ui_start($admin, 'sample-data', 'Sample Data');
     </div>
     <div class="cv-admin-definition-list">
         <div><dt>Cities</dt><dd><?= coveted_e(implode(' · ', array_map(static fn(array $city): string => $city['name'], $landingCities))) ?></dd></div>
-        <div><dt>Database behavior</dt><dd>The old Scottsdale, Tempe, Mesa, Chandler and Gilbert seed rows are archived. Phoenix remains active and the nationwide city list is inserted as active city records.</dd></div>
+        <div><dt>Database behavior</dt><dd>The old Scottsdale, Tempe, Mesa, Chandler and Gilbert seed rows are archived during the initial nationwide rollout. Phoenix remains, the new nationwide city records are inserted, and later Admin status choices are preserved.</dd></div>
     </div>
 </section>
 
