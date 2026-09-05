@@ -1,6 +1,15 @@
 (() => {
     'use strict';
 
+    if (document.body.classList.contains('cv-public-home')) {
+        document.querySelectorAll('a[href="/auth.php?action=register"]').forEach((link) => {
+            link.href = '/request-invite.php';
+            if (link.textContent.trim().startsWith('Join Coveted')) {
+                link.innerHTML = 'Request an Invite <span aria-hidden="true">→</span>';
+            }
+        });
+    }
+
     const dialogs = new Map();
     document.querySelectorAll('[data-dialog]').forEach((dialog) => {
         dialogs.set(dialog.getAttribute('data-dialog'), dialog);
