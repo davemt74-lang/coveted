@@ -14,6 +14,11 @@ return [
         // 5–10 character claim code; this value is never shown to them.
         'claim_code_lookup_key' => 'replace-with-a-random-secret-at-least-32-characters',
 
+        // Dedicated root secret for encrypting AI provider API keys stored from
+        // System Admin. Keep this only in the uncommitted production config.php.
+        // Use a separate random value of at least 32 characters.
+        'ai_credentials_key' => 'replace-with-a-different-random-secret-at-least-32-characters',
+
         // Only configure these when Coveted is behind a reverse proxy you
         // control. The forwarding header is ignored unless REMOTE_ADDR matches
         // one of the trusted proxy IPs below.
