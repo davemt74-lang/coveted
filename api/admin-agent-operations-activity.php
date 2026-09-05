@@ -38,17 +38,28 @@ function coveted_admin_agent_activity_definition(string $eventType): ?array
 
     $exact = [
         'role.requested' => ['Access', 'New role request', '/admin/?view=requests'],
-        'role.approved' => ['Access', 'Role request approved', '/admin/?view=requests'],
-        'role.declined' => ['Access', 'Role request declined', '/admin/?view=requests'],
+        'admin.role_request_approved' => ['Access', 'Role request approved', '/admin/?view=requests'],
+        'admin.role_request_declined' => ['Access', 'Role request declined', '/admin/?view=requests'],
+        'admin.user_created' => ['People', 'Member account created', '/admin/?view=users'],
         'event.rsvp_updated' => ['Events', 'Event RSVP updated', '/admin/?view=events'],
+        'event.invitation_response' => ['Events', 'Event invitation response', '/admin/?view=events'],
         'event.waitlist_promoted' => ['Events', 'Waitlist member promoted', '/admin/?view=events'],
         'event.host_assigned' => ['Events', 'Event host assigned', '/admin/?view=events'],
+        'event.attendance_recorded' => ['Events', 'Event attendance recorded', '/admin/?view=events'],
+        'event.status_changed' => ['Events', 'Event status changed', '/admin/?view=events'],
         'event.created' => ['Events', 'Event created', '/admin/?view=events'],
         'business.created' => ['Partners', 'Business created', '/admin/?view=businesses'],
         'business.admin_added' => ['Partners', 'Business Admin assigned', '/admin/?view=businesses'],
+        'business.admin_removed' => ['Partners', 'Business Admin removed', '/admin/?view=businesses'],
         'location.created' => ['Partners', 'Business location created', '/admin/?view=businesses'],
         'group.created' => ['Community', 'Group created', '/admin/?view=groups'],
         'group.member_removed' => ['Community', 'Group member removed', '/admin/?view=groups'],
+        'group.guest_became_member' => ['Community', 'Guest became a member', '/admin/?view=groups'],
+        'campaign.created' => ['Benefits', 'Campaign created', '/admin/?view=benefits'],
+        'campaign.status_changed' => ['Benefits', 'Campaign status changed', '/admin/?view=benefits'],
+        'campaign.event_linked' => ['Benefits', 'Campaign linked to event', '/admin/?view=benefits'],
+        'reward.claimed' => ['Benefits', 'Reward claimed', '/admin/?view=benefits'],
+        'reward.refunded' => ['Benefits', 'Reward refunded', '/admin/?view=benefits'],
         'admin.invite_request_updated' => ['CRM', 'CRM record updated', '/admin/crm.php'],
         'admin.invite_request_converted' => ['CRM', 'CRM prospect converted', '/admin/crm.php'],
     ];
@@ -114,9 +125,12 @@ function coveted_admin_agent_activity_metadata_lines(?string $json): array
         return [];
     }
 
+    // Deliberately narrow: do not surface emails, notes, provider payloads,
+    // private feedback or arbitrary metadata text in the always-visible feed.
     $labels = [
         'status' => 'Status',
         'response' => 'RSVP',
+        'decision' => 'Decision',
         'role' => 'Role',
         'host_role' => 'Host role',
         'guest_count' => 'Guests',
