@@ -134,6 +134,7 @@ $contains($cssEntry, '/site-branding.css.php', 'dynamic site logo stylesheet is 
 $contains($brainCss, '.cv-admin-agent-empty > .cv-admin-panel', 'opportunity panel layout is missing');
 $contains($brandingCss, '.cv-branding-preview', 'branding preview styles are missing');
 $contains($jsEntry, 'admin-agent-v1.js', 'Admin Agent script is not loaded');
+$contains($jsEntry, 'admin-agent-crm-live-v2-20260905', 'Admin Agent CRM script cache key is stale');
 $contains($css, 'position: fixed', 'composer must remain visible as a sticky footer-style bar');
 $contains($css, '@media (max-width: 900px) and (min-width: 721px)', 'tablet Admin shell alignment is missing');
 $contains($css, '@media (max-width: 720px)', 'Admin Agent mobile layout is missing');
