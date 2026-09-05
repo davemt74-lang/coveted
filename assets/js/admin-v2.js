@@ -9,6 +9,7 @@
     const normalize = (value) => (value || '').trim().toLowerCase();
     const slug = (value) => normalize(value).replace(/[^a-z0-9_-]+/g, '-').replace(/^-|-$/g, '');
     const text = (node) => normalize(node?.textContent || '');
+    const numberFrom = (value) => Number.parseInt(String(value || '').replace(/[^0-9-]/g, ''), 10) || 0;
 
     const dropdowns = [...app.querySelectorAll('.cv-admin-dropdown')];
     dropdowns.forEach((details) => {
@@ -334,9 +335,214 @@
         });
     };
 
+    const initGroups = () => {
+        if (pageTitle !== 'groups') return;
+
+        const rows = [...app.querySelectorAll('.cv-stack > .cv-admin-row')];
+        if (!rows.length) return;
+        const stack = rows[0].parentElement;
+        stack?.classList.add('cv-admin-group-list');
+
+        let totalMembers = 0;
+        let totalEvents = 0;
+        rows.forEach((row) => {
+            const status = text(row.querySelector('.cv-kicker'));
+            const memberCount = numberFrom(row.querySelector('.cv-status')?.textContent || '0');
+            const detailText = row.querySelector('p')?.textContent || '';
+            const eventMatch = detailText.match(/(\d+)\s+events?/i);
+            const eventCount = eventMatch ? Number.parseInt(eventMatch[1], 10) || 0 : 0;
+
+            row.dataset.adminGroupStatus = status;
+            row.dataset.adminGroupMembers = String(memberCount);
+            row.dataset.adminGroupEvents = String(eventCount);
+            if (status) row.classList.add(`is-${slug(status)}`);
+            totalMembers += memberCount;
+            totalEvents += eventCount;
+        });
+
+        const summary = document.createElement('div');
+        summary.className = 'cv-admin-community-summary';
+        summary.innerHTML = `
+            <div><span>Groups</span><strong>${rows.length}</strong></div>
+            <div><span>Active members</span><strong>${totalMembers}</strong></div>
+            <div><span>Event history</span><strong>${totalEvents}</strong></div>
+        `;
+        stack?.insertAdjacentElement('beforebegin', summary);
+
+        const statuses = [...new Set(rows.map((row) => row.dataset.adminGroupStatus).filter(Boolean))];
+        const filters = [
+            {key: 'all', label: 'All', count: rows.length},
+            ...statuses.map((status) => ({
+                key: slug(status),
+                label: status.charAt(0).toUpperCase() + status.slice(1),
+                count: rows.filter((row) => row.dataset.adminGroupStatus === status).length,
+            })),
+        ];
+
+        const toolbar = makeToolbar({className: 'cv-admin-community-toolbar', filters, searchPlaceholder: 'Search groups, creators or status'});
+        summary.insertAdjacentElement('afterend', toolbar);
+        attachFilterBehavior({
+            toolbar,
+            rows,
+            matchesFilter: (row, filter) => slug(row.dataset.adminGroupStatus || '') === filter,
+            emptyText: 'No groups match this filter.',
+        });
+    };
+
+    const initArtists = () => {
+        if (pageTitle !== 'artists') return;
+
+        const grid = app.querySelector('.cv-admin-card-grid');
+        if (!grid) return;
+        const cards = [...grid.querySelectorAll('.cv-admin-entity-card')];
+        if (!cards.length) return;
+        grid.classList.add('cv-admin-artist-grid');
+
+        let appearances = 0;
+        let rewards = 0;
+        cards.forEach((card) => {
+            const status = text(card.querySelector('.cv-status'));
+            const statValues = [...card.querySelectorAll('.cv-admin-mini-stats strong')].map((node) => numberFrom(node.textContent || '0'));
+            card.dataset.adminArtistStatus = status;
+            if (status) card.classList.add(`is-${slug(status)}`);
+            appearances += statValues[1] || 0;
+            rewards += statValues[2] || 0;
+        });
+
+        const summary = document.createElement('div');
+        summary.className = 'cv-admin-community-summary';
+        summary.innerHTML = `
+            <div><span>Artist partners</span><strong>${cards.length}</strong></div>
+            <div><span>Appearances</span><strong>${appearances}</strong></div>
+            <div><span>Rewards</span><strong>${rewards}</strong></div>
+        `;
+        grid.insertAdjacentElement('beforebegin', summary);
+
+        const statuses = [...new Set(cards.map((card) => card.dataset.adminArtistStatus).filter(Boolean))];
+        const filters = [
+            {key: 'all', label: 'All', count: cards.length},
+            ...statuses.map((status) => ({
+                key: slug(status),
+                label: status.charAt(0).toUpperCase() + status.slice(1),
+                count: cards.filter((card) => card.dataset.adminArtistStatus === status).length,
+            })),
+        ];
+
+        const toolbar = makeToolbar({className: 'cv-admin-community-toolbar', filters, searchPlaceholder: 'Search artists, owners or status'});
+        summary.insertAdjacentElement('afterend', toolbar);
+        attachFilterBehavior({
+            toolbar,
+            rows: cards,
+            matchesFilter: (card, filter) => slug(card.dataset.adminArtistStatus || '') === filter,
+            emptyText: 'No artists match this filter.',
+        });
+    };
+
+    const initBenefits = () => {
+        if (pageTitle !== 'benefits') return;
+
+        const panels = [...app.querySelectorAll('.cv-admin-panel')];
+        const panel = panels.find((candidate) => text(candidate.querySelector('.cv-admin-panel-head .cv-eyebrow')) === 'recent campaigns');
+        if (!panel) return;
+        const list = panel.querySelector('.cv-admin-list');
+        const rows = [...(list?.querySelectorAll('.cv-admin-list-row') || [])];
+        if (!list || !rows.length) return;
+
+        panel.classList.add('cv-admin-benefit-panel');
+        list.classList.add('cv-admin-benefit-list');
+
+        rows.forEach((row) => {
+            const detail = row.querySelector('.cv-admin-list-copy small')?.textContent || '';
+            const parts = detail.split('·').map((part) => normalize(part)).filter(Boolean);
+            const status = parts[parts.length - 1] || '';
+            row.dataset.adminBenefitStatus = status;
+            if (status) row.classList.add(`is-${slug(status)}`);
+        });
+
+        const statuses = [...new Set(rows.map((row) => row.dataset.adminBenefitStatus).filter(Boolean))];
+        const activeCount = rows.filter((row) => row.dataset.adminBenefitStatus === 'active').length;
+        const summary = document.createElement('div');
+        summary.className = 'cv-admin-value-summary';
+        summary.innerHTML = `
+            <div><span>Recent campaigns</span><strong>${rows.length}</strong></div>
+            <div><span>Active</span><strong>${activeCount}</strong></div>
+            <div><span>Other states</span><strong>${Math.max(0, rows.length - activeCount)}</strong></div>
+        `;
+        panel.insertAdjacentElement('beforebegin', summary);
+
+        const filters = [
+            {key: 'all', label: 'All', count: rows.length},
+            ...statuses.map((status) => ({
+                key: slug(status),
+                label: status.charAt(0).toUpperCase() + status.slice(1),
+                count: rows.filter((row) => row.dataset.adminBenefitStatus === status).length,
+            })),
+        ];
+        const toolbar = makeToolbar({className: 'cv-admin-value-toolbar', filters, searchPlaceholder: 'Search campaigns, owners, rewards or status'});
+        panel.querySelector('.cv-admin-panel-head')?.insertAdjacentElement('afterend', toolbar);
+        attachFilterBehavior({
+            toolbar,
+            rows,
+            matchesFilter: (row, filter) => slug(row.dataset.adminBenefitStatus || '') === filter,
+            emptyText: 'No campaigns match this filter.',
+        });
+    };
+
+    const initDistribution = () => {
+        if (pageTitle !== 'distribution') return;
+
+        const workspace = app.querySelector('.cv-admin-content');
+        workspace?.classList.add('cv-admin-distribution-workspace');
+
+        const tables = [...app.querySelectorAll('.cv-table')];
+        const auditTable = tables.find((table) => {
+            const headers = [...table.querySelectorAll('thead th')].map((th) => text(th));
+            return headers.includes('when') && headers.includes('system admin') && headers.includes('type') && headers.includes('campaign') && headers.includes('results');
+        });
+        if (!auditTable) return;
+
+        const rows = [...auditTable.querySelectorAll('tbody tr')].filter((row) => row.children.length >= 5);
+        if (!rows.length) return;
+
+        rows.forEach((row) => {
+            const type = text(row.children[2]);
+            row.dataset.adminDistributionType = type;
+            if (type) row.classList.add(`is-${slug(type)}`);
+        });
+
+        const wrap = auditTable.closest('.cv-table-wrap');
+        if (!wrap) return;
+        const audit = document.createElement('div');
+        audit.className = 'cv-admin-distribution-audit';
+        wrap.parentElement?.insertBefore(audit, wrap);
+        audit.appendChild(wrap);
+
+        const types = [...new Set(rows.map((row) => row.dataset.adminDistributionType).filter(Boolean))];
+        const filters = [
+            {key: 'all', label: 'All', count: rows.length},
+            ...types.map((type) => ({
+                key: slug(type),
+                label: type.charAt(0).toUpperCase() + type.slice(1),
+                count: rows.filter((row) => row.dataset.adminDistributionType === type).length,
+            })),
+        ];
+        const toolbar = makeToolbar({className: 'cv-admin-distribution-toolbar', filters, searchPlaceholder: 'Search distribution history'});
+        audit.insertBefore(toolbar, wrap);
+        attachFilterBehavior({
+            toolbar,
+            rows,
+            matchesFilter: (row, filter) => slug(row.dataset.adminDistributionType || '') === filter,
+            emptyText: 'No distribution runs match this filter.',
+        });
+    };
+
     initEvents();
     initUsers();
     initRoleRequests();
     initBusinesses();
     initBusinessLocations();
+    initGroups();
+    initArtists();
+    initBenefits();
+    initDistribution();
 })();
