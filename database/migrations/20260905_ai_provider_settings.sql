@@ -18,6 +18,6 @@ CREATE TABLE IF NOT EXISTS ai_provider_settings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO ai_provider_settings (provider, model, enabled) VALUES
-  ('openai', 'gpt-5', 0),
-  ('anthropic', 'claude-sonnet-4-20250514', 0),
+  ('openai', 'gpt-5.6', 0),
+  ('anthropic', 'claude-sonnet-5', 0),
   ('elevenlabs', NULL, 0);
