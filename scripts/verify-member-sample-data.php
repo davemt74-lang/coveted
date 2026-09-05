@@ -5,13 +5,16 @@ $root = dirname(__DIR__);
 $samplePath = $root . '/app/member_sample_data.php';
 $homePath = $root . '/app/member_home_v2.php';
 $pagesPath = $root . '/app/member_pages_v2.php';
+$peoplePath = $root . '/app/member_people_v2.php';
 $invitationsPath = $root . '/invitations.php';
 $eventsPath = $root . '/events.php';
 $groupsPath = $root . '/groups.php';
 $benefitsPath = $root . '/benefits.php';
+$reconnectPath = $root . '/reconnect.php';
+$profilePath = $root . '/profile.php';
 $adminPath = $root . '/admin/sample-data.php';
 
-foreach ([$samplePath, $homePath, $pagesPath, $invitationsPath, $eventsPath, $groupsPath, $benefitsPath, $adminPath] as $path) {
+foreach ([$samplePath, $homePath, $pagesPath, $peoplePath, $invitationsPath, $eventsPath, $groupsPath, $benefitsPath, $reconnectPath, $profilePath, $adminPath] as $path) {
     if (!is_file($path)) {
         fwrite(STDERR, "Missing required member sample-data file: {$path}\n");
         exit(1);
@@ -21,10 +24,13 @@ foreach ([$samplePath, $homePath, $pagesPath, $invitationsPath, $eventsPath, $gr
 $sample = (string)file_get_contents($samplePath);
 $home = (string)file_get_contents($homePath);
 $pages = (string)file_get_contents($pagesPath);
+$people = (string)file_get_contents($peoplePath);
 $invitations = (string)file_get_contents($invitationsPath);
 $events = (string)file_get_contents($eventsPath);
 $groups = (string)file_get_contents($groupsPath);
 $benefits = (string)file_get_contents($benefitsPath);
+$reconnect = (string)file_get_contents($reconnectPath);
+$profile = (string)file_get_contents($profilePath);
 $admin = (string)file_get_contents($adminPath);
 
 $requiredSampleFragments = [
@@ -39,6 +45,9 @@ $requiredSampleFragments = [
     'Late Night Listening',
     'Dinner on us',
     'Member welcome',
+    'First Friday Supper',
+    'Listening Room Night',
+    "'profile' => \$profile",
     'Phoenix, Arizona',
 ];
 
@@ -68,6 +77,13 @@ foreach (['coveted_member_v2_invitations', 'coveted_member_v2_events', 'coveted_
     }
 }
 
+foreach (['coveted_member_v2_profile_data', 'coveted_member_v2_reconnect_events', 'coveted_member_v2_reconnect_attendees', 'coveted_member_v2_reconnect_matches'] as $fragment) {
+    if (!str_contains($people, $fragment)) {
+        fwrite(STDERR, "Member people adapter contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
 if (!str_contains($invitations, 'Sample invitations are preview-only')) {
     fwrite(STDERR, "Invitations sample mode must block synthetic RSVP mutations.\n");
     exit(1);
@@ -82,6 +98,18 @@ if (!str_contains($groups, 'Sample groups are preview-only') || !str_contains($g
 }
 if (!str_contains($benefits, 'Sample benefits are preview-only') || !str_contains($benefits, 'coveted_member_sample_mode($user, $pdo)')) {
     fwrite(STDERR, "Benefits sample mode must stay guarded and mutation-free.\n");
+    exit(1);
+}
+if (!str_contains($reconnect, 'Sample reconnect choices are preview-only') || !str_contains($reconnect, 'coveted_member_v2_reconnect_attendees')) {
+    fwrite(STDERR, "Reconnect sample mode must stay guarded and mutation-free.\n");
+    exit(1);
+}
+if (!str_contains($profile, 'The sample profile is preview-only') || !str_contains($profile, 'coveted_member_v2_profile_data')) {
+    fwrite(STDERR, "Profile sample mode must stay guarded and use the Member v2 adapter.\n");
+    exit(1);
+}
+if (!str_contains($profile, 'interests_json = VALUES(interests_json)')) {
+    fwrite(STDERR, "Profile must persist interests and gathering-style context through the canonical profiles JSON column.\n");
     exit(1);
 }
 
