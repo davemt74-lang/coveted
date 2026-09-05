@@ -2,11 +2,12 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
-require_once dirname(__DIR__) . '/app/invite_crm.php';
+require_once dirname(__DIR__) . '/app/nationwide_cities.php';
 
 $admin = coveted_require_system_admin();
 $pdo = coveted_db();
 coveted_invite_crm_ensure_schema($pdo);
+coveted_sync_nationwide_cities($pdo);
 
 $error = '';
 $notice = trim((string)($_SESSION['cities_notice'] ?? ''));
@@ -159,10 +160,10 @@ coveted_admin_ui_start($admin, 'cities', 'Cities', $adminCounts);
         <form method="post" class="cv-form-grid">
             <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
             <input type="hidden" name="action" value="create_city">
-            <label>City<input name="name" maxlength="160" required placeholder="Phoenix"></label>
-            <label>State / region<input name="region" maxlength="160" placeholder="Arizona"></label>
+            <label>City<input name="name" maxlength="160" required placeholder="San Francisco"></label>
+            <label>State / region<input name="region" maxlength="160" placeholder="California"></label>
             <label>Country code<input name="country" maxlength="2" value="US" required></label>
-            <label>Timezone<input name="timezone" maxlength="64" value="America/Phoenix" required placeholder="America/Phoenix"></label>
+            <label>Timezone<input name="timezone" maxlength="64" value="America/Los_Angeles" required placeholder="America/Los_Angeles"></label>
             <label>Sort order<input type="number" name="sort_order" min="0" max="10000" value="100"></label>
             <div class="cv-admin-dialog-actions">
                 <button class="cv-button cv-button-soft" type="button" data-dialog-close>Cancel</button>

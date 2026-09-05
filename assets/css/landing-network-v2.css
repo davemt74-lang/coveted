@@ -1,0 +1,242 @@
+.cv-landing-city-strip,
+.cv-landing-network-stats {
+    position: relative;
+    width: 100%;
+}
+
+.cv-landing-city-strip {
+    background: #fff;
+    color: #111;
+    border-bottom: 1px solid rgba(17,17,17,.12);
+    padding: 34px 0 38px;
+    overflow: hidden;
+}
+
+.cv-landing-city-strip-head,
+.cv-landing-network-stats-head {
+    width: min(1180px, calc(100% - 48px));
+    margin: 0 auto 22px;
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.cv-landing-city-strip-head h2,
+.cv-landing-network-stats-head h2 {
+    margin: 4px 0 0;
+    font-size: clamp(28px, 4vw, 54px);
+    line-height: .98;
+    letter-spacing: -.045em;
+    font-weight: 620;
+}
+
+.cv-landing-city-strip-head p,
+.cv-landing-network-stats-head p {
+    max-width: 420px;
+    margin: 0;
+    color: #676767;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.cv-landing-city-controls {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.cv-landing-city-control {
+    width: 42px;
+    height: 42px;
+    border: 1px solid #d7d7d7;
+    border-radius: 999px;
+    background: #fff;
+    color: #111;
+    display: grid;
+    place-items: center;
+    font: inherit;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+
+.cv-landing-city-control:hover,
+.cv-landing-city-control:focus-visible {
+    background: #111;
+    color: #fff;
+    border-color: #111;
+    outline: none;
+}
+
+.cv-landing-city-track {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    padding: 0 max(24px, calc((100vw - 1180px) / 2)) 8px;
+    scrollbar-width: none;
+}
+
+.cv-landing-city-track::-webkit-scrollbar {
+    display: none;
+}
+
+.cv-landing-city-card {
+    flex: 0 0 clamp(220px, 25vw, 315px);
+    min-height: 150px;
+    scroll-snap-align: start;
+    border: 1px solid #dedede;
+    border-radius: 18px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: #f8f8f6;
+}
+
+.cv-landing-city-card span {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: #7c7c7c;
+}
+
+.cv-landing-city-card strong {
+    font-size: clamp(24px, 2.8vw, 37px);
+    line-height: .98;
+    letter-spacing: -.04em;
+    font-weight: 620;
+}
+
+.cv-landing-network-stats {
+    background: #111;
+    color: #fff;
+    padding: 58px 0 64px;
+}
+
+.cv-landing-network-stats .cv-landing-overline {
+    color: rgba(255,255,255,.62);
+}
+
+.cv-landing-network-stats-head p {
+    color: rgba(255,255,255,.62);
+}
+
+.cv-landing-stat-grid {
+    width: min(1180px, calc(100% - 48px));
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 1px solid rgba(255,255,255,.2);
+}
+
+.cv-landing-stat {
+    padding: 30px 26px 8px 0;
+    border-right: 1px solid rgba(255,255,255,.16);
+}
+
+.cv-landing-stat:last-child {
+    border-right: 0;
+    padding-left: 26px;
+}
+
+.cv-landing-stat + .cv-landing-stat {
+    padding-left: 26px;
+}
+
+.cv-landing-stat strong {
+    display: block;
+    font-size: clamp(42px, 6vw, 78px);
+    line-height: .9;
+    letter-spacing: -.055em;
+    font-weight: 580;
+    font-variant-numeric: tabular-nums;
+}
+
+.cv-landing-stat span {
+    display: block;
+    margin-top: 14px;
+    color: rgba(255,255,255,.68);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    font-weight: 800;
+}
+
+.cv-landing-sample-note {
+    width: min(1180px, calc(100% - 48px));
+    margin: 24px auto 0;
+    color: rgba(255,255,255,.48);
+    font-size: 10px;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+}
+
+.cv-sample-toggle-row {
+    margin-top: 10px;
+}
+
+@media (max-width: 760px) {
+    .cv-landing-city-strip {
+        padding: 28px 0 30px;
+    }
+
+    .cv-landing-city-strip-head,
+    .cv-landing-network-stats-head,
+    .cv-landing-stat-grid,
+    .cv-landing-sample-note {
+        width: min(100% - 32px, 1180px);
+    }
+
+    .cv-landing-city-strip-head,
+    .cv-landing-network-stats-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .cv-landing-city-strip-head p,
+    .cv-landing-network-stats-head p {
+        max-width: none;
+    }
+
+    .cv-landing-city-controls {
+        align-self: flex-end;
+        margin-top: -56px;
+    }
+
+    .cv-landing-city-track {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .cv-landing-city-card {
+        flex-basis: min(78vw, 290px);
+    }
+
+    .cv-landing-network-stats {
+        padding: 42px 0 48px;
+    }
+
+    .cv-landing-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cv-landing-stat,
+    .cv-landing-stat + .cv-landing-stat,
+    .cv-landing-stat:last-child {
+        border-right: 0;
+        padding: 24px 12px 18px 0;
+        border-bottom: 1px solid rgba(255,255,255,.14);
+    }
+
+    .cv-landing-stat:nth-child(even) {
+        padding-left: 18px;
+    }
+
+    .cv-landing-stat:nth-last-child(-n+2) {
+        border-bottom: 0;
+    }
+}
