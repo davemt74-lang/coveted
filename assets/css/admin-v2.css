@@ -1,0 +1,595 @@
+/* Coveted Admin v2 — white operational control center */
+
+.cv-admin-app[data-admin-shell="control-center-v5"] {
+    --cv-admin-ink: #171714;
+    --cv-admin-muted: #7d7972;
+    --cv-admin-line: #e8e4dd;
+    --cv-admin-soft: #f7f5f1;
+    --cv-admin-panel: #ffffff;
+    --cv-admin-dark: #171714;
+    min-height: 100vh;
+    background: #fbfaf8;
+    color: var(--cv-admin-ink);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar {
+    width: 216px;
+    padding: 20px 12px 14px;
+    border-right: 1px solid var(--cv-admin-line);
+    background: #fff;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-brand {
+    min-height: 48px;
+    padding: 0 10px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-brand span {
+    font-size: 15px;
+    letter-spacing: .15em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-brand small {
+    color: #a09b92;
+    font-size: 8px;
+    letter-spacing: .16em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav {
+    gap: 13px;
+    margin-top: 18px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group {
+    gap: 2px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-label {
+    padding: 0 10px 4px;
+    color: #aaa59d;
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: .17em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav a {
+    min-height: 34px;
+    padding: 0 10px;
+    border-radius: 8px;
+    color: #747069;
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1.08;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav a:hover,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav a.is-active {
+    background: #f2f0ec;
+    color: #171714;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav a.is-active {
+    font-weight: 780;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-count,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-progress {
+    min-width: 22px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #ece9e3;
+    color: #77726a;
+    font-size: 8px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar-footer {
+    padding: 12px 9px 0;
+    border-top-color: var(--cv-admin-line);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar-footer a {
+    color: #6f6b64;
+    font-size: 10px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-workspace {
+    margin-left: 216px;
+    min-width: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header {
+    left: 216px;
+    min-height: 64px;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--cv-admin-line);
+    background: rgba(251,250,248,.97);
+    backdrop-filter: blur(16px);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header-copy .cv-eyebrow {
+    color: #aaa59d;
+    font-size: 7px;
+    letter-spacing: .17em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header-copy strong {
+    font-size: 14px;
+    font-weight: 720;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header-actions {
+    gap: 8px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-menu > summary {
+    min-height: 34px;
+    padding: 0 13px;
+    border-radius: 999px;
+    font-size: 10px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-avatar-button {
+    width: 36px;
+    height: 36px;
+    border-color: #d9d5ce;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-menu {
+    width: min(330px, calc(100vw - 28px));
+    border: 1px solid #ddd8d0;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 24px 70px rgba(31,29,25,.14);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-menu a,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-menu button {
+    min-height: 48px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-account-panel {
+    width: min(300px, calc(100vw - 28px));
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content {
+    width: min(1460px, calc(100vw - 216px - 56px));
+    margin: 0 auto;
+    padding: 96px 0 80px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-integrity-notice {
+    margin: 0 0 18px;
+    border-color: #ddd7cd;
+    background: #fff;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-page-head {
+    align-items: end;
+    margin-bottom: 28px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-page-head .cv-eyebrow {
+    color: #a09b93;
+    font-size: 8px;
+    letter-spacing: .18em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-page-head h1 {
+    margin: 7px 0 8px;
+    color: var(--cv-admin-ink);
+    font-size: clamp(34px, 4vw, 52px);
+    font-weight: 560;
+    line-height: .98;
+    letter-spacing: -.05em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-page-head p {
+    max-width: 720px;
+    margin: 0;
+    color: var(--cv-admin-muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-page-head .cv-button {
+    min-height: 38px;
+    padding: 0 15px;
+    border-radius: 999px;
+    font-size: 10px;
+}
+
+/* One canonical Create menu lives in the Admin header. */
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-quick-create {
+    display: none !important;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-setup-banner {
+    min-height: 92px;
+    margin-bottom: 18px;
+    padding: 18px 22px;
+    border: 1px solid #ded9d1;
+    border-radius: 18px;
+    background: #fff;
+    color: #22211e;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid > a,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid > div {
+    min-height: 126px;
+    padding: 19px;
+    border: 1px solid var(--cv-admin-line);
+    border-radius: 16px;
+    background: #fff;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid > a:hover {
+    transform: translateY(-1px);
+    border-color: #cbc5bb;
+    box-shadow: 0 10px 28px rgba(31,29,25,.05);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid span {
+    color: #8c877f;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid strong {
+    margin-top: auto;
+    color: #171714;
+    font-size: 30px;
+    font-weight: 590;
+    letter-spacing: -.04em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid small {
+    color: #969188;
+    font-size: 9px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, .65fr);
+    gap: 14px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-panel,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table-card {
+    border: 1px solid var(--cv-admin-line);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-panel {
+    padding: 22px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-panel-head {
+    margin-bottom: 14px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-panel-head h2 {
+    margin: 4px 0 0;
+    font-size: 21px;
+    font-weight: 610;
+    letter-spacing: -.035em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-panel-head a {
+    color: #7c7770;
+    font-size: 9px;
+    font-weight: 760;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-list {
+    gap: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-list-row {
+    min-height: 67px;
+    padding: 10px 4px;
+    border-top: 1px solid #f0ede8;
+    border-radius: 0;
+    background: transparent;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-list-row:first-child {
+    border-top: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-list-row:hover {
+    background: #faf8f5;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-list-date {
+    width: 44px;
+    height: 44px;
+    border: 1px solid #e3dfd8;
+    border-radius: 11px;
+    background: #fff;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-list-date strong {
+    font-size: 15px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-list-date small,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-list-copy small {
+    color: #8e8981;
+    font-size: 9px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-list-copy strong {
+    color: #1c1b18;
+    font-size: 12px;
+}
+
+/* Create forms stay operational and compact. */
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-form {
+    margin-bottom: 16px;
+    padding: 20px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-form .cv-form-grid {
+    gap: 12px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-form label {
+    color: #5f5b55;
+    font-size: 9px;
+    font-weight: 720;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-form input,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-form select,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-form textarea {
+    border-color: #ddd8d0;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 11px;
+}
+
+/* Events become the densest operational surface. */
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table-card {
+    overflow: hidden;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table-head {
+    min-height: 58px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--cv-admin-line);
+    background: #fff;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table-head strong {
+    font-size: 12px;
+    font-weight: 760;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table-head span {
+    color: #8d8880;
+    font-size: 9px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 10px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    height: 42px;
+    padding: 0 14px;
+    border-bottom: 1px solid #e7e3dc;
+    background: #f8f6f2;
+    color: #8e8981;
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table tbody td {
+    min-height: 58px;
+    padding: 13px 14px;
+    border-bottom: 1px solid #f0ede8;
+    color: #4e4a44;
+    vertical-align: middle;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table tbody tr:hover td {
+    background: #fcfbf9;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table td > strong {
+    display: block;
+    color: #171714;
+    font-size: 11px;
+    font-weight: 720;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table td > small {
+    display: block;
+    margin-top: 3px;
+    color: #918c84;
+    font-size: 8px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-status {
+    min-height: 25px;
+    padding: 0 8px;
+    border: 1px solid #e1ddd6;
+    border-radius: 999px;
+    background: #f7f5f1;
+    color: #67635d;
+    font-size: 8px;
+    font-weight: 760;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-text-link {
+    color: #282622;
+    font-size: 9px;
+    font-weight: 780;
+    white-space: nowrap;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-empty {
+    min-height: 88px;
+    border-radius: 12px;
+    background: #faf8f5;
+}
+
+@media (max-width: 1180px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar {
+        width: 190px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-workspace {
+        margin-left: 190px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header {
+        left: 190px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content {
+        width: calc(100vw - 190px - 32px);
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar {
+        position: static;
+        width: 100%;
+        min-height: auto;
+        padding: 10px 12px;
+        border-right: 0;
+        border-bottom: 1px solid var(--cv-admin-line);
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-brand,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-label,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-sidebar-footer {
+        display: none;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav {
+        display: flex;
+        gap: 5px;
+        margin: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-nav-group {
+        display: contents;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-primary-nav a {
+        flex: 0 0 auto;
+        min-height: 36px;
+        white-space: nowrap;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-workspace {
+        margin-left: 0;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header {
+        position: sticky;
+        top: 0;
+        left: 0;
+        min-height: 58px;
+        padding: 0 14px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content {
+        width: calc(100% - 24px);
+        padding: 26px 0 70px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-page-head {
+        align-items: start;
+        gap: 18px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-page-head h1 {
+        font-size: 35px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid > a,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid > div {
+        min-height: 104px;
+        padding: 15px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-form {
+        padding: 16px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-table {
+        min-width: 760px;
+    }
+}
+
+@media (max-width: 440px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-metric-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-header-copy .cv-eyebrow {
+        display: none;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-menu > summary {
+        padding: 0 10px;
+    }
+}

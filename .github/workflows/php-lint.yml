@@ -49,3 +49,6 @@ jobs:
 
       - name: Verify member sample-data contract
         run: php scripts/verify-member-sample-data.php
+
+      - name: Verify Admin v2 integrity contract
+        run: php scripts/verify-admin-integrity.php

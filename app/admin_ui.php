@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/admin_onboarding.php';
+require_once __DIR__ . '/admin_integrity.php';
+
+coveted_admin_integrity_guard_request();
 
 /**
  * Read-only counts for the System Admin shell.
@@ -64,8 +67,10 @@ function coveted_admin_ui_start(
     $avatarUrl = coveted_shell_avatar_url((int)$admin['id']);
     $name = trim((string)($admin['display_name'] ?? 'Admin')) ?: 'Admin';
     $initials = coveted_admin_ui_initials($name);
+    $integrityNotice = trim((string)($_SESSION['admin_integrity_notice'] ?? ''));
+    unset($_SESSION['admin_integrity_notice']);
     ?>
-<div class="cv-admin-app" data-admin-shell="control-center-v4">
+<div class="cv-admin-app" data-admin-shell="control-center-v5">
     <aside class="cv-admin-sidebar" aria-label="System Admin navigation">
         <a class="cv-admin-brand" href="/admin/">
             <span>COVETED</span>
@@ -151,13 +156,9 @@ function coveted_admin_ui_start(
                             <small><?= coveted_e((string)$admin['email']) ?></small>
                             <span class="cv-admin-account-role">System Admin</span>
                         </div>
-                        <a href="/profile.php"><strong>Profile</strong><small>Photo and account details</small></a>
+                        <span class="cv-admin-menu-label">ACCOUNT</span>
+                        <a href="/profile.php"><strong>Profile</strong><small>Photo and member profile details</small></a>
                         <a href="/admin/onboarding.php"><strong>Admin Setup</strong><small>Review first-run setup</small></a>
-                        <span class="cv-admin-menu-label">QUICK CREATE</span>
-                        <a href="/admin/?view=users#create-user"><strong>Add User</strong><small>Create an account and assign access</small></a>
-                        <a href="/admin/?view=businesses#create-business"><strong>Add Business</strong><small>Add a venue or partner</small></a>
-                        <a href="/admin/?view=groups#create-group"><strong>Add Group</strong><small>Create a private community</small></a>
-                        <a href="/admin/?view=events#create-event"><strong>Add Event</strong><small>Plan a gathering</small></a>
                         <a href="/"><strong>Member View</strong><small>Preview the attendee experience</small></a>
                         <form method="post" action="/auth.php?action=logout">
                             <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
@@ -169,6 +170,9 @@ function coveted_admin_ui_start(
         </header>
 
         <main class="cv-admin-content">
+            <?php if ($integrityNotice !== ''): ?>
+                <div class="cv-alert cv-admin-integrity-notice"><?= coveted_e($integrityNotice) ?></div>
+            <?php endif; ?>
 <?php
 }
 
