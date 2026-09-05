@@ -13,11 +13,17 @@ require_once __DIR__ . '/events.php';
 function coveted_sample_landing_events(?DateTimeImmutable $now = null): array
 {
     $utc = new DateTimeZone('UTC');
+    $eventZone = new DateTimeZone('America/Phoenix');
     $now = ($now ?? new DateTimeImmutable('now', $utc))->setTimezone($utc);
-    $base = $now->setTime(19, 0);
-    if ($base <= $now) {
-        $base = $base->modify('+1 day');
+    $localNow = $now->setTimezone($eventZone);
+    $baseLocal = $localNow->setTime(19, 0);
+    if ($baseLocal <= $localNow) {
+        $baseLocal = $baseLocal->modify('+1 day');
     }
+
+    $makeStart = static function (DateTimeImmutable $base, string $offset) use ($utc): string {
+        return $base->modify($offset)->setTimezone($utc)->format('Y-m-d H:i:s');
+    };
 
     return [
         [
@@ -25,7 +31,7 @@ function coveted_sample_landing_events(?DateTimeImmutable $now = null): array
             'title' => 'Rooftop Social',
             'event_type' => 'regular',
             'timezone' => 'America/Phoenix',
-            'starts_at' => $base->modify('+3 days')->format('Y-m-d H:i:s'),
+            'starts_at' => $makeStart($baseLocal, '+3 days'),
             'is_sample' => true,
         ],
         [
@@ -33,7 +39,7 @@ function coveted_sample_landing_events(?DateTimeImmutable $now = null): array
             'title' => 'Private Dinner',
             'event_type' => 'private_table',
             'timezone' => 'America/Phoenix',
-            'starts_at' => $base->modify('+7 days')->format('Y-m-d H:i:s'),
+            'starts_at' => $makeStart($baseLocal, '+7 days'),
             'is_sample' => true,
         ],
         [
@@ -41,7 +47,7 @@ function coveted_sample_landing_events(?DateTimeImmutable $now = null): array
             'title' => 'Artist Session',
             'event_type' => 'session',
             'timezone' => 'America/Phoenix',
-            'starts_at' => $base->modify('+12 days')->format('Y-m-d H:i:s'),
+            'starts_at' => $makeStart($baseLocal, '+12 days'),
             'is_sample' => true,
         ],
         [
@@ -49,7 +55,7 @@ function coveted_sample_landing_events(?DateTimeImmutable $now = null): array
             'title' => 'Hidden sample title',
             'event_type' => 'mystery',
             'timezone' => 'America/Phoenix',
-            'starts_at' => $base->modify('+18 days')->format('Y-m-d H:i:s'),
+            'starts_at' => $makeStart($baseLocal, '+18 days'),
             'is_sample' => true,
         ],
     ];
