@@ -9,13 +9,6 @@ $pdo = coveted_db();
 $error = '';
 $notice = isset($_GET['saved']) ? 'Landing page setting updated.' : '';
 
-try {
-    coveted_site_settings_ensure_schema($pdo);
-} catch (Throwable $e) {
-    error_log('Coveted landing settings schema unavailable: ' . $e->getMessage());
-    $error = 'Landing page settings could not be initialized. Check database permissions and try again.';
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     coveted_require_csrf();
 
@@ -32,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = $e->getMessage();
     } catch (Throwable $e) {
         error_log('Coveted landing setting update failed: ' . $e->getMessage());
-        $error = 'Unable to update the landing page setting.';
+        $error = 'Unable to update the landing page setting. Check database permissions and try again.';
     }
 }
 
