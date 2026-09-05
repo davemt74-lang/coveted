@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
+require_once dirname(__DIR__) . '/app/site_branding.php';
 
 $admin = coveted_require_system_admin();
 $pdo = coveted_db();
@@ -26,7 +27,7 @@ $chatProviders = array_values(array_filter(
 $counts = coveted_admin_ui_counts($pdo);
 
 try {
-    $brain = coveted_admin_agent_snapshot($admin, $pdo);
+    $brain = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin, $pdo));
 } catch (Throwable $e) {
     error_log('Admin Agent brain load failed: ' . $e->getMessage());
     $brain = [
