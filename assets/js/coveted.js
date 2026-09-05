@@ -13,6 +13,6 @@
     (async () => {
         await loadScript('/assets/js/coveted-base.js?v=member-v2-20260905');
         await loadScript('/assets/js/member-v2.js?v=member-v2-20260905');
-        await loadScript('/assets/js/admin-v2.js?v=admin-v2-20260905');
+        await loadScript('/assets/js/admin-v2.js?v=admin-v2-people-business-20260905');
     })().catch((error) => console.error('Coveted application scripts failed to load:', error));
 })();

@@ -1,0 +1,546 @@
+/* Coveted Admin v2 — People, Role Requests, Businesses & Locations */
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-toolbar,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 14px;
+    padding: 10px;
+    border: 1px solid #e7e3dc;
+    border-radius: 14px;
+    background: #fff;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-filter-set {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-filter-set::-webkit-scrollbar {
+    display: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-filter-set button {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid #e3dfd8;
+    border-radius: 999px;
+    background: #fff;
+    color: #6f6a63;
+    font: inherit;
+    font-size: 9px;
+    font-weight: 760;
+    cursor: pointer;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-filter-set button span {
+    margin-left: 4px;
+    color: #aaa49b;
+    font-size: 8px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-filter-set button:hover,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-filter-set button.is-active {
+    border-color: #26241f;
+    background: #1b1a17;
+    color: #fff;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-filter-set button.is-active span {
+    color: #cac6be;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-toolbar-search {
+    flex: 0 0 min(330px, 38vw);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-toolbar-search input {
+    width: 100%;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid #ddd8d0;
+    border-radius: 10px;
+    background: #faf9f7;
+    color: #1c1b18;
+    font-size: 10px;
+    outline: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-toolbar-search input:focus {
+    border-color: #a8a198;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(23,23,20,.05);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-filter-empty {
+    margin: 0 0 14px;
+    padding: 20px;
+    border: 1px dashed #ddd8d0;
+    border-radius: 14px;
+    background: #faf8f5;
+    color: #817c74;
+    font-size: 10px;
+    text-align: center;
+}
+
+/* Users */
+.cv-admin-app[data-admin-shell="control-center-v5"] #create-user.cv-card {
+    margin-bottom: 18px;
+    padding: 20px;
+    border: 1px solid #e6e1da;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] #create-user fieldset.cv-card {
+    margin: 0;
+    padding: 13px 14px;
+    border: 1px solid #e8e3dc;
+    border-radius: 12px;
+    background: #faf8f5;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] #create-user fieldset label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 12px 0 0;
+    color: #4f4b45;
+    font-size: 9px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue {
+    gap: 8px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list > .cv-admin-row,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue > .cv-admin-row {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(430px, auto);
+    align-items: center;
+    gap: 16px;
+    min-height: 88px;
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid #e8e4dd;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-row h3,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-row h3 {
+    margin: 5px 0 2px;
+    color: #1c1b18;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -.02em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-row p,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-row p {
+    margin: 0;
+    color: #89847c;
+    font-size: 9px;
+    line-height: 1.45;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-tag-row,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-tag-row {
+    gap: 5px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-pill,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-kicker {
+    min-height: 23px;
+    padding: 0 7px;
+    border: 1px solid #e7e2da;
+    border-radius: 999px;
+    background: #f8f6f2;
+    color: #6e6961;
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: .07em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-actions,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-inline-form,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-inline-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list select,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list input,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue select,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue input {
+    min-height: 32px;
+    border: 1px solid #ddd8d0;
+    border-radius: 9px;
+    background: #fff;
+    font-size: 9px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-button,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-button {
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 9px;
+    font-size: 8px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list details {
+    position: relative;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list details > form {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    z-index: 15;
+    width: 280px;
+    padding: 14px;
+    border: 1px solid #ddd8d0;
+    border-radius: 13px;
+    background: #fff;
+    box-shadow: 0 18px 50px rgba(30,28,24,.14);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-row.is-suspended {
+    background: #fbfaf8;
+    opacity: .78;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-row.is-system-admin {
+    border-left: 3px solid #27241f;
+}
+
+/* Role requests */
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue > .cv-admin-row {
+    grid-template-columns: minmax(260px, 1fr) minmax(380px, .8fr);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-actions input[name="review_note"] {
+    width: min(280px, 34vw);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-summary > div {
+    padding: 14px 15px;
+    border: 1px solid #e7e2da;
+    border-radius: 13px;
+    background: #fff;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-summary span {
+    display: block;
+    color: #99938a;
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-summary strong {
+    display: block;
+    margin-top: 6px;
+    color: #1e1c18;
+    font-size: 20px;
+    font-weight: 620;
+}
+
+/* Businesses */
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-toolbar + .cv-admin-table-scroll {
+    border-top: 1px solid #eeeae4;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-row.is-paused td,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-row.is-archived td {
+    color: #99938a;
+    background: #fbfaf8;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-row td:nth-child(3),
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-row td:nth-child(4),
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-row td:nth-child(5),
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-row td:nth-child(6) {
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-health {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 4px;
+    color: #777169;
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-health::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #9f9a91;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-health.is-ready::before {
+    background: #3f7e58;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-health.is-setup::before {
+    background: #b68634;
+}
+
+/* Scoped business workspace when opened from System Admin */
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-page-heading {
+    margin: 0 0 18px;
+    padding: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-page-heading h1 {
+    margin: 7px 0 7px;
+    color: #191815;
+    font-size: clamp(31px, 3.5vw, 46px);
+    font-weight: 570;
+    letter-spacing: -.045em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-page-heading p {
+    max-width: 760px;
+    color: #817c74;
+    font-size: 11px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-tab-row {
+    display: flex;
+    gap: 5px;
+    margin: 0 0 16px;
+    padding: 5px;
+    overflow-x: auto;
+    border: 1px solid #e5e0d9;
+    border-radius: 12px;
+    background: #f7f5f1;
+    scrollbar-width: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-tab-row::-webkit-scrollbar {
+    display: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-tab-row .cv-tab {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 8px;
+    color: #777169;
+    font-size: 8px;
+    font-weight: 760;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-tab-row .cv-tab.is-active {
+    background: #fff;
+    color: #1c1a17;
+    box-shadow: 0 1px 3px rgba(20,18,15,.06);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-business-selector select {
+    min-height: 34px;
+    border-color: #ddd8d0;
+    border-radius: 9px;
+    background: #fff;
+    font-size: 9px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-workspace-grid {
+    gap: 12px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-workspace-grid > .cv-card,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-card {
+    border: 1px solid #e6e1da;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-workspace-grid > .cv-card {
+    padding: 18px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-workspace-grid h2,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-card h2 {
+    font-size: 19px;
+    font-weight: 620;
+    letter-spacing: -.03em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-workspace-grid label {
+    color: #625e57;
+    font-size: 8px;
+    font-weight: 760;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-workspace-grid input,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-workspace-grid select,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-workspace-grid textarea {
+    border-color: #ddd8d0;
+    border-radius: 9px;
+    background: #fff;
+    font-size: 10px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-card {
+    margin-top: 12px;
+    padding: 0;
+    overflow: hidden;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-card .cv-section-heading {
+    padding: 16px 18px 13px;
+    border-bottom: 1px solid #ece8e2;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-wrap {
+    overflow-x: auto;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-card .cv-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-card .cv-table th {
+    height: 38px;
+    padding: 0 13px;
+    border-bottom: 1px solid #e8e4dd;
+    background: #f8f6f2;
+    color: #938e85;
+    font-size: 7px;
+    font-weight: 800;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-card .cv-table td {
+    padding: 12px 13px;
+    border-bottom: 1px solid #f0ede8;
+    color: #565149;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-card .cv-table tr:last-child td {
+    border-bottom: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-card .cv-table tr:hover td {
+    background: #fcfbf9;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-location-search {
+    margin-left: auto;
+    width: min(300px, 38vw);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-location-search input {
+    width: 100%;
+    min-height: 34px;
+    border: 1px solid #ddd8d0;
+    border-radius: 9px;
+    background: #faf9f7;
+    font-size: 9px;
+}
+
+@media (max-width: 1100px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list > .cv-admin-row,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue > .cv-admin-row {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-actions,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-actions {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 720px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-toolbar,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-business-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-toolbar-search,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-location-search {
+        flex-basis: auto;
+        width: 100%;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list > .cv-admin-row,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue > .cv-admin-row {
+        padding: 13px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-admin-actions,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-admin-actions,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-inline-form,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-inline-form {
+        width: 100%;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-inline-form,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-inline-form {
+        flex-wrap: wrap;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list .cv-inline-form select,
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-role-queue .cv-inline-form select {
+        flex: 1 1 170px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-people-list details > form {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        top: auto;
+        width: auto;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-table-card .cv-table {
+        min-width: 680px;
+    }
+}
