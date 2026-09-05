@@ -1,0 +1,281 @@
+/* Coveted Admin v2 — Community listing cleanup, create dialogs, spacing & business workspace */
+
+@media (min-width: 721px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content {
+        padding-top: 76px !important;
+    }
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content > .cv-admin-page-head:first-child,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content > .cv-page-heading:first-child {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Community create forms are removed from the default list flow and shown as dialogs. */
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog {
+    width: min(860px, calc(100vw - 32px));
+    max-width: 860px;
+    max-height: min(88vh, 920px);
+    margin: auto;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 20px;
+    background: transparent;
+    color: #1b1a17;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog::backdrop {
+    background: rgba(23, 22, 19, .42);
+    backdrop-filter: blur(4px);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog-shell {
+    max-height: min(88vh, 920px);
+    overflow: auto;
+    border: 1px solid #ddd8d0;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 32px 90px rgba(24, 22, 18, .22);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    min-height: 68px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e8e4dd;
+    background: rgba(255,255,255,.98);
+    backdrop-filter: blur(14px);
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog-head > div {
+    min-width: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog-head span {
+    display: block;
+    color: #9b958d;
+    font-size: 7px;
+    font-weight: 820;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog-head strong {
+    display: block;
+    margin-top: 3px;
+    color: #1d1b18;
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: -.025em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog-close {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid #ded9d1;
+    border-radius: 999px;
+    background: #f8f6f2;
+    color: #4e4a44;
+    font-size: 19px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog .cv-admin-create-dialog-content {
+    width: 100%;
+    margin: 0 !important;
+    padding: 20px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog .cv-admin-create-dialog-content > .cv-admin-panel-head {
+    display: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog .cv-form-grid {
+    gap: 14px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog input,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog select,
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog textarea {
+    min-height: 42px;
+    border-color: #dcd7cf;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog textarea {
+    min-height: 112px;
+}
+
+/* Business workspace: remove duplicate identity block and make navigation feel like a real workspace. */
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-page-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 20px;
+    max-width: none;
+    margin-bottom: 18px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-page-heading > .cv-eyebrow,
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-page-heading > h1,
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-page-heading > p {
+    grid-column: 1;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-page-heading h1 {
+    margin: 4px 0 5px;
+    font-size: clamp(34px, 4vw, 48px);
+    font-weight: 580;
+    letter-spacing: -.045em;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-page-heading p {
+    max-width: 760px;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-selector-v2 {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    min-width: 230px;
+    margin: 0;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-selector-v2 label {
+    display: grid;
+    gap: 5px;
+    color: #8b867e;
+    font-size: 8px;
+    font-weight: 760;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-selector-v2 select {
+    min-height: 40px;
+    padding: 0 34px 0 11px;
+    border: 1px solid #ddd8d0;
+    border-radius: 10px;
+    background: #fff;
+    color: #2b2925;
+    font-size: 10px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-tabs-v2 {
+    display: flex;
+    gap: 6px;
+    margin: 0 0 20px;
+    padding: 6px;
+    overflow-x: auto;
+    border: 1px solid #e5e0d9;
+    border-radius: 14px;
+    background: #f6f4f0;
+    scrollbar-width: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-tabs-v2::-webkit-scrollbar {
+    display: none;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-tabs-v2 .cv-tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    margin: 0;
+    padding: 0 16px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: #716c64;
+    font-size: 10px;
+    font-weight: 760;
+    transition: background .14s ease, border-color .14s ease, color .14s ease, transform .14s ease;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-tabs-v2 .cv-tab:hover {
+    border-color: #ded8cf;
+    background: #fff;
+    color: #1e1c19;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-tabs-v2 .cv-tab.is-active {
+    border-color: #24221f;
+    background: #24221f;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(27,25,22,.12);
+}
+
+/* Community list pages should read as lists first, not creation forms first. */
+.cv-admin-app[data-admin-shell="control-center-v5"].cv-admin-community-list-first .cv-admin-page-head {
+    margin-bottom: 18px;
+}
+
+.cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-filter-set [data-filter].is-active {
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.03);
+}
+
+@media (max-width: 720px) {
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-content {
+        padding-top: 18px !important;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog {
+        width: calc(100vw - 18px);
+        max-height: 92vh;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog-shell {
+        max-height: 92vh;
+        border-radius: 16px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog-head {
+        min-height: 60px;
+        padding: 11px 13px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"] .cv-admin-create-dialog .cv-admin-create-dialog-content {
+        padding: 14px !important;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-page-heading {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-selector-v2 {
+        grid-column: 1;
+        grid-row: auto;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-tabs-v2 {
+        margin-bottom: 16px;
+        padding: 5px;
+    }
+
+    .cv-admin-app[data-admin-shell="control-center-v5"].cv-business-workspace-v2 .cv-business-tabs-v2 .cv-tab {
+        min-height: 42px;
+        padding: 0 14px;
+        font-size: 10px;
+    }
+}
