@@ -158,7 +158,6 @@ function coveted_admin_ui_start(
                         </div>
                         <span class="cv-admin-menu-label">ACCOUNT</span>
                         <a href="/profile.php"><strong>Profile</strong><small>Photo and member profile details</small></a>
-                        <a href="/admin/onboarding.php"><strong>Admin Setup</strong><small>Review first-run setup</small></a>
                         <a href="/"><strong>Member View</strong><small>Preview the attendee experience</small></a>
                         <form method="post" action="/auth.php?action=logout">
                             <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
