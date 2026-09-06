@@ -17,7 +17,7 @@ $formatDate = static function (?string $value): string {
 };
 
 coveted_page_start('Benefit Economy', '', true);
-coveted_admin_ui_start($admin, 'benefits', 'Benefit Economy');
+coveted_admin_ui_start($admin, 'benefit-economy', 'Benefit Economy');
 ?>
 <div class="cv-admin-page-head">
     <div>
@@ -42,7 +42,7 @@ coveted_admin_ui_start($admin, 'benefits', 'Benefit Economy');
 
 <?php if ((int)$snapshot['membership_backlog'] > 0): ?>
     <div class="cv-alert cv-admin-section-gap">
-        <?= (int)$snapshot['membership_backlog'] ?> active membership perk assignment<?= (int)$snapshot['membership_backlog'] === 1 ? '' : 's' ?> waiting for the lifecycle worker. Server command: <code>php scripts/reconcile-lifecycle.php</code>
+        <?= (int)$snapshot['membership_backlog'] ?><?= !empty($snapshot['membership_backlog_capped']) ? '+' : '' ?> active membership perk assignment<?= (int)$snapshot['membership_backlog'] === 1 && empty($snapshot['membership_backlog_capped']) ? '' : 's' ?> waiting for the lifecycle worker. Server command: <code>php scripts/reconcile-lifecycle.php</code>
     </div>
 <?php endif; ?>
 
