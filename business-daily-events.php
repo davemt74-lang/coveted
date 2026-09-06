@@ -36,7 +36,7 @@ coveted_page_start('Partner Daily Events');
 <section class="cv-page-heading">
     <span class="cv-eyebrow">BUSINESS PARTNER · DAILY EVENTS</span>
     <h1><?= $business ? coveted_e((string)$business['name']) : 'Partner Daily Events' ?></h1>
-    <p>See the Coveted Daily Events assigned to your locations, check-in readiness, verified group attendance and sponsored reward distribution. Event creation and configuration remain with Coveted System Admin.</p>
+    <p>See the Coveted Daily Events assigned to your locations, check-in readiness, verified group attendance, Admin-defined event point value and sponsored reward distribution. Event creation and configuration remain with Coveted System Admin.</p>
 </section>
 
 <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
@@ -74,20 +74,20 @@ coveted_page_start('Partner Daily Events');
             <div class="cv-stat-grid">
                 <div class="cv-card cv-stat"><strong><?= (int)$row['attending_rsvps'] ?></strong><span>RSVP</span></div>
                 <div class="cv-card cv-stat"><strong><?= $verified ?></strong><span>Verified</span></div>
-                <div class="cv-card cv-stat"><strong><?= $threshold ?></strong><span>Threshold</span></div>
+                <div class="cv-card cv-stat"><strong><?= (int)$row['loyalty_points'] ?></strong><span>Member points each</span></div>
                 <div class="cv-card cv-stat"><strong><?= (int)$row['rewards_issued'] ?></strong><span>Rewards issued</span></div>
             </div>
             <div class="cv-admin-section-gap">
                 <div class="cv-section-head"><strong>Group reward progress</strong><span><?= $progress ?>%</span></div>
                 <div class="cv-progress"><span style="width:<?= $progress ?>%"></span></div>
-                <p class="cv-muted"><?= coveted_e((string)$row['reward_title']) ?> · <?= !empty($row['reward_unlocked_at']) ? 'Unlocked' : max(0,$threshold-$verified) . ' more verified attendee' . (max(0,$threshold-$verified) === 1 ? '' : 's') . ' needed' ?></p>
+                <p class="cv-muted"><?= coveted_e((string)$row['reward_title']) ?> · threshold <?= $threshold ?> · <?= !empty($row['reward_unlocked_at']) ? 'Unlocked' : max(0,$threshold-$verified) . ' more verified attendee' . (max(0,$threshold-$verified) === 1 ? '' : 's') . ' needed' ?></p>
             </div>
             <?php if ((int)$row['active_checkin_codes'] < 1): ?>
                 <div class="cv-alert cv-alert-error">This location no longer has an active claim code. Member code check-in will fail until the Business Partner restores an active location or employee code.</div>
             <?php else: ?>
                 <div class="cv-alert">Check-in ready: <?= (int)$row['active_checkin_codes'] ?> active claim-code path<?= (int)$row['active_checkin_codes'] === 1 ? '' : 's' ?> can verify members at this location.</div>
             <?php endif; ?>
-            <p class="cv-muted">Partner reporting is aggregate. Member identities, private Loyalty balances and person-level scoring are not exposed here.</p>
+            <p class="cv-muted">The event’s <?= (int)$row['loyalty_points'] ?>-point value is defined by Coveted Admin. Partner reporting is aggregate; member identities, private Loyalty balances and person-level scoring are not exposed here.</p>
         </article>
     <?php endforeach; ?>
 </section>
