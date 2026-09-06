@@ -58,7 +58,7 @@ $missing($executor, 'ALTER TABLE', 'execution service must not alter schema at r
 
 // Provider/action execution is bounded and shares the existing replay guard.
 $contains($executor, 'coveted_admin_agent_tasks_require_admin', 'execution must require System Admin authority');
-$contains($executor, "in_array($provider, ['openai','anthropic'], true)", 'execution providers must be limited to ChatGPT or Claude');
+$contains($executor, 'in_array($provider, [\'openai\',\'anthropic\'], true)', 'execution providers must be limited to ChatGPT or Claude');
 $contains($executor, 'coveted_admin_agent_autonomous_actions_enabled($pdo)', 'global Autonomous Actions gate is missing');
 $contains($executor, 'coveted_admin_agent_run_claim($admin, $threadRef, $requestId, $displayRequest, $pdo)', 'durable run claim is missing');
 $contains($executor, 'coveted_admin_agent_run_mark_mutation_started($admin, $threadRef, $requestId, $pdo)', 'mutation replay guard is missing');
@@ -66,11 +66,11 @@ $contains($executor, 'coveted_admin_agent_execute_action($admin, $request, $pdo)
 $before($executor, 'coveted_admin_agent_run_mark_mutation_started($admin, $threadRef, $requestId, $pdo)', 'coveted_admin_agent_execute_action($admin, $request, $pdo)', 'mutation must be marked before any canonical mutator is called');
 $contains($executor, '$maxRounds = 3;', 'task execution must stay bounded to three provider rounds');
 $contains($executor, '$maxActions = 8;', 'task execution must stay bounded to eight actions');
-$contains($executor, "\$_SESSION['admin_ai_chat_timestamps']", 'task execution must share the Admin Agent provider throttle');
-$contains($executor, "if ($runState === 'blocked')", 'blocked run recovery is missing');
-$contains($executor, "if ($runState === 'completed')", 'completed run reconciliation is missing');
-$before($executor, "if ($runState === 'completed')", 'coveted_admin_agent_task_execution_ready_provider($storedProvider, $pdo)', 'durable completion must reconcile before provider readiness is required');
-$before($executor, "if ($runState === 'blocked')", 'coveted_admin_agent_task_execution_ready_provider($storedProvider, $pdo)', 'blocked mutation recovery must reconcile before provider readiness is required');
+$contains($executor, '$_SESSION[\'admin_ai_chat_timestamps\']', 'task execution must share the Admin Agent provider throttle');
+$contains($executor, 'if ($runState === \'blocked\')', 'blocked run recovery is missing');
+$contains($executor, 'if ($runState === \'completed\')', 'completed run reconciliation is missing');
+$before($executor, 'if ($runState === \'completed\')', 'coveted_admin_agent_task_execution_ready_provider($storedProvider, $pdo)', 'durable completion must reconcile before provider readiness is required');
+$before($executor, 'if ($runState === \'blocked\')', 'coveted_admin_agent_task_execution_ready_provider($storedProvider, $pdo)', 'blocked mutation recovery must reconcile before provider readiness is required');
 
 // Approved task data is frozen and stored content cannot grant new authority.
 $contains($executor, 'execution_goal = ?', 'approved task goal must be frozen before execution');
@@ -81,14 +81,14 @@ $contains($executor, 'Execute approved Admin task ', 'persistent Agent thread sh
 $contains($executor, '[[COVETED_TASK_RESULT]]', 'task result protocol is missing');
 $contains($executor, '$complete = $opportunitySatisfied || ($modelCompleted && $successfulActions && !$failures);', 'task completion must require live-state satisfaction or verified successful actions');
 $contains($executor, "'admin.agent_task_execution_started'", 'execution start audit is missing');
-$contains($executor, "'admin.agent_task_execution_' . $executionState", 'execution result audit is missing');
+$contains($executor, '\'admin.agent_task_execution_\' . $executionState', 'execution result audit is missing');
 
 // A new execution requires explicit Approved authorization. Running is check-only.
-$contains($authorization, "if ($executionState === 'running')", 'running task reconciliation path is missing');
-$contains($authorization, "if ($status === 'suggested')", 'Suggested tasks must be explicitly rejected');
+$contains($authorization, 'if ($executionState === \'running\')', 'running task reconciliation path is missing');
+$contains($authorization, 'if ($status === \'suggested\')', 'Suggested tasks must be explicitly rejected');
 $contains($authorization, 'Approve this task before the autonomous Agent can run it.', 'Suggested rejection must explain approval requirement');
-$contains($authorization, "if ($status !== 'approved')", 'new execution must require Approved status');
-$contains($authorization, "if ($executionState !== 'idle')", 'new approval must start from a reset execution state');
+$contains($authorization, 'if ($status !== \'approved\')', 'new execution must require Approved status');
+$contains($authorization, 'if ($executionState !== \'idle\')', 'new approval must start from a reset execution state');
 $contains($authorization, 'coveted_admin_agent_task_execute($admin, $taskRef, $provider, $pdo)', 'approved authorization must delegate to the canonical executor');
 
 // Retry/reset is a canonical, owner-scoped Admin action and cannot touch a running execution.
@@ -104,7 +104,7 @@ $missing($actions, "'execute_task'", 'Agent action registry must not recursively
 
 // Endpoint is explicit System Admin POST + CSRF and routes through the approval gate.
 $contains($api, 'coveted_require_system_admin()', 'execution endpoint must require System Admin');
-$contains($api, "(\$_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST'", 'execution endpoint must be POST-only');
+$contains($api, '($_SERVER[\'REQUEST_METHOD\'] ?? \'GET\') !== \'POST\'', 'execution endpoint must be POST-only');
 $contains($api, 'coveted_require_csrf()', 'execution endpoint must require CSRF');
 $contains($api, 'Cache-Control: no-store', 'execution endpoint must disable caches');
 $contains($api, 'coveted_admin_agent_execute_approved_task($admin, $taskRef, $provider, coveted_db())', 'endpoint must use the explicit Approved authorization service');
@@ -121,8 +121,8 @@ $contains($page, 'Approval required.', 'Suggested task execution must visibly re
 $contains($page, 'Review before retrying.', 'failed executions must require Admin review');
 $contains($page, 'Move the task back to Approved', 'failed/blocked retry must require fresh approval');
 $contains($page, 'coveted_admin_agent_task_execution_reset($admin, $taskRef, $newStatus, $pdo)', 'queue must use canonical execution reset service');
-$contains($page, "execution_state'] ?? 'idle') === 'running'", 'queue must block status changes while Agent execution is running');
-$missing($page, "UPDATE admin_agent_tasks\n                     SET execution_state", 'queue page must not directly reset execution SQL');
+$contains($page, '$taskBefore[\'execution_state\'] ?? \'idle\') === \'running\'', 'queue must block status changes while Agent execution is running');
+$missing($page, "SET execution_state = 'idle'", 'queue page must not directly reset execution SQL');
 $missing($page, '<script', 'queue must remain CSP-safe without inline script');
 $missing($page, 'style="', 'queue must remain CSP-safe without inline style');
 
