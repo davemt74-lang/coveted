@@ -32,7 +32,24 @@ function coveted_attendee_event_can_rsvp(array $event): bool
     }
 
     $startsAt = trim((string)($event['starts_at'] ?? ''));
-    return $startsAt !== '' && coveted_utc_datetime($startsAt)->getTimestamp() > time();
+    if ($startsAt === '' || coveted_utc_datetime($startsAt)->getTimestamp() <= time()) {
+        return false;
+    }
+
+    $invitationStatus = (string)($event['invitation_status'] ?? '');
+    if ((string)($event['audience'] ?? 'group') === 'invitation_only') {
+        return $invitationStatus !== '' && !in_array($invitationStatus, ['expired', 'revoked'], true);
+    }
+
+    // A host-only visibility path should not manufacture attendee RSVP UI when
+    // the host is not also a member/invitee. The canonical RSVP service still
+    // rechecks eligibility on every mutation.
+    $hostRole = (string)($event['assigned_host_role'] ?? '');
+    if ($hostRole !== '' && $invitationStatus === '' && (string)($event['response'] ?? '') === '') {
+        return false;
+    }
+
+    return true;
 }
 
 function coveted_attendee_event_set_rsvp(
