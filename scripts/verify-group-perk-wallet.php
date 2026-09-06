@@ -29,8 +29,10 @@ $wallet = $read('wallet.php');
 $benefits = $read('benefits.php');
 $worker = $read('scripts/reconcile-lifecycle.php');
 $admin = $read('admin/benefit-economy.php');
+$adminUi = $read('app/admin_ui.php');
 $rewards = $read('app/rewards.php');
 $campaigns = $read('app/campaigns.php');
+$media = $read('media.php');
 $schema = $read('database/schema.sql');
 
 // Member wallet is read-only until an explicit CSRF-protected redemption POST.
@@ -42,8 +44,12 @@ $contains($wallet, 'coveted_reward_claim_with_code(', 'wallet redemption must us
 $contains($wallet, 'coveted_return_process_claim(', 'return-visit trigger must remain canonical after claim');
 $contains($wallet, "['ready', 'upcoming', 'redeemed', 'expired']", 'wallet must expose four lifecycle states');
 $contains($wallet, "'return' => 'Return visit'", 'wallet must expose return-visit source filtering');
-$contains($wallet, '<audio controls', 'wallet must support audio rewards');
-$contains($wallet, '<video controls', 'wallet must support video rewards');
+$contains($wallet, 'data-play-audio', 'audio must retain the canonical shared player path');
+$contains($wallet, 'action="/media.php"', 'video must use the canonical entitlement/view path');
+$contains($media, 'coveted_member_video_mark_viewed', 'canonical video path must record intentional media use');
+$contains($wallet, "claim_status'] ?? ''", 'redeemed history must expose claim status');
+$contains($wallet, "type=\"password\" name=\"claim_code\"", 'partner claim code must not be displayed in plain text');
+$contains($wallet, 'pattern="[A-Za-z0-9]{5,10}"', 'partner claim code input must retain bounded format');
 $missing($walletService, 'INSERT INTO', 'wallet snapshot service must not mutate data');
 $missing($walletService, 'UPDATE ', 'wallet snapshot service must not mutate data');
 $missing($walletService, 'DELETE FROM', 'wallet snapshot service must not mutate data');
@@ -70,8 +76,8 @@ $contains($campaigns, "'membership'", 'canonical campaigns must retain membershi
 $contains($worker, "if (PHP_SAPI !== 'cli')", 'lifecycle worker must remain CLI-only');
 $contains($worker, "require_once dirname(__DIR__) . '/app/benefit_economy.php';", 'lifecycle worker must load benefit economy');
 $contains($worker, 'coveted_membership_benefit_reconcile($limit)', 'lifecycle worker must run membership distribution');
-$contains($worker, "!empty($membership['more_work_possible'])", 'membership backlog must propagate to worker status');
-$contains($worker, "(int)$membership['failures'] > 0", 'membership failures must fail worker visibly');
+$contains($worker, '!empty($membership[\'more_work_possible\'])', 'membership backlog must propagate to worker status');
+$contains($worker, '(int)$membership[\'failures\'] > 0', 'membership failures must fail worker visibly');
 
 // Admin analytics are aggregate/read-only and do not expose member PII.
 $contains($economy, 'function coveted_benefit_economy_snapshot(array $actor', 'Admin economy snapshot is required');
@@ -86,5 +92,6 @@ $contains($admin, 'No member-level PII', 'Admin page must state its PII boundary
 $missing($admin, 'method="post"', 'Admin economy dashboard must remain read-only');
 $missing($economy, 'u.email', 'aggregate economy snapshot must not expose member emails');
 $missing($economy, 'u.display_name', 'aggregate economy snapshot must not expose member names');
+$contains($adminUi, "'/admin/benefit-economy.php'", 'Admin navigation must expose Benefit Economy');
 
 fwrite(STDOUT, "Group Perk Wallet contract verified.\n");
