@@ -52,6 +52,8 @@ function coveted_daily_event_reward_campaign_options(): array
            AND rt.status='active'
            AND rt.claim_mode='location_code'
            AND NOT EXISTS (SELECT 1 FROM campaign_event_links cel WHERE cel.campaign_id=c.id)
+           AND NOT EXISTS (SELECT 1 FROM reward_issuances ri WHERE ri.campaign_id=c.id)
+           AND NOT EXISTS (SELECT 1 FROM daily_event_opportunities deo WHERE deo.reward_campaign_id=c.id)
          ORDER BY b.name,l.name,c.title,c.id"
     )->fetchAll();
 }
@@ -166,6 +168,18 @@ function coveted_daily_event_campaign_locked(
         throw new InvalidArgumentException('Choose a reward campaign that is not already linked to another event.');
     }
 
+    $used = $pdo->prepare('SELECT id FROM reward_issuances WHERE campaign_id=? LIMIT 1 FOR UPDATE');
+    $used->execute([$campaignId]);
+    if ($used->fetchColumn()) {
+        throw new InvalidArgumentException('Choose a fresh dedicated reward campaign with no prior issuances.');
+    }
+
+    $assigned = $pdo->prepare('SELECT id FROM daily_event_opportunities WHERE reward_campaign_id=? LIMIT 1 FOR UPDATE');
+    $assigned->execute([$campaignId]);
+    if ($assigned->fetchColumn()) {
+        throw new InvalidArgumentException('That reward campaign is already assigned to a Daily Event.');
+    }
+
     if ($campaign['quantity_limit'] !== null && (int)$campaign['quantity_limit'] < $capacity) {
         throw new InvalidArgumentException('The group reward pool must cover the Daily Event capacity so every verified attendee can receive the unlocked reward.');
     }
@@ -175,17 +189,18 @@ function coveted_daily_event_campaign_locked(
 
     $eventStartTs = $eventStarts->getTimestamp();
     $eventEndTs = $eventEnds->getTimestamp();
+    $latestIssueTs = $eventEndTs + (COVETED_DAILY_EVENT_CHECKIN_LATE_MINUTES * 60);
     if (!empty($campaign['starts_at']) && strtotime((string)$campaign['starts_at']) > $eventStartTs) {
         throw new InvalidArgumentException('The reward campaign must be active by the Daily Event start time.');
     }
-    if (!empty($campaign['ends_at']) && strtotime((string)$campaign['ends_at']) <= $eventEndTs + (COVETED_DAILY_EVENT_CHECKIN_LATE_MINUTES * 60)) {
+    if (!empty($campaign['ends_at']) && strtotime((string)$campaign['ends_at']) <= $latestIssueTs) {
         throw new InvalidArgumentException('The reward campaign must remain active through the Daily Event check-in window.');
     }
     if (!empty($campaign['reward_starts_at']) && strtotime((string)$campaign['reward_starts_at']) > $eventStartTs) {
         throw new InvalidArgumentException('The reward itself must be active by the Daily Event start time.');
     }
-    if (!empty($campaign['reward_expires_at']) && strtotime((string)$campaign['reward_expires_at']) <= $eventEndTs) {
-        throw new InvalidArgumentException('The reward cannot expire before the Daily Event ends.');
+    if (!empty($campaign['reward_expires_at']) && strtotime((string)$campaign['reward_expires_at']) <= $latestIssueTs) {
+        throw new InvalidArgumentException('The reward must remain valid through the Daily Event check-in window.');
     }
 
     return $campaign;
@@ -364,10 +379,18 @@ function coveted_daily_event_set_status(array $actor, string $dailyRef, string $
         }
         $pdo->prepare('UPDATE daily_event_opportunities SET status=?,updated_at=NOW() WHERE id=?')
             ->execute([$status, (int)$row['id']]);
-        coveted_audit('daily_event.status_changed', 'daily_event_opportunity', (string)$row['public_id'], ['status' => $status], (int)$actor['id']);
+        coveted_audit(
+            'daily_event.status_changed',
+            'daily_event_opportunity',
+            (string)$row['public_id'],
+            ['status' => $status],
+            (int)$actor['id']
+        );
         $pdo->commit();
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         throw $e;
     }
 }
@@ -442,7 +465,7 @@ function coveted_daily_event_member_feed(array $member, int $daysAhead = 14): ar
     foreach ($rows as &$row) {
         $start = strtotime((string)$row['starts_at']);
         $end = !empty($row['ends_at']) ? strtotime((string)$row['ends_at']) : $start + 6 * 3600;
-        $row['checkin_open'] = $row['event_status'] !== 'completed'
+        $row['checkin_open'] = in_array((string)$row['event_status'], ['published','closed'], true)
             && ($row['rsvp_response'] ?? '') === 'attending'
             && $now >= $start - COVETED_DAILY_EVENT_CHECKIN_EARLY_MINUTES * 60
             && $now <= $end + COVETED_DAILY_EVENT_CHECKIN_LATE_MINUTES * 60
@@ -453,6 +476,33 @@ function coveted_daily_event_member_feed(array $member, int $daysAhead = 14): ar
     }
     unset($row);
     return $rows;
+}
+
+function coveted_daily_event_set_rsvp(array $member, string $dailyRef, string $decision): string
+{
+    $dailyRef = trim($dailyRef);
+    if ($dailyRef === '' || strlen($dailyRef) > 64) {
+        throw new InvalidArgumentException('Daily Event not found.');
+    }
+    if (!in_array($decision, ['attending','declined'], true)) {
+        throw new InvalidArgumentException('Invalid RSVP response.');
+    }
+
+    $stmt = coveted_db()->prepare(
+        "SELECT e.public_id AS event_ref
+         FROM daily_event_opportunities deo
+         JOIN events e ON e.id=deo.event_id
+         WHERE (deo.public_id=? OR CAST(deo.id AS CHAR)=?)
+           AND deo.status='active'
+         LIMIT 1"
+    );
+    $stmt->execute([$dailyRef,$dailyRef]);
+    $eventRef = $stmt->fetchColumn();
+    if ($eventRef === false) {
+        throw new InvalidArgumentException('This Daily Event is not available for RSVP.');
+    }
+
+    return coveted_event_set_rsvp($member, (string)$eventRef, $decision, 0);
 }
 
 /** @return array<int,array{key:string,limit:int}> */
@@ -492,7 +542,9 @@ function coveted_daily_event_record_checkin_failure(int $userId, int $eventId): 
             $stmt = $pdo->prepare('SELECT id,failures,window_started_at FROM claim_attempts WHERE attempt_key=? LIMIT 1 FOR UPDATE');
             $stmt->execute([$entry['key']]);
             $row = $stmt->fetch();
-            if (!$row) throw new RuntimeException('Unable to update Daily Event check-in throttle.');
+            if (!$row) {
+                throw new RuntimeException('Unable to update Daily Event check-in throttle.');
+            }
             $fresh = strtotime((string)$row['window_started_at']) >= time() - 900;
             $failures = ($fresh ? (int)$row['failures'] : 0) + 1;
             $blockedUntil = $failures >= (int)$entry['limit'] ? date('Y-m-d H:i:s', time()+900) : null;
@@ -502,7 +554,9 @@ function coveted_daily_event_record_checkin_failure(int $userId, int $eventId): 
         }
         $pdo->commit();
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         throw $e;
     }
 }
@@ -539,7 +593,9 @@ function coveted_daily_event_member_checkin(array $member, string $dailyRef, str
     );
     $lookup->execute([$dailyRef,$dailyRef]);
     $preview = $lookup->fetch();
-    if (!$preview) throw new InvalidArgumentException('Daily Event not found.');
+    if (!$preview) {
+        throw new InvalidArgumentException('Daily Event not found.');
+    }
 
     coveted_daily_event_assert_checkin_allowed($userId, (int)$preview['event_id']);
 
@@ -564,7 +620,11 @@ function coveted_daily_event_member_checkin(array $member, string $dailyRef, str
         if (!in_array((string)$daily['event_status'], ['published','closed'], true)) {
             throw new InvalidArgumentException('This Daily Event is not accepting check-ins.');
         }
-        if ($daily['business_status'] !== 'active' || $daily['location_status'] !== 'active' || (int)$daily['location_business_id'] !== (int)$daily['business_id']) {
+        if (
+            $daily['business_status'] !== 'active'
+            || $daily['location_status'] !== 'active'
+            || (int)$daily['location_business_id'] !== (int)$daily['business_id']
+        ) {
             throw new InvalidArgumentException('This partner location is not available for check-in.');
         }
 
@@ -577,7 +637,8 @@ function coveted_daily_event_member_checkin(array $member, string $dailyRef, str
         if (!$memberEligible->fetchColumn()) {
             throw new InvalidArgumentException('Your group membership is not eligible for this Daily Event.');
         }
-        $rsvp = $pdo->prepare("SELECT response FROM event_rsvps WHERE event_id=? AND user_id=? LIMIT 1 FOR UPDATE");
+
+        $rsvp = $pdo->prepare('SELECT response FROM event_rsvps WHERE event_id=? AND user_id=? LIMIT 1 FOR UPDATE');
         $rsvp->execute([(int)$daily['event_id'],$userId]);
         if ($rsvp->fetchColumn() !== 'attending') {
             throw new InvalidArgumentException('RSVP as attending before checking in.');
@@ -603,14 +664,14 @@ function coveted_daily_event_member_checkin(array $member, string $dailyRef, str
         $start = strtotime((string)$daily['starts_at']);
         $end = !empty($daily['ends_at']) ? strtotime((string)$daily['ends_at']) : $start + 6*3600;
         $now = time();
-        if ($now < $start - COVETED_DAILY_EVENT_CHECKIN_EARLY_MINUTES*60 || $now > $end + COVETED_DAILY_EVENT_CHECKIN_LATE_MINUTES*60) {
+        if (
+            $now < $start - COVETED_DAILY_EVENT_CHECKIN_EARLY_MINUTES*60
+            || $now > $end + COVETED_DAILY_EVENT_CHECKIN_LATE_MINUTES*60
+        ) {
             throw new InvalidArgumentException('Daily Event check-in is not open right now.');
         }
 
-        $location = [
-            'id' => (int)$daily['location_id'],
-            'business_id' => (int)$daily['business_id'],
-        ];
+        $location = ['id' => (int)$daily['location_id'], 'business_id' => (int)$daily['business_id']];
         $verifiedCode = coveted_claim_code_verify_for_location($pdo,$location,$claimCode);
         if (!$verifiedCode) {
             $pdo->rollBack();
@@ -658,7 +719,9 @@ function coveted_daily_event_member_checkin(array $member, string $dailyRef, str
             'reward_unlocked' => $attendanceCount >= (int)$daily['attendance_threshold'],
         ];
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         throw $e;
     }
 }
@@ -669,8 +732,7 @@ function coveted_daily_event_reward_targets(int $limit, ?int $eventId = null): a
     $limit = max(1,min($limit,1000));
     $sql = "SELECT deo.id AS daily_id,deo.public_id AS daily_ref,deo.attendance_threshold,
                    deo.reward_campaign_id,e.id AS event_id,e.public_id AS event_ref,ea.user_id,
-                   (SELECT COUNT(*) FROM event_attendance x
-                    WHERE x.event_id=e.id AND x.status IN ('checked_in','attended','left_early')) AS attendance_count,
+                   totals.attendance_count,
                    CONCAT('daily-group-reward:',deo.id,':',ea.user_id) AS issuance_key
             FROM daily_event_opportunities deo
             JOIN events e ON e.id=deo.event_id
@@ -678,17 +740,21 @@ function coveted_daily_event_reward_targets(int $limit, ?int $eventId = null): a
             JOIN reward_templates rt ON rt.id=c.reward_template_id
             JOIN event_attendance ea ON ea.event_id=e.id AND ea.status IN ('checked_in','attended','left_early')
             JOIN users u ON u.id=ea.user_id AND u.status='active'
+            JOIN (
+                SELECT event_id,COUNT(*) AS attendance_count
+                FROM event_attendance
+                WHERE status IN ('checked_in','attended','left_early')
+                GROUP BY event_id
+            ) totals ON totals.event_id=e.id
             WHERE deo.status='active'
               AND e.status IN ('published','closed','completed')
               AND e.starts_at<=UTC_TIMESTAMP()
               AND c.status='active' AND c.trigger_key='manual'
               AND rt.status='active'
-              AND (SELECT COUNT(*) FROM event_attendance x
-                   WHERE x.event_id=e.id AND x.status IN ('checked_in','attended','left_early')) >= deo.attendance_threshold
+              AND (deo.reward_unlocked_at IS NOT NULL OR totals.attendance_count >= deo.attendance_threshold)
               AND NOT EXISTS (
                   SELECT 1 FROM reward_issuances ri
                   WHERE ri.idempotency_key=CONCAT('daily-group-reward:',deo.id,':',ea.user_id)
-                    AND ri.status<>'cancelled'
               )";
     $params = [];
     if ($eventId !== null && $eventId > 0) {
@@ -706,7 +772,11 @@ function coveted_daily_event_reward_targets(int $limit, ?int $eventId = null): a
 function coveted_daily_event_mark_unlocked(int $dailyId, int $attendanceCount): bool
 {
     $stmt = coveted_db()->prepare(
-        'UPDATE daily_event_opportunities SET reward_unlocked_at=COALESCE(reward_unlocked_at,NOW()), attendance_count_at_unlock=COALESCE(attendance_count_at_unlock,?), updated_at=NOW() WHERE id=? AND reward_unlocked_at IS NULL'
+        'UPDATE daily_event_opportunities
+         SET reward_unlocked_at=COALESCE(reward_unlocked_at,NOW()),
+             attendance_count_at_unlock=COALESCE(attendance_count_at_unlock,?),
+             updated_at=NOW()
+         WHERE id=? AND reward_unlocked_at IS NULL'
     );
     $stmt->execute([$attendanceCount,$dailyId]);
     return $stmt->rowCount() === 1;
@@ -827,12 +897,12 @@ function coveted_daily_event_loyalty_reconcile(int $limit = 250): array
                  AND adj.source_type='daily_event_points'
                  AND adj.source_ref=deo.public_id
            )
-         ORDER BY COALESCE(e.ends_at,e.starts_at), e.id, ea.user_id
+         ORDER BY COALESCE(e.ends_at,e.starts_at),e.id,ea.user_id
          LIMIT " . ($limit + 1)
     );
     $rows = $stmt->fetchAll();
     $more = count($rows) > $limit;
-    $rows = array_slice($rows, 0, $limit);
+    $rows = array_slice($rows,0,$limit);
     $adjustments = 0;
     $failures = 0;
 
