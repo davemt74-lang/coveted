@@ -175,9 +175,9 @@ function coveted_site_logo_delete(array $admin): void
 }
 
 /**
- * Add branding completeness to an already-generated Admin Agent snapshot.
- * Keeping this outside the core brain means branding remains a small optional
- * capability rather than a dependency of the operational snapshot.
+ * Add optional enrichments to an already-generated Admin Agent snapshot.
+ * Branding and CRM intelligence remain outside the core operational brain so
+ * neither becomes a hard dependency of canonical snapshot generation.
  *
  * @return array<string,mixed>
  */
@@ -198,8 +198,8 @@ function coveted_site_branding_enrich_agent_snapshot(array $snapshot): array
     ];
     $snapshot['branding'] = ['logo_uploaded' => $logo !== null];
 
+    $opportunities = array_values((array)($snapshot['opportunities'] ?? []));
     if ($logo === null) {
-        $opportunities = array_values((array)($snapshot['opportunities'] ?? []));
         $opportunities[] = [
             'priority' => 2,
             'key' => 'site-logo',
@@ -209,12 +209,86 @@ function coveted_site_branding_enrich_agent_snapshot(array $snapshot): array
             'href' => '/admin/branding.php',
             'evidence' => 'No active site logo image is installed.',
         ];
-        usort($opportunities, static function (array $a, array $b): int {
-            $priority = ((int)$a['priority']) <=> ((int)$b['priority']);
-            return $priority !== 0 ? $priority : strcmp((string)$a['key'], (string)$b['key']);
-        });
-        $snapshot['opportunities'] = $opportunities;
     }
+
+    try {
+        require_once __DIR__ . '/invite_crm_intelligence.php';
+        $intelligence = coveted_invite_crm_intelligence_summary();
+        $crm = (array)($snapshot['crm'] ?? []);
+        $crm['intelligence'] = $intelligence;
+        $snapshot['crm'] = $crm;
+        $snapshot['crm_intelligence'] = $intelligence;
+
+        // Replace the generic CRM pipeline opportunity with concrete workflow
+        // signals. Only aggregate counts enter the Agent snapshot/LLM context.
+        $opportunities = array_values(array_filter(
+            $opportunities,
+            static fn(array $item): bool => (string)($item['key'] ?? '') !== 'crm-pipeline'
+        ));
+
+        $followUp = (int)($intelligence['follow_up_due'] ?? 0);
+        if ($followUp > 0) {
+            $opportunities[] = [
+                'priority' => 1,
+                'key' => 'crm-follow-up-due',
+                'category' => 'Growth',
+                'title' => 'Follow up on active CRM outreach',
+                'detail' => 'Contacted CRM records have gone at least three days without a recorded review update.',
+                'href' => '/admin/crm.php?status=contacted',
+                'evidence' => $followUp . ' follow-up' . ($followUp === 1 ? '' : 's') . ' due.',
+            ];
+        }
+
+        $conversionReady = (int)($intelligence['conversion_ready'] ?? 0);
+        if ($conversionReady > 0) {
+            $opportunities[] = [
+                'priority' => 1,
+                'key' => 'crm-conversion-ready',
+                'category' => 'Growth',
+                'title' => 'Review qualified CRM records for conversion',
+                'detail' => 'Qualified invite records are ready for the System Admin to review against the canonical conversion workflow.',
+                'href' => '/admin/crm.php?status=qualified',
+                'evidence' => $conversionReady . ' qualified record' . ($conversionReady === 1 ? '' : 's') . ' ready for review.',
+            ];
+        }
+
+        $highPriority = (int)($intelligence['high_priority'] ?? 0);
+        if ($highPriority > 0) {
+            $opportunities[] = [
+                'priority' => 1,
+                'key' => 'crm-high-priority',
+                'category' => 'Growth',
+                'title' => 'Work high-priority CRM submissions',
+                'detail' => 'Deterministic workflow scoring has identified active CRM records that should be reviewed ahead of the rest of the queue.',
+                'href' => '/admin/crm.php',
+                'evidence' => $highPriority . ' high-priority active record' . ($highPriority === 1 ? '' : 's') . '.',
+            ];
+        }
+
+        $aging = (int)($intelligence['aging_new'] ?? 0);
+        if ($aging > 0) {
+            $opportunities[] = [
+                'priority' => 2,
+                'key' => 'crm-aging-new',
+                'category' => 'Growth',
+                'title' => 'Clear aging new CRM submissions',
+                'detail' => 'New CRM records have been waiting at least seven days without moving into outreach or qualification.',
+                'href' => '/admin/crm.php?status=new',
+                'evidence' => $aging . ' aging new record' . ($aging === 1 ? '' : 's') . '.',
+            ];
+        }
+    } catch (Throwable $e) {
+        $issues = array_values((array)($snapshot['issues'] ?? []));
+        $issues[] = 'crm_intelligence';
+        $snapshot['issues'] = array_values(array_unique($issues));
+        error_log('Admin Agent CRM intelligence unavailable: ' . $e->getMessage());
+    }
+
+    usort($opportunities, static function (array $a, array $b): int {
+        $priority = ((int)$a['priority']) <=> ((int)$b['priority']);
+        return $priority !== 0 ? $priority : strcmp((string)$a['key'], (string)$b['key']);
+    });
+    $snapshot['opportunities'] = $opportunities;
 
     return $snapshot;
 }
