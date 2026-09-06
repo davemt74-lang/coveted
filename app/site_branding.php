@@ -336,6 +336,7 @@ function coveted_site_branding_enrich_agent_snapshot(array $snapshot): array
             if ($key === '' || $title === '') {
                 continue;
             }
+            $executionReady = !empty($recommendation['execution_ready']);
             $opportunities[] = [
                 'priority' => max(1, min(3, (int)($recommendation['priority'] ?? 2))),
                 'key' => $key,
@@ -345,7 +346,8 @@ function coveted_site_branding_enrich_agent_snapshot(array $snapshot): array
                 'href' => (string)($recommendation['href'] ?? '/admin/benefit-programs.php'),
                 'evidence' => (string)($recommendation['evidence'] ?? ''),
                 'kind' => (string)($recommendation['kind'] ?? ''),
-                'execution_ready' => !empty($recommendation['execution_ready']),
+                'execution_ready' => $executionReady,
+                'task_sync' => $executionReady,
                 'suggested_draft' => $recommendation['suggested_draft'] ?? null,
             ];
         }
