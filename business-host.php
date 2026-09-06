@@ -188,6 +188,10 @@ if ($selectedEvent) {
 
 $businessRef = $business ? (string)$business['public_id'] : '';
 $eventRef = $selectedEvent ? (string)$selectedEvent['public_id'] : '';
+$sponsorshipHref = $business
+    ? '/business-sponsorships.php?business=' . rawurlencode($businessRef)
+        . ($eventRef !== '' ? '&event=' . rawurlencode($eventRef) : '')
+    : '/business-sponsorships.php';
 $selectedEventIsPast = $selectedEvent
     ? coveted_utc_datetime((string)$selectedEvent['starts_at'])->getTimestamp() < $now
         || in_array((string)$selectedEvent['status'], ['completed','cancelled'], true)
@@ -225,7 +229,10 @@ coveted_page_start('Business Host', 'Events');
             <p>Venue hosts can operate the event they are given. Timing, location assignment, lineup, audience, capacity, event status and campaign configuration remain with Coveted System Admin.</p>
         </div>
         <?php if ($business): ?>
-            <a class="cv-button cv-button-soft" href="/business.php?business=<?= coveted_e(rawurlencode($businessRef)) ?>">Business Profile</a>
+            <div class="cv-business-host-actions">
+                <a class="cv-button cv-button-soft" href="<?= coveted_e($sponsorshipHref) ?>">Benefits / Sponsorship</a>
+                <a class="cv-button cv-button-soft" href="/business.php?business=<?= coveted_e(rawurlencode($businessRef)) ?>">Business Profile</a>
+            </div>
         <?php endif; ?>
     </section>
 
@@ -296,6 +303,7 @@ coveted_page_start('Business Host', 'Events');
                         <a href="#event-day">Event Day</a>
                         <a href="#venue">Venue Profile</a>
                         <a href="#rewards">Rewards &amp; Perks</a>
+                        <a href="<?= coveted_e($sponsorshipHref) ?>">Benefits / Sponsorship</a>
                         <a href="#entertainment">Artist / Entertainment</a>
                         <a href="#report">Post-Event Report</a>
                         <a href="#admin-coordination">Admin Coordination</a>
@@ -401,7 +409,7 @@ coveted_page_start('Business Host', 'Events');
                             <div>
                                 <span class="cv-eyebrow">REWARDS &amp; PERKS</span>
                                 <h2>What is attached to this gathering</h2>
-                                <p>View-only event reward context for venue operations. Coveted Admin controls event campaign configuration.</p>
+                                <p>View-only event reward context for venue operations. Coveted Admin controls event campaign configuration. A business may propose sponsored value separately; proposals still require Coveted review.</p>
                             </div>
                             <span class="cv-business-host-pill"><?= count($campaigns) ?> linked</span>
                         </div>
@@ -418,6 +426,9 @@ coveted_page_start('Business Host', 'Events');
                                 <?php endforeach; ?>
                             </div>
                         <?php endif; ?>
+                        <div class="cv-business-host-actions">
+                            <a class="cv-button cv-button-soft" href="<?= coveted_e($sponsorshipHref) ?>">Propose Sponsored Benefit / View ROI</a>
+                        </div>
                     </section>
 
                     <section class="cv-business-host-panel" id="entertainment">
@@ -502,6 +513,7 @@ coveted_page_start('Business Host', 'Events');
                         </div>
                         <div class="cv-business-host-actions">
                             <a class="cv-button cv-button-soft" href="/notifications.php">Open Notifications</a>
+                            <a class="cv-button cv-button-soft" href="<?= coveted_e($sponsorshipHref) ?>">Benefits / Sponsorship</a>
                             <a class="cv-button cv-button-soft" href="/business.php?business=<?= coveted_e(rawurlencode($businessRef)) ?>">Business Profile</a>
                             <?php if (coveted_is_system_admin($user)): ?>
                                 <a class="cv-button cv-button-soft" href="/admin/event.php?event=<?= coveted_e(rawurlencode($eventRef)) ?>">Open Event Admin</a>
