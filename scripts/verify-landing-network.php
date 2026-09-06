@@ -92,7 +92,7 @@ foreach ([
     'set_landing_network_stats',
     'Turn City Slider',
     'Turn Network Totals',
-    'Sample data only',
+    'PUBLIC LANDING PREVIEW',
 ] as $fragment) {
     if (!str_contains($admin, $fragment)) {
         fwrite(STDERR, "Sample Data Admin toggle contract missing: {$fragment}\n");
