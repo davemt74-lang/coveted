@@ -49,16 +49,16 @@ $contains($page, 'Show this screen to the host at check-in.', 'Event Pass check-
 $contains($page, 'host-side attendance permissions remain authoritative.', 'Event Pass must not claim attendance authority');
 
 // Mystery/privacy boundaries must be preserved across location and perk previews.
-$contains($service, "if ($visibility === 'host_only')", 'host-only location must remain hidden from attendee workspace');
-$contains($service, "(string)($event['event_type'] ?? '') !== 'mystery'", 'mystery event value preview guard is missing');
+$contains($service, 'if ($visibility === \'host_only\')', 'host-only location must remain hidden from attendee workspace');
+$contains($service, '(string)($event[\'event_type\'] ?? \'\') !== \'mystery\'', 'mystery event value preview guard is missing');
 $contains($service, '!coveted_attendee_event_value_preview_visible($event)', 'event perk preview must obey mystery visibility guard');
-$contains($service, "(string)($event['status'] ?? '') === 'completed' && coveted_attendee_event_has_verified_attendance($event)", 'verified completed attendees must retain scheduled-reveal history visibility');
+$contains($service, '(string)($event[\'status\'] ?? \'\') === \'completed\' && coveted_attendee_event_has_verified_attendance($event)', 'verified completed attendees must retain scheduled-reveal history visibility');
 $contains($page, 'Coveted will reveal the location only when the Admin-defined reveal becomes active.', 'member mystery reveal explanation is missing');
 
 // POST surface is narrow, CSRF protected and sample data remains read-only.
-$contains($page, "($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'", 'My Events POST detection is missing');
+$contains($page, '($_SERVER[\'REQUEST_METHOD\'] ?? \'GET\') === \'POST\'', 'My Events POST detection is missing');
 $contains($page, 'coveted_require_csrf();', 'My Events POST must require CSRF');
-$contains($page, "if ($action !== 'rsvp')", 'My Events POST must be limited to RSVP');
+$contains($page, 'if ($action !== \'rsvp\')', 'My Events POST must be limited to RSVP');
 $contains($page, 'Sample events are preview-only.', 'sample event RSVP mutation guard is missing');
 $contains($page, 'coveted_attendee_event_set_rsvp(', 'My Events must use bounded attendee RSVP wrapper');
 
@@ -81,7 +81,7 @@ foreach ([
 }
 
 // The existing event-detail lifecycle remains canonical for artist, quiet mode and post-event value.
-$contains($eventPage, "if ($phase === 'arrived')", 'checked-in phone-free event phase is missing');
+$contains($eventPage, 'if ($phase === \'arrived\')', 'checked-in phone-free event phase is missing');
 $contains($eventPage, 'Enjoy the evening.', 'checked-in event screen must remain intentionally quiet');
 $contains($eventPage, 'ARTIST PARTNERS', 'artist event experience is missing');
 $contains($eventPage, 'data-play-audio', 'post-event audio benefit experience is missing');
