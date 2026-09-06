@@ -4,10 +4,12 @@ declare(strict_types=1);
 require_once __DIR__ . '/events.php';
 require_once __DIR__ . '/businesses.php';
 require_once __DIR__ . '/rewards.php';
+require_once __DIR__ . '/loyalty.php';
 
 const COVETED_DAILY_EVENT_LOCK = 'coveted:daily-events:v1';
 const COVETED_DAILY_EVENT_CHECKIN_EARLY_MINUTES = 60;
 const COVETED_DAILY_EVENT_CHECKIN_LATE_MINUTES = 120;
+const COVETED_DAILY_EVENT_MAX_LOYALTY_POINTS = 10000;
 
 /** @return array<int,array<string,mixed>> */
 function coveted_daily_event_relationship_options(): array
@@ -197,6 +199,7 @@ function coveted_daily_event_create(array $actor, array $data): array
     $relationshipId = (int)($data['relationship_id'] ?? 0);
     $campaignId = (int)($data['reward_campaign_id'] ?? 0);
     $threshold = (int)($data['attendance_threshold'] ?? 0);
+    $loyaltyPoints = (int)($data['loyalty_points'] ?? COVETED_LOYALTY_ATTENDANCE_POINTS);
     $requestedCapacity = ($data['capacity'] ?? '') === '' ? null : (int)$data['capacity'];
     $title = trim((string)($data['title'] ?? ''));
     $description = trim((string)($data['description'] ?? ''));
@@ -213,6 +216,9 @@ function coveted_daily_event_create(array $actor, array $data): array
     }
     if (!in_array($status, ['draft','published'], true)) {
         throw new InvalidArgumentException('New Daily Events must start as draft or published.');
+    }
+    if ($loyaltyPoints < 0 || $loyaltyPoints > COVETED_DAILY_EVENT_MAX_LOYALTY_POINTS) {
+        throw new InvalidArgumentException('Daily Event Loyalty points must be between 0 and 10,000.');
     }
 
     $pdo = coveted_db();
@@ -276,8 +282,8 @@ function coveted_daily_event_create(array $actor, array $data): array
         $publicId = coveted_uuid('daily');
         $pdo->prepare(
             "INSERT INTO daily_event_opportunities
-                (public_id,event_id,business_id,location_id,reward_campaign_id,attendance_threshold,status,created_by)
-             VALUES (?, ?, ?, ?, ?, ?, 'active', ?)"
+                (public_id,event_id,business_id,location_id,reward_campaign_id,attendance_threshold,loyalty_points,status,created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)"
         )->execute([
             $publicId,
             $eventId,
@@ -285,6 +291,7 @@ function coveted_daily_event_create(array $actor, array $data): array
             (int)$relationship['location_id'],
             $campaignId,
             $threshold,
+            $loyaltyPoints,
             (int)$actor['id'],
         ]);
         $dailyId = (int)$pdo->lastInsertId();
@@ -313,6 +320,7 @@ function coveted_daily_event_create(array $actor, array $data): array
                 'location_id' => (string)$relationship['location_ref'],
                 'reward_campaign_id' => (string)$campaign['public_id'],
                 'attendance_threshold' => $threshold,
+                'loyalty_points' => $loyaltyPoints,
                 'capacity' => $capacity,
             ],
             (int)$actor['id']
@@ -393,7 +401,7 @@ function coveted_daily_event_member_feed(array $member, int $daysAhead = 14): ar
 {
     $daysAhead = max(1, min($daysAhead, 60));
     $stmt = coveted_db()->prepare(
-        "SELECT deo.public_id,deo.attendance_threshold,deo.reward_unlocked_at,deo.attendance_count_at_unlock,
+        "SELECT deo.public_id,deo.attendance_threshold,deo.loyalty_points,deo.reward_unlocked_at,deo.attendance_count_at_unlock,
                 e.id AS event_id,e.public_id AS event_ref,e.title,e.description,e.status AS event_status,e.starts_at,e.ends_at,
                 e.capacity,e.timezone,
                 g.public_id AS group_ref,g.name AS group_name,
@@ -785,6 +793,86 @@ function coveted_daily_event_reconcile(int $limit = 250, ?int $eventId = null): 
     }
 }
 
+/**
+ * Apply the Admin-defined total point value after the canonical Loyalty engine
+ * has recorded verified attendance. The append-only adjustment keeps the base
+ * attendance fact intact while making the member's net event award equal the
+ * configured Daily Event value.
+ *
+ * @return array{adjustments:int,more:bool,failures:int}
+ */
+function coveted_daily_event_loyalty_reconcile(int $limit = 250): array
+{
+    $limit = max(1, min($limit, 1000));
+    $basePoints = COVETED_LOYALTY_ATTENDANCE_POINTS;
+    $stmt = coveted_db()->query(
+        "SELECT deo.public_id AS daily_ref, deo.loyalty_points,
+                e.id AS event_id, e.public_id AS event_ref, e.group_id,
+                COALESCE(e.ends_at,e.starts_at) AS occurred_at,
+                ea.user_id, ea.status AS attendance_status
+         FROM daily_event_opportunities deo
+         JOIN events e ON e.id=deo.event_id AND e.status='completed'
+         JOIN event_attendance ea ON ea.event_id=e.id AND ea.status IN ('checked_in','attended','left_early')
+         JOIN users u ON u.id=ea.user_id AND u.status='active'
+         WHERE deo.loyalty_points <> {$basePoints}
+           AND EXISTS (
+               SELECT 1 FROM loyalty_point_ledger base
+               WHERE base.user_id=ea.user_id
+                 AND base.source_type='verified_attendance'
+                 AND base.source_ref=e.public_id
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM loyalty_point_ledger adj
+               WHERE adj.user_id=ea.user_id
+                 AND adj.source_type='daily_event_points'
+                 AND adj.source_ref=deo.public_id
+           )
+         ORDER BY COALESCE(e.ends_at,e.starts_at), e.id, ea.user_id
+         LIMIT " . ($limit + 1)
+    );
+    $rows = $stmt->fetchAll();
+    $more = count($rows) > $limit;
+    $rows = array_slice($rows, 0, $limit);
+    $adjustments = 0;
+    $failures = 0;
+
+    foreach ($rows as $row) {
+        $configured = (int)$row['loyalty_points'];
+        $adjustment = $configured - $basePoints;
+        if ($adjustment === 0) {
+            continue;
+        }
+        try {
+            if (coveted_loyalty_insert_points(
+                coveted_db(),
+                (int)$row['user_id'],
+                (int)$row['group_id'],
+                (int)$row['event_id'],
+                'daily_event_points',
+                (string)$row['daily_ref'],
+                $adjustment,
+                $adjustment,
+                'Daily Event point value adjustment',
+                (string)$row['occurred_at'],
+                [
+                    'event_id' => (string)$row['event_ref'],
+                    'configured_total_points' => $configured,
+                    'base_verified_attendance_points' => $basePoints,
+                    'adjustment_points' => $adjustment,
+                    'attendance_status' => (string)$row['attendance_status'],
+                ]
+            )) {
+                $adjustments++;
+            }
+        } catch (Throwable $e) {
+            $failures++;
+            error_log('Daily Event Loyalty point reconciliation failed: ' . $e->getMessage());
+        }
+    }
+
+    return ['adjustments' => $adjustments, 'more' => $more, 'failures' => $failures];
+}
+
 /** @return array<int,array<string,mixed>> */
 function coveted_daily_event_business_rows(array $actor, int $businessId): array
 {
@@ -792,7 +880,7 @@ function coveted_daily_event_business_rows(array $actor, int $businessId): array
         throw new InvalidArgumentException('You cannot view Daily Events for that business.');
     }
     $stmt = coveted_db()->prepare(
-        "SELECT deo.public_id,deo.attendance_threshold,deo.reward_unlocked_at,deo.status,
+        "SELECT deo.public_id,deo.attendance_threshold,deo.loyalty_points,deo.reward_unlocked_at,deo.status,
                 e.public_id AS event_ref,e.title,e.status AS event_status,e.starts_at,e.ends_at,e.capacity,e.timezone,
                 g.name AS group_name,l.public_id AS location_ref,l.name AS location_name,l.city,l.region,
                 c.public_id AS campaign_ref,c.title AS campaign_title,rt.title AS reward_title,rt.value_text,rt.value_amount,
