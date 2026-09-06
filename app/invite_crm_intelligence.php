@@ -37,8 +37,9 @@ function coveted_invite_crm_intelligence_age_days(string $value, ?DateTimeImmuta
  *
  * This is deliberately NOT a prediction of a person's value, intent, income,
  * character or likelihood to buy. It only prioritizes Admin workflow using
- * current CRM status, recency and explicit form completeness. Sensitive fields
- * such as gender and all free-text sentiment are excluded from scoring.
+ * current CRM status, recency, contactability and explicit form completeness.
+ * Sensitive fields such as gender, social-profile presence and all free-text
+ * sentiment are excluded from scoring.
  *
  * @return array{
  *   score:int,band:string,label:string,next_action:string,next_action_key:string,
@@ -62,9 +63,6 @@ function coveted_invite_crm_intelligence_record(
     $interests = coveted_invite_crm_intelligence_interest_keys($request);
     $goals = coveted_invite_crm_intelligence_profile_list($profile, 'goals_json');
     $sources = coveted_invite_crm_intelligence_profile_list($profile, 'source_keys_json');
-    $hasProfileLinks = array_key_exists('_has_links', $profile)
-        ? (bool)$profile['_has_links']
-        : (bool)coveted_invite_profile_decode_links($profile['social_links_json'] ?? null);
     $supportedCity = (int)($request['city_id'] ?? 0) > 0;
     $hasPhone = array_key_exists('_has_phone', $request)
         ? (bool)$request['_has_phone']
@@ -143,9 +141,6 @@ function coveted_invite_crm_intelligence_record(
     if ($hasSource) {
         $score += 3;
     }
-    if ($hasProfileLinks) {
-        $score += 2;
-    }
 
     $followUpDue = $status === 'contacted' && $activityAgeDays >= 3;
     if ($followUpDue) {
@@ -211,6 +206,28 @@ function coveted_invite_crm_intelligence_record(
     ];
 }
 
+/** @return array<string,mixed> */
+function coveted_invite_crm_intelligence_from_signal_row(array $row, DateTimeImmutable $now): array
+{
+    return coveted_invite_crm_intelligence_record(
+        [
+            'status' => (string)$row['status'],
+            'city_id' => (int)$row['city_id'],
+            'event_interests_json' => (string)$row['event_interests_json'],
+            'how_heard' => (string)($row['how_heard'] ?? ''),
+            '_has_phone' => !empty($row['has_phone']),
+            'created_at' => (string)$row['created_at'],
+            'updated_at' => (string)$row['updated_at'],
+            'reviewed_at' => $row['reviewed_at'],
+        ],
+        [
+            'goals_json' => (string)($row['goals_json'] ?? '[]'),
+            'source_keys_json' => (string)($row['source_keys_json'] ?? '[]'),
+        ],
+        $now
+    );
+}
+
 /**
  * Load active CRM completeness signals for aggregate intelligence. This helper
  * never returns names, emails, raw phone numbers, notes, messages, gender or
@@ -227,8 +244,7 @@ function coveted_invite_crm_intelligence_active_rows(?PDO $pdo = null): array
 
     try {
         return $pdo->query(
-            $baseSelect . ", ip.goals_json, ip.source_keys_json,
-                CASE WHEN ip.social_links_json IS NULL THEN 0 ELSE 1 END AS has_links
+            $baseSelect . ", ip.goals_json, ip.source_keys_json
              FROM invite_requests ir
              LEFT JOIN invite_request_profiles ip ON ip.invite_request_id = ir.id
              WHERE ir.status IN ('new','contacted','qualified')
@@ -241,7 +257,7 @@ function coveted_invite_crm_intelligence_active_rows(?PDO $pdo = null): array
     }
 
     return $pdo->query(
-        $baseSelect . ", '[]' AS goals_json, '[]' AS source_keys_json, 0 AS has_links
+        $baseSelect . ", '[]' AS goals_json, '[]' AS source_keys_json
          FROM invite_requests ir
          WHERE ir.status IN ('new','contacted','qualified')
          ORDER BY ir.id ASC"
@@ -266,23 +282,7 @@ function coveted_invite_crm_intelligence_summary(?PDO $pdo = null): array
     $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
     foreach (coveted_invite_crm_intelligence_active_rows($pdo) as $row) {
-        $request = [
-            'status' => (string)$row['status'],
-            'city_id' => (int)$row['city_id'],
-            'event_interests_json' => (string)$row['event_interests_json'],
-            'how_heard' => (string)($row['how_heard'] ?? ''),
-            '_has_phone' => !empty($row['has_phone']),
-            'created_at' => (string)$row['created_at'],
-            'updated_at' => (string)$row['updated_at'],
-            'reviewed_at' => $row['reviewed_at'],
-        ];
-        $profile = [
-            'goals_json' => (string)($row['goals_json'] ?? '[]'),
-            'source_keys_json' => (string)($row['source_keys_json'] ?? '[]'),
-            '_has_links' => !empty($row['has_links']),
-        ];
-        $intel = coveted_invite_crm_intelligence_record($request, $profile, $now);
-
+        $intel = coveted_invite_crm_intelligence_from_signal_row($row, $now);
         $summary['active']++;
         if ($intel['band'] === 'high') {
             $summary['high_priority']++;
@@ -332,8 +332,7 @@ function coveted_invite_crm_intelligence_for_ids(array $requestIds, ?PDO $pdo = 
                 ir.created_at, ir.updated_at, ir.reviewed_at";
     try {
         $stmt = $pdo->prepare(
-            $baseSelect . ", ip.goals_json, ip.source_keys_json,
-                    CASE WHEN ip.social_links_json IS NULL THEN 0 ELSE 1 END AS has_links
+            $baseSelect . ", ip.goals_json, ip.source_keys_json
              FROM invite_requests ir
              LEFT JOIN invite_request_profiles ip ON ip.invite_request_id = ir.id
              WHERE ir.id IN ({$placeholders})"
@@ -345,7 +344,7 @@ function coveted_invite_crm_intelligence_for_ids(array $requestIds, ?PDO $pdo = 
             throw $e;
         }
         $stmt = $pdo->prepare(
-            $baseSelect . ", '[]' AS goals_json, '[]' AS source_keys_json, 0 AS has_links
+            $baseSelect . ", '[]' AS goals_json, '[]' AS source_keys_json
              FROM invite_requests ir
              WHERE ir.id IN ({$placeholders})"
         );
@@ -356,22 +355,7 @@ function coveted_invite_crm_intelligence_for_ids(array $requestIds, ?PDO $pdo = 
     $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
     $result = [];
     foreach ($rows as $row) {
-        $request = [
-            'status' => (string)$row['status'],
-            'city_id' => (int)$row['city_id'],
-            'event_interests_json' => (string)$row['event_interests_json'],
-            'how_heard' => (string)($row['how_heard'] ?? ''),
-            '_has_phone' => !empty($row['has_phone']),
-            'created_at' => (string)$row['created_at'],
-            'updated_at' => (string)$row['updated_at'],
-            'reviewed_at' => $row['reviewed_at'],
-        ];
-        $profile = [
-            'goals_json' => (string)($row['goals_json'] ?? '[]'),
-            'source_keys_json' => (string)($row['source_keys_json'] ?? '[]'),
-            '_has_links' => !empty($row['has_links']),
-        ];
-        $result[(int)$row['id']] = coveted_invite_crm_intelligence_record($request, $profile, $now);
+        $result[(int)$row['id']] = coveted_invite_crm_intelligence_from_signal_row($row, $now);
     }
     return $result;
 }
