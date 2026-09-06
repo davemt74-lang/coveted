@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/app/venue_relationships.php';
+require_once __DIR__ . '/app/daily_events.php';
 
 $user = coveted_require_user();
 $error = '';
@@ -60,12 +61,20 @@ try {
 }
 
 $relationships = [];
+$dailyEvents = [];
 if ($business) {
     try {
         $relationships = coveted_venue_relationships_for_business($user, (int)$business['id']);
     } catch (Throwable $e) {
         error_log('Coveted venue relationship load error: ' . $e->getMessage());
         $error = $error !== '' ? $error : 'Unable to load venue relationships right now.';
+    }
+
+    try {
+        $dailyEvents = coveted_daily_event_business_rows($user, (int)$business['id']);
+    } catch (Throwable $e) {
+        error_log('Coveted venue relationship Daily Event load error: ' . $e->getMessage());
+        $error = $error !== '' ? $error : 'Unable to load Daily Event relationship activity right now.';
     }
 }
 
@@ -103,6 +112,30 @@ if ($business && $selected) {
     }
 }
 
+$dailyEventsByEventRef = [];
+foreach ($dailyEvents as $dailyEvent) {
+    $eventRef = trim((string)($dailyEvent['event_ref'] ?? ''));
+    if ($eventRef !== '') {
+        $dailyEventsByEventRef[$eventRef] = $dailyEvent;
+    }
+}
+
+$selectedDailyEvents = [];
+if ($selected && $events) {
+    $selectedEventRefs = [];
+    foreach ($events as $event) {
+        $eventRef = trim((string)($event['public_id'] ?? ''));
+        if ($eventRef !== '') {
+            $selectedEventRefs[$eventRef] = true;
+        }
+    }
+    foreach ($dailyEvents as $dailyEvent) {
+        if (isset($selectedEventRefs[(string)($dailyEvent['event_ref'] ?? '')])) {
+            $selectedDailyEvents[] = $dailyEvent;
+        }
+    }
+}
+
 $statusLabels = [
     'new' => 'New',
     'event_venue' => 'Event Venue',
@@ -132,6 +165,31 @@ $returnClaimCount = array_sum(array_map(
     static fn(array $relationship): int => (int)$relationship['return_claims'],
     $relationships
 ));
+$dailyEventCount = count($dailyEvents);
+$dailyVerifiedVisitCount = array_sum(array_map(
+    static fn(array $dailyEvent): int => (int)($dailyEvent['verified_attendance'] ?? 0),
+    $dailyEvents
+));
+$dailyRewardCount = array_sum(array_map(
+    static fn(array $dailyEvent): int => (int)($dailyEvent['rewards_issued'] ?? 0),
+    $dailyEvents
+));
+$dailyUnlockedCount = count(array_filter(
+    $dailyEvents,
+    static fn(array $dailyEvent): bool => !empty($dailyEvent['reward_unlocked_at'])
+));
+$selectedDailyVerified = array_sum(array_map(
+    static fn(array $dailyEvent): int => (int)($dailyEvent['verified_attendance'] ?? 0),
+    $selectedDailyEvents
+));
+$selectedDailyRewards = array_sum(array_map(
+    static fn(array $dailyEvent): int => (int)($dailyEvent['rewards_issued'] ?? 0),
+    $selectedDailyEvents
+));
+$selectedDailyUnlocked = count(array_filter(
+    $selectedDailyEvents,
+    static fn(array $dailyEvent): bool => !empty($dailyEvent['reward_unlocked_at'])
+));
 
 $formatTime = static function (?string $value, string $timezone = 'UTC'): string {
     $value = trim((string)$value);
@@ -153,7 +211,7 @@ coveted_page_start('Venue Relationships');
 <section class="cv-page-heading">
     <span class="cv-eyebrow">VENUE RELATIONSHIPS</span>
     <h1><?= $business ? coveted_e($business['name']) : 'Relationship intelligence' ?></h1>
-    <p>Measure the relationship created by real gatherings: attendance delivered, repeat members, business benefits, claims and explicit return activity.</p>
+    <p>Measure the relationship created by real gatherings: attendance delivered, Daily Events, repeat members, business benefits, claims and explicit return activity.</p>
 </section>
 
 <?php if ($notice !== ''): ?><div class="cv-alert"><?= coveted_e($notice) ?></div><?php endif; ?>
@@ -178,6 +236,7 @@ $businessRef = (string)$business['public_id'];
     </div>
     <div class="cv-member-actions">
         <a class="cv-button cv-button-soft" href="/business.php?business=<?= coveted_e(rawurlencode($businessRef)) ?>">Business Workspace</a>
+        <a class="cv-button cv-button-soft" href="/business-daily-events.php?business=<?= coveted_e(rawurlencode($businessRef)) ?>">Daily Events</a>
         <?php if (count($businesses) > 1): ?>
             <form class="cv-business-selector" method="get">
                 <label>
@@ -198,14 +257,18 @@ $businessRef = (string)$business['public_id'];
     <div class="cv-card cv-stat"><strong><?= $partnerCount ?></strong><span>Partner relationships</span></div>
     <div class="cv-card cv-stat"><strong><?= $completedEventCount ?></strong><span>Completed gatherings</span></div>
     <div class="cv-card cv-stat"><strong><?= $verifiedVisitCount ?></strong><span>Verified member visits</span></div>
+    <div class="cv-card cv-stat"><strong><?= $dailyEventCount ?></strong><span>Daily Events</span></div>
+    <div class="cv-card cv-stat"><strong><?= $dailyVerifiedVisitCount ?></strong><span>Daily Event verified visits</span></div>
 </section>
 
 <article class="cv-card cv-feature-card cv-copy-card">
     <span class="cv-kicker">RELATIONSHIP, NOT AD INVENTORY</span>
     <h2>A gathering is the beginning of the venue relationship.</h2>
-    <p>Coveted follows the measurable chain after a group walks through the door: repeat attendance, business-owned benefits, verified claims and return/guest-return campaign activity. Individual attendee answers and private member relationship data are not exposed here.</p>
+    <p>Coveted follows the measurable chain after a group walks through the door: repeat attendance, Daily Event participation, business-owned benefits, verified claims and return/guest-return campaign activity. Individual attendee answers and private member relationship data are not exposed here.</p>
     <div class="cv-tag-row">
         <span class="cv-pill"><?= $returnClaimCount ?> return-linked claims</span>
+        <span class="cv-pill"><?= $dailyRewardCount ?> Daily Event group rewards issued</span>
+        <span class="cv-pill"><?= $dailyUnlockedCount ?> Daily Event thresholds unlocked</span>
         <span class="cv-pill">Aggregate member data only</span>
         <span class="cv-pill">Canonical campaign attribution</span>
     </div>
@@ -227,6 +290,7 @@ $businessRef = (string)$business['public_id'];
                     <span class="cv-status"><?= coveted_e($statusLabels[(string)$selected['relationship_status']] ?? 'Relationship') ?></span>
                     <?php if ((int)$selected['benefits_enabled'] === 1): ?><span class="cv-pill">Partner benefits enabled</span><?php endif; ?>
                     <?php if ((int)$selected['mystery_events_enabled'] === 1): ?><span class="cv-pill">Mystery events enabled</span><?php endif; ?>
+                    <?php if ($selectedDailyEvents): ?><span class="cv-pill">Daily Event partner</span><?php endif; ?>
                 </div>
                 <h2><?= coveted_e($selected['group_name']) ?></h2>
                 <p><?= coveted_e($selected['location_name']) ?><?php if (!empty($selected['city']) || !empty($selected['region'])): ?> · <?= coveted_e(trim((string)$selected['city'] . (!empty($selected['city']) && !empty($selected['region']) ? ', ' : '') . (string)$selected['region'])) ?><?php endif; ?></p>
@@ -235,6 +299,7 @@ $businessRef = (string)$business['public_id'];
                     <span><?= (int)$selected['verified_visits'] ?> verified visits</span>
                     <span><?= (int)$selected['unique_attendees'] ?> unique attendees</span>
                     <span><?= (int)$selected['repeat_attendees'] ?> repeat attendees</span>
+                    <?php if ($selectedDailyEvents): ?><span><?= count($selectedDailyEvents) ?> Daily Event<?= count($selectedDailyEvents) === 1 ? '' : 's' ?></span><?php endif; ?>
                 </div>
                 <?php if (!empty($selected['notes'])): ?><p><?= nl2br(coveted_e((string)$selected['notes'])) ?></p><?php endif; ?>
             </article>
@@ -245,6 +310,21 @@ $businessRef = (string)$business['public_id'];
                 <div class="cv-card cv-stat"><strong><?= (int)$selected['return_claims'] ?></strong><span>Return-linked claims</span></div>
                 <div class="cv-card cv-stat"><strong><?= (int)$selected['guest_return_claims'] ?></strong><span>Guest-return claims</span></div>
             </section>
+
+            <?php if ($selectedDailyEvents): ?>
+                <section class="cv-card cv-copy-card" aria-label="Daily Event activity">
+                    <span class="cv-kicker">DAILY EVENT ACTIVITY</span>
+                    <h2>Partnered event performance</h2>
+                    <p>Daily Events now roll into this existing group × location relationship rather than living as a separate partner record.</p>
+                    <div class="cv-stat-grid">
+                        <div class="cv-card cv-stat"><strong><?= count($selectedDailyEvents) ?></strong><span>Assigned Daily Events</span></div>
+                        <div class="cv-card cv-stat"><strong><?= $selectedDailyVerified ?></strong><span>Verified attendance</span></div>
+                        <div class="cv-card cv-stat"><strong><?= $selectedDailyRewards ?></strong><span>Group rewards issued</span></div>
+                        <div class="cv-card cv-stat"><strong><?= $selectedDailyUnlocked ?></strong><span>Thresholds unlocked</span></div>
+                    </div>
+                    <a class="cv-text-link" href="/business-daily-events.php?business=<?= coveted_e(rawurlencode($businessRef)) ?>">Open all Daily Events →</a>
+                </section>
+            <?php endif; ?>
         </div>
 
         <aside class="cv-stack">
@@ -284,13 +364,30 @@ $businessRef = (string)$business['public_id'];
             <div class="cv-empty"><h2>No event history.</h2><p>This relationship exists only when Coveted has a real event connection at the venue.</p></div>
         <?php else: ?>
             <div class="cv-table-wrap"><table class="cv-table">
-                <thead><tr><th>Event</th><th>Status</th><th>Verified attendance</th><th>Business benefits</th><th>Claims</th><th>Refunds</th></tr></thead>
+                <thead><tr><th>Event</th><th>Status</th><th>Verified attendance</th><th>Daily Event</th><th>Business benefits</th><th>Claims</th><th>Refunds</th></tr></thead>
                 <tbody>
                 <?php foreach ($events as $event): ?>
+                    <?php $dailyEvent = $dailyEventsByEventRef[(string)$event['public_id']] ?? null; ?>
                     <tr>
-                        <td><strong><?= coveted_e($event['title']) ?></strong><br><small><?= coveted_e($formatTime((string)$event['starts_at'], (string)$event['timezone'])) ?></small></td>
+                        <td>
+                            <strong><?= coveted_e($event['title']) ?></strong>
+                            <?php if ($dailyEvent): ?> <span class="cv-pill">Daily Event</span><?php endif; ?>
+                            <br><small><?= coveted_e($formatTime((string)$event['starts_at'], (string)$event['timezone'])) ?></small>
+                        </td>
                         <td><span class="cv-status"><?= coveted_e(ucfirst((string)$event['status'])) ?></span></td>
-                        <td><?= (int)$event['verified_attendance'] ?></td>
+                        <td>
+                            <?= (int)$event['verified_attendance'] ?>
+                            <?php if ($dailyEvent): ?><br><small>Threshold <?= (int)$dailyEvent['attendance_threshold'] ?></small><?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($dailyEvent): ?>
+                                <strong><?= (int)$dailyEvent['loyalty_points'] ?> pts/member</strong><br>
+                                <small><?= coveted_e((string)$dailyEvent['reward_title']) ?> · <?= !empty($dailyEvent['reward_unlocked_at']) ? 'Unlocked' : 'Locked' ?></small><br>
+                                <small><?= (int)$dailyEvent['rewards_issued'] ?> reward<?= (int)$dailyEvent['rewards_issued'] === 1 ? '' : 's' ?> issued · <?= (int)$dailyEvent['active_checkin_codes'] > 0 ? 'check-in ready' : 'claim code required' ?></small>
+                            <?php else: ?>
+                                —
+                            <?php endif; ?>
+                        </td>
                         <td><?= (int)$event['business_benefits_issued'] ?></td>
                         <td><?= (int)$event['claims'] ?></td>
                         <td><?= (int)$event['refunds'] ?></td>
