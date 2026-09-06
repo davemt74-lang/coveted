@@ -41,7 +41,7 @@ if ($storageAvailable) {
         if ($executionStorageAvailable) {
             $executionProviders = coveted_admin_agent_task_execution_providers($pdo);
         } else {
-            $executionNotice = 'Task queue is available, but autonomous execution requires database/migrations/20260905_admin_agent_task_execution.sql.';
+            $executionNotice = 'Task queue is available, but autonomous execution requires database/migrations/20260905_admin_agent_tasks_execution.sql.';
         }
     } catch (Throwable $e) {
         error_log('Admin Agent task execution availability failed: ' . $e->getMessage());
