@@ -143,7 +143,8 @@ function coveted_admin_ui_start(
                     <span class="cv-admin-nav-chevron" aria-hidden="true">⌄</span>
                 </summary>
                 <div class="cv-admin-nav-body">
-                    <?php coveted_admin_nav_link($active, 'benefits', '/admin/?view=benefits', 'Benefits'); ?>
+                    <?php coveted_admin_nav_link($active, 'benefit-programs', '/admin/benefit-programs.php', 'Benefit Programs'); ?>
+                    <?php coveted_admin_nav_link($active, 'benefits', '/admin/?view=benefits', 'Rewards & Campaigns'); ?>
                     <?php coveted_admin_nav_link($active, 'benefit-economy', '/admin/benefit-economy.php', 'Benefit Economy'); ?>
                     <?php coveted_admin_nav_link($active, 'distribution', '/admin/?view=distribution', 'Distribution'); ?>
                 </div>
@@ -200,7 +201,7 @@ function coveted_admin_ui_start(
                         <a href="/admin/?view=groups#create-group"><strong>Group</strong><small>Start a private community</small></a>
                         <a href="/admin/?view=events#create-event"><strong>Event</strong><small>Plan a new gathering</small></a>
                         <a href="/admin/?view=artists#create-artist"><strong>Artist</strong><small>Create an artist identity</small></a>
-                        <a href="/admin/?view=benefits"><strong>Benefit</strong><small>Open rewards and campaign tools</small></a>
+                        <a href="/admin/benefit-programs.php"><strong>Benefit Program</strong><small>Build a trigger, reward, pool and redemption path</small></a>
                     </div>
                 </details>
 
