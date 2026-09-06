@@ -176,8 +176,8 @@ function coveted_site_logo_delete(array $admin): void
 
 /**
  * Add optional enrichments to an already-generated Admin Agent snapshot.
- * Branding, CRM intelligence and live business analytics remain outside the
- * core operational brain so none becomes a hard dependency of snapshot generation.
+ * Branding, CRM intelligence, live business analytics and the task queue remain
+ * outside the core operational brain so none becomes a hard dependency of snapshot generation.
  *
  * @return array<string,mixed>
  */
@@ -296,6 +296,20 @@ function coveted_site_branding_enrich_agent_snapshot(array $snapshot): array
         $issues[] = 'live_business';
         $snapshot['issues'] = array_values(array_unique($issues));
         error_log('Admin Agent live business analytics unavailable: ' . $e->getMessage());
+    }
+
+    try {
+        require_once __DIR__ . '/admin_agent_tasks.php';
+        $taskQueue = coveted_admin_agent_tasks_context_current();
+        $operations = (array)($snapshot['operations'] ?? []);
+        $operations['task_queue'] = $taskQueue;
+        $snapshot['operations'] = $operations;
+        $snapshot['task_queue'] = $taskQueue;
+    } catch (Throwable $e) {
+        $issues = array_values((array)($snapshot['issues'] ?? []));
+        $issues[] = 'task_queue';
+        $snapshot['issues'] = array_values(array_unique($issues));
+        error_log('Admin Agent task queue context unavailable: ' . $e->getMessage());
     }
 
     usort($opportunities, static function (array $a, array $b): int {
