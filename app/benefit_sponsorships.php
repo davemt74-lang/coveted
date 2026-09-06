@@ -124,7 +124,7 @@ function coveted_benefit_sponsorship_resolve_scope(
              WHERE (e.public_id = ? OR CAST(e.id AS CHAR) = ?)
                AND e.group_id = ?
                AND el.location_id = ?
-               AND e.status <> 'cancelled'
+               AND e.status IN ('published','closed','completed')
              LIMIT 1"
         );
         $stmt->execute([
@@ -135,7 +135,7 @@ function coveted_benefit_sponsorship_resolve_scope(
         ]);
         $event = $stmt->fetch() ?: null;
         if (!$event) {
-            throw new InvalidArgumentException('The selected event must belong to this Coveted group and business location.');
+            throw new InvalidArgumentException('The selected event is not available for this business relationship.');
         }
     }
 
@@ -394,136 +394,6 @@ function coveted_benefit_sponsorship_decline(array $admin, string $proposalRef, 
     coveted_benefit_sponsorship_notify_submitter($proposal, 'declined', null, $note);
 }
 
-function coveted_benefit_sponsorship_recover_program_ref(string $proposalRef, ?PDO $pdo = null): ?string
-{
-    $pdo ??= coveted_db();
-    $stmt = $pdo->prepare(
-        "SELECT c.public_id
-         FROM campaigns c
-         WHERE JSON_UNQUOTE(JSON_EXTRACT(c.metadata_json, '$.source_sponsorship_proposal_ref')) = ?
-           AND c.metadata_json LIKE '%\"benefit_program_builder\":true%'
-         ORDER BY c.id ASC
-         LIMIT 1"
-    );
-    $stmt->execute([$proposalRef]);
-    $ref = $stmt->fetchColumn();
-    return $ref !== false ? (string)$ref : null;
-}
-
-/** @return array<string,mixed> */
-function coveted_benefit_sponsorship_convert_to_program_draft(array $admin, string $proposalRef): array
-{
-    if (!coveted_is_system_admin($admin)) {
-        throw new InvalidArgumentException('System Admin access is required to approve sponsorship proposals.');
-    }
-    $pdo = coveted_db();
-    coveted_benefit_sponsorship_ensure_schema($pdo);
-    $proposalRef = trim($proposalRef);
-    if ($proposalRef === '' || strlen($proposalRef) > 64) {
-        throw new InvalidArgumentException('Choose a valid sponsorship proposal.');
-    }
-
-    $lockKey = 'coveted:sponsor:' . substr(hash('sha256', $proposalRef), 0, 40);
-    $lock = $pdo->prepare('SELECT GET_LOCK(?, 5)');
-    $lock->execute([$lockKey]);
-    if ((int)$lock->fetchColumn() !== 1) {
-        throw new RuntimeException('That sponsorship proposal is currently being reviewed.');
-    }
-
-    try {
-        $proposal = coveted_benefit_sponsorship_by_ref($proposalRef, $pdo);
-        if (!$proposal) {
-            throw new InvalidArgumentException('Sponsorship proposal not found.');
-        }
-        if ((string)$proposal['status'] === 'converted' && trim((string)($proposal['benefit_program_ref'] ?? '')) !== '') {
-            return [
-                'proposal_ref' => (string)$proposal['public_id'],
-                'program_ref' => (string)$proposal['benefit_program_ref'],
-                'status' => 'draft',
-                'already_converted' => true,
-            ];
-        }
-        if ((string)$proposal['status'] !== 'submitted') {
-            throw new InvalidArgumentException('Only submitted sponsorship proposals can be converted to a Benefit Program draft.');
-        }
-
-        $existingProgramRef = coveted_benefit_sponsorship_recover_program_ref((string)$proposal['public_id'], $pdo);
-        if ($existingProgramRef !== null) {
-            $pdo->prepare(
-                "UPDATE benefit_sponsorship_proposals
-                 SET status='converted', benefit_program_ref=?, reviewed_by_user_id=?, reviewed_at=COALESCE(reviewed_at,UTC_TIMESTAMP()), updated_at=UTC_TIMESTAMP()
-                 WHERE id=?"
-            )->execute([$existingProgramRef, (int)$admin['id'], (int)$proposal['id']]);
-            return [
-                'proposal_ref' => (string)$proposal['public_id'],
-                'program_ref' => $existingProgramRef,
-                'status' => 'draft',
-                'already_converted' => true,
-            ];
-        }
-
-        $created = coveted_benefit_program_create_draft($admin, [
-            'owner_type' => 'business',
-            'owner_ref' => (string)$proposal['business_ref'],
-            'program_title' => (string)$proposal['program_title'],
-            'reward_title' => (string)$proposal['reward_title'],
-            'description' => (string)($proposal['description'] ?? ''),
-            'reward_type' => (string)$proposal['reward_type'],
-            'claim_mode' => (string)$proposal['claim_mode'],
-            'value_amount' => $proposal['value_amount'] !== null ? (string)$proposal['value_amount'] : '',
-            'value_text' => (string)($proposal['value_text'] ?? ''),
-            'trigger_key' => (string)$proposal['trigger_key'],
-            'quantity_limit' => (string)$proposal['quantity_limit'],
-            'per_user_limit' => (string)$proposal['per_user_limit'],
-            'starts_at' => (string)($proposal['starts_at'] ?? ''),
-            'ends_at' => (string)($proposal['ends_at'] ?? ''),
-            'event_ref' => (string)($proposal['event_ref'] ?? ''),
-            'location_ref' => (string)$proposal['location_ref'],
-            'created_surface' => 'merchant_sponsorship',
-            'source_sponsorship_proposal_ref' => (string)$proposal['public_id'],
-        ]);
-
-        $programRef = (string)$created['public_id'];
-        $stmt = $pdo->prepare(
-            "UPDATE benefit_sponsorship_proposals
-             SET status='converted', benefit_program_ref=?, review_note='Accepted into Benefit Program draft.',
-                 reviewed_by_user_id=?, reviewed_at=UTC_TIMESTAMP(), updated_at=UTC_TIMESTAMP()
-             WHERE id=? AND status='submitted'"
-        );
-        $stmt->execute([$programRef, (int)$admin['id'], (int)$proposal['id']]);
-        if ($stmt->rowCount() !== 1) {
-            throw new RuntimeException('Benefit Program draft was created, but proposal state changed before conversion could finish. The proposal can be safely retried and will recover the existing draft.');
-        }
-
-        coveted_audit(
-            'benefit_sponsorship.converted',
-            'benefit_sponsorship_proposal',
-            (string)$proposal['public_id'],
-            [
-                'business_ref' => (string)$proposal['business_ref'],
-                'program_ref' => $programRef,
-                'program_status' => 'draft',
-            ],
-            (int)$admin['id']
-        );
-        coveted_benefit_sponsorship_notify_submitter($proposal, 'converted', $programRef, '');
-
-        return [
-            'proposal_ref' => (string)$proposal['public_id'],
-            'program_ref' => $programRef,
-            'status' => 'draft',
-            'already_converted' => false,
-        ];
-    } finally {
-        try {
-            $release = $pdo->prepare('SELECT RELEASE_LOCK(?)');
-            $release->execute([$lockKey]);
-        } catch (Throwable $e) {
-            error_log('Benefit sponsorship conversion lock release failed: ' . $e->getMessage());
-        }
-    }
-}
-
 function coveted_benefit_sponsorship_notify_admins(string $proposalRef): void
 {
     $proposal = coveted_benefit_sponsorship_by_ref($proposalRef);
@@ -640,7 +510,7 @@ function coveted_benefit_sponsorship_list_for_business(array $actor, int $busine
                 c.status AS program_status
          FROM benefit_sponsorship_proposals p
          JOIN social_groups g ON g.id=p.group_id
-         LEFT JOIN events e ON e.id=p.event_id
+         LEFT JOIN events e ON e.id=p.event_id AND e.status IN ('published','closed','completed')
          JOIN locations l ON l.id=p.location_id
          LEFT JOIN campaigns c ON c.public_id=p.benefit_program_ref
          WHERE p.business_id=?
@@ -726,7 +596,7 @@ function coveted_benefit_sponsorship_roi_snapshot(array $actor, int $businessId,
                  WHERE source.campaign_id=c.id AND source.status<>'cancelled') AS return_members
          FROM benefit_sponsorship_proposals p
          JOIN social_groups g ON g.id=p.group_id
-         LEFT JOIN events e ON e.id=p.event_id
+         LEFT JOIN events e ON e.id=p.event_id AND e.status IN ('published','closed','completed')
          JOIN locations l ON l.id=p.location_id
          LEFT JOIN campaigns c ON c.public_id=p.benefit_program_ref
          WHERE p.business_id=?
