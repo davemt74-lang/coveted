@@ -19,6 +19,7 @@ $required = [
     'admin_preview' => 'admin/system-preview.php',
     'admin_ui' => 'app/admin_ui.php',
     'agent_brain' => 'app/admin_agent_brain.php',
+    'agent_briefing' => 'app/admin_agent_briefing.php',
     'agent_enrichment' => 'app/site_branding.php',
     'api' => 'api/admin-system-sample.php',
     'settings' => 'app/site_settings.php',
@@ -125,6 +126,7 @@ $assertContains($files['admin_preview'], [
     "'partner' => '/venue-relationships.php'",
     "'loyalty' => '/admin/loyalty.php'",
     "'benefits' => '/admin/?view=benefits'",
+    "'operations' => '/admin/operations.php'",
     "'partner_relationships'",
     "'partner_contacts'",
     "'partner_followups'",
@@ -135,11 +137,19 @@ $assertContains($files['admin_preview'], [
     "'loyalty'",
     "'artist_media'",
     "'artist_appearances'",
+    "'notifications'",
+    "['agent']['tasks']",
     'SYNTHETIC SYSTEM VIEW',
+    'EVENT AUTOMATION',
 ], 'Sample-aware Admin preview contract');
 $assertNoMutationSql($files['admin_preview'], 'Sample-aware Admin preview');
 
 $assertContains($files['admin_ui'], [
+    '$covetedAdminSampleView = match',
+    'Full System Sample Mode is read-only. Turn it off before changing live Admin data.',
+    "'/admin/crm.php' => 'crm'",
+    "'/admin/loyalty.php' => 'loyalty'",
+    "'/admin/operations.php'",
     '$sampleRoute = static fn',
     "\$sampleRoute('dashboard'",
     "\$sampleRoute('crm'",
@@ -150,9 +160,10 @@ $assertContains($files['admin_ui'], [
     "\$sampleRoute('artists'",
     "\$sampleRoute('loyalty'",
     "\$sampleRoute('benefits'",
+    "\$sampleRoute('operations'",
     'Sample data · read only',
     'Core Admin navigation and Agent context use synthetic read-only data.',
-], 'Sample-aware Admin navigation contract');
+], 'Sample-aware Admin navigation / mutation guard contract');
 
 $assertContains($files['agent_brain'], [
     "require_once __DIR__ . '/system_sample_data.php';",
@@ -163,6 +174,15 @@ $assertContains($files['agent_brain'], [
     'canonical synthetic Full System Sample pack',
     'Never describe a sample entity as live production state',
 ], 'Sample-aware Admin Agent brain contract');
+
+$assertContains($files['agent_briefing'], [
+    'function coveted_admin_agent_briefing_sample_activity',
+    "!empty(\$snapshot['sample_mode'])",
+    'coveted_admin_agent_briefing_sample_activity($snapshot)',
+    'synthetic Full System Sample network',
+    'partner_crm.interaction_logged',
+    'benefit_sponsorship.submitted',
+], 'Sample-aware Admin Agent briefing contract');
 
 $assertContains($files['agent_enrichment'], [
     "if (!empty(\$snapshot['sample_mode']))",
