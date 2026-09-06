@@ -218,8 +218,12 @@ function coveted_benefit_economy_snapshot(array $actor, int $limit = 12): array
             (SELECT COUNT(*) FROM reward_issuances WHERE status IN ('issued','viewed')) AS ready,
             (SELECT COUNT(*) FROM reward_claims WHERE status = 'claimed') AS claimed,
             (SELECT COUNT(*) FROM reward_issuances WHERE status = 'expired' OR (expires_at IS NOT NULL AND expires_at <= NOW() AND status NOT IN ('claimed','cancelled'))) AS expired,
-            (SELECT COUNT(*) FROM reward_issuances WHERE issued_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)) AS issued_30d,
-            (SELECT COUNT(*) FROM reward_claims WHERE claimed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)) AS claimed_30d,
+            (SELECT COUNT(*) FROM reward_issuances WHERE issued_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND status <> 'cancelled') AS issued_30d,
+            (SELECT COUNT(DISTINCT ri.id)
+             FROM reward_issuances ri
+             JOIN reward_claims rc ON rc.reward_issuance_id = ri.id AND rc.status = 'claimed'
+             WHERE ri.issued_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+               AND ri.status <> 'cancelled') AS claimed_30d,
             (SELECT COUNT(*)
              FROM reward_issuances ri
              JOIN campaigns c ON c.id = ri.campaign_id
@@ -257,7 +261,7 @@ function coveted_benefit_economy_snapshot(array $actor, int $limit = 12): array
             g.name AS group_name,
             rt.title AS reward_title,
             rt.reward_type,
-            COUNT(DISTINCT ri.id) AS issued_count,
+            COUNT(DISTINCT CASE WHEN ri.status <> 'cancelled' THEN ri.id END) AS issued_count,
             COUNT(DISTINCT CASE WHEN rc.status = 'claimed' THEN rc.id END) AS claimed_count,
             GREATEST(c.quantity_limit - COUNT(DISTINCT CASE WHEN ri.status <> 'cancelled' THEN ri.id END), 0) AS remaining_count
          FROM campaigns c
@@ -297,7 +301,10 @@ function coveted_benefit_economy_snapshot(array $actor, int $limit = 12): array
          FROM reward_issuances ri
          JOIN reward_templates rt ON rt.id = ri.reward_template_id
          JOIN campaigns c ON c.id = ri.campaign_id
-         JOIN businesses b ON b.id = COALESCE(c.business_id, rt.business_id)
+         LEFT JOIN events e ON e.id = ri.event_id
+         LEFT JOIN event_locations el ON el.event_id = e.id
+         LEFT JOIN locations vl ON vl.id = el.location_id
+         JOIN businesses b ON b.id = COALESCE(c.business_id, rt.business_id, vl.business_id)
          LEFT JOIN reward_claims rc ON rc.reward_issuance_id = ri.id
          WHERE ri.issued_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)
            AND ri.status <> 'cancelled'
@@ -339,6 +346,8 @@ function coveted_benefit_economy_snapshot(array $actor, int $limit = 12): array
          LIMIT {$limit}"
     )->fetchAll();
 
+    $backlogRows = coveted_membership_benefit_targets(1000);
+
     return [
         'summary' => $summary,
         'pools' => $pools,
@@ -346,7 +355,8 @@ function coveted_benefit_economy_snapshot(array $actor, int $limit = 12): array
         'business_attribution' => $businessAttribution,
         'group_attribution' => $groupAttribution,
         'artist_attribution' => $artistAttribution,
-        'membership_backlog' => count(coveted_membership_benefit_targets(1000)),
+        'membership_backlog' => count($backlogRows),
+        'membership_backlog_capped' => count($backlogRows) >= 1000,
         'generated_at' => gmdate('Y-m-d H:i:s'),
     ];
 }
