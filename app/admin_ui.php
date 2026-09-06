@@ -144,6 +144,7 @@ function coveted_admin_ui_start(
                 </summary>
                 <div class="cv-admin-nav-body">
                     <?php coveted_admin_nav_link($active, 'benefits', '/admin/?view=benefits', 'Benefits'); ?>
+                    <?php coveted_admin_nav_link($active, 'benefit-economy', '/admin/benefit-economy.php', 'Benefit Economy'); ?>
                     <?php coveted_admin_nav_link($active, 'distribution', '/admin/?view=distribution', 'Distribution'); ?>
                 </div>
             </details>

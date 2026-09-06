@@ -10,11 +10,12 @@ $invitationsPath = $root . '/invitations.php';
 $eventsPath = $root . '/events.php';
 $groupsPath = $root . '/groups.php';
 $benefitsPath = $root . '/benefits.php';
+$walletPath = $root . '/wallet.php';
 $reconnectPath = $root . '/reconnect.php';
 $profilePath = $root . '/profile.php';
 $adminPath = $root . '/admin/sample-data.php';
 
-foreach ([$samplePath, $homePath, $pagesPath, $peoplePath, $invitationsPath, $eventsPath, $groupsPath, $benefitsPath, $reconnectPath, $profilePath, $adminPath] as $path) {
+foreach ([$samplePath, $homePath, $pagesPath, $peoplePath, $invitationsPath, $eventsPath, $groupsPath, $benefitsPath, $walletPath, $reconnectPath, $profilePath, $adminPath] as $path) {
     if (!is_file($path)) {
         fwrite(STDERR, "Missing required member sample-data file: {$path}\n");
         exit(1);
@@ -29,6 +30,7 @@ $invitations = (string)file_get_contents($invitationsPath);
 $events = (string)file_get_contents($eventsPath);
 $groups = (string)file_get_contents($groupsPath);
 $benefits = (string)file_get_contents($benefitsPath);
+$wallet = (string)file_get_contents($walletPath);
 $reconnect = (string)file_get_contents($reconnectPath);
 $profile = (string)file_get_contents($profilePath);
 $admin = (string)file_get_contents($adminPath);
@@ -96,8 +98,10 @@ if (!str_contains($groups, 'Sample groups are preview-only') || !str_contains($g
     fwrite(STDERR, "Groups sample mode must stay guarded and mutation-free.\n");
     exit(1);
 }
-if (!str_contains($benefits, 'Sample benefits are preview-only') || !str_contains($benefits, 'coveted_member_sample_mode($user, $pdo)')) {
-    fwrite(STDERR, "Benefits sample mode must stay guarded and mutation-free.\n");
+if (!str_contains($benefits, "require __DIR__ . '/wallet.php';")
+    || !str_contains($wallet, 'Sample benefits are preview-only')
+    || !str_contains($wallet, 'coveted_member_sample_mode($user, $pdo)')) {
+    fwrite(STDERR, "Benefits sample mode must stay guarded and mutation-free through the wallet route.\n");
     exit(1);
 }
 if (!str_contains($reconnect, 'Sample reconnect choices are preview-only') || !str_contains($reconnect, 'coveted_member_v2_reconnect_attendees')) {
