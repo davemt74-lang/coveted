@@ -45,6 +45,10 @@ $missing($service, 'coveted_benefit_program_set_status(', 'performance intellige
 $missing($service, 'coveted_benefit_program_create_draft(', 'performance intelligence must never create drafts by itself');
 $missing($service, 'coveted_reward_issue(', 'performance intelligence must never issue rewards');
 
+// Portfolio activity must count only Builder programs with actual recent
+// issuance activity; a LEFT JOIN must not inflate this to every program.
+$contains($service, 'COUNT(DISTINCT CASE WHEN ri.id IS NOT NULL THEN c.id END) AS programs_with_activity', 'portfolio activity count must require a real issuance');
+
 // Return conversion must use exact source linkage from the canonical return engine.
 $contains($service, "JSON_UNQUOTE(JSON_EXTRACT(followup.metadata_json, '$.source_reward_issuance_id')) = source.public_id", 'return conversion must use exact source issuance linkage');
 $contains($service, "followup_campaign.trigger_key IN ('return_visit','guest_return')", 'return conversion must require canonical return triggers');
@@ -58,7 +62,10 @@ $contains($service, '$maturedIssued < 5', 'learning band must require a minimum 
 $contains($service, '$matured >= 10 && $maturedRate <= 15.0', 'weak-performance signal must require enough matured data');
 
 // Event attribution must follow the canonical linked event into its real group
-// and venue rather than assuming campaign owner == event source.
+// and venue rather than assuming campaign owner == event source. DISTINCT event
+// ordering keeps the event id in the selected projection for MySQL 8 validity.
+$contains($service, 'SELECT DISTINCT', 'event attribution query must deduplicate canonical event/location rows');
+$contains($service, 'e.id AS event_id', 'event attribution DISTINCT ordering must select event id');
 $contains($service, 'JOIN social_groups eg ON eg.id = e.group_id', 'source event group attribution is required');
 $contains($service, 'LEFT JOIN event_locations eel ON eel.event_id = e.id', 'source event location link is required');
 $contains($service, 'LEFT JOIN businesses evb ON evb.id = evl.business_id', 'source event venue business attribution is required');
