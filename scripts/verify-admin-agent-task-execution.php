@@ -31,7 +31,14 @@ $before = static function (string $content, string $first, string $second, strin
     }
 };
 
-$migration = $read('database/migrations/20260905_admin_agent_task_execution.sql');
+$taskMigrationName = '20260905_admin_agent_tasks.sql';
+$executionMigrationName = '20260905_admin_agent_tasks_execution.sql';
+if (strcmp($taskMigrationName, $executionMigrationName) >= 0) {
+    fwrite(STDERR, "Admin Agent approved task execution contract failed: execution migration must sort after task queue migration\n");
+    exit(1);
+}
+
+$migration = $read('database/migrations/' . $executionMigrationName);
 $executor = $read('app/admin_agent_task_execution.php');
 $authorization = $read('app/admin_agent_task_execution_authorization.php');
 $reset = $read('app/admin_agent_task_execution_reset.php');
@@ -82,6 +89,7 @@ $contains($executor, '[[COVETED_TASK_RESULT]]', 'task result protocol is missing
 $contains($executor, '$complete = $opportunitySatisfied || ($modelCompleted && $successfulActions && !$failures);', 'task completion must require live-state satisfaction or verified successful actions');
 $contains($executor, "'admin.agent_task_execution_started'", 'execution start audit is missing');
 $contains($executor, '\'admin.agent_task_execution_\' . $executionState', 'execution result audit is missing');
+$contains($executor, '20260905_admin_agent_tasks_execution.sql', 'runtime migration guidance must use the correctly ordered filename');
 
 // A new execution requires explicit Approved authorization. Running is check-only.
 $contains($authorization, 'if ($executionState === \'running\')', 'running task reconciliation path is missing');
@@ -122,6 +130,7 @@ $contains($page, 'Review before retrying.', 'failed executions must require Admi
 $contains($page, 'Move the task back to Approved', 'failed/blocked retry must require fresh approval');
 $contains($page, 'coveted_admin_agent_task_execution_reset($admin, $taskRef, $newStatus, $pdo)', 'queue must use canonical execution reset service');
 $contains($page, '$taskBefore[\'execution_state\'] ?? \'idle\') === \'running\'', 'queue must block status changes while Agent execution is running');
+$contains($page, '20260905_admin_agent_tasks_execution.sql', 'queue migration guidance must use the correctly ordered filename');
 $missing($page, "SET execution_state = 'idle'", 'queue page must not directly reset execution SQL');
 $missing($page, '<script', 'queue must remain CSP-safe without inline script');
 $missing($page, 'style="', 'queue must remain CSP-safe without inline style');
