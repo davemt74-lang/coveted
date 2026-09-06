@@ -36,6 +36,7 @@ $events = $read('app/events.php');
 $contains($service, 'Proactive Benefit Program intelligence is intentionally read-only.', 'read-only purpose must remain explicit');
 $contains($service, 'function coveted_admin_agent_benefit_opportunities_snapshot(', 'bounded opportunity snapshot is required');
 $contains($service, 'array_slice($recommendations, 0, 12)', 'recommendations must remain bounded');
+$contains($service, "substr(hash('sha256', \$material), 0, 24)", 'opportunity source keys must remain bounded even when public refs are long');
 $missing($service, 'CREATE TABLE', 'opportunity intelligence must not create runtime schema');
 $missing($service, 'ALTER TABLE', 'opportunity intelligence must not alter runtime schema');
 $missing($service, 'INSERT INTO ', 'opportunity intelligence must not insert records');
@@ -50,6 +51,7 @@ $missing($service, 'coveted_reward_issue(', 'signal generation must never issue 
 $contains($service, "e.status = 'published'", 'upcoming event suggestions must require published events');
 $contains($service, 'DATE_ADD(UTC_TIMESTAMP(), INTERVAL 45 DAY)', 'upcoming event scan must have a time horizon');
 $contains($service, "c.status <> 'archived'", 'existing non-archived campaigns must suppress duplicate event suggestions');
+$contains($service, "'kind' => 'upcoming_event_gap'", 'upcoming event recommendation kind is required');
 $contains($service, "'trigger_key' => 'attendance'", 'upcoming-event suggestions must recommend the executable attendance trigger');
 $contains($service, "'owner_type' => 'group'", 'upcoming-event draft must preserve group ownership');
 $contains($service, "'execution_ready' => true", 'grounded draft opportunities must be explicitly marked execution-ready');
@@ -59,17 +61,31 @@ $contains($service, "'execution_ready' => true", 'grounded draft opportunities m
 $contains($service, "gm.membership_status = 'active'", 'membership gap must use active membership');
 $contains($service, "c.trigger_key = 'membership'", 'membership gap must detect existing membership programs');
 $contains($service, 'HAVING active_members >= 3', 'membership opportunities need a meaningful bounded audience');
-$missing($service, 'display_name', 'member names must never enter proactive benefit context');
-$missing($service, 'email', 'member emails must never enter proactive benefit context');
-$missing($service, 'phone', 'member phone data must never enter proactive benefit context');
+$contains($service, "'kind' => 'membership_gap'", 'membership recommendation kind is required');
+$missing($service, 'display_name', 'member names must never enter proactive benefit queries');
+$missing($service, 'u.email', 'member emails must never enter proactive benefit queries');
+$missing($service, 'ir.email', 'CRM emails must never enter proactive benefit queries');
+$missing($service, 'u.phone', 'member phone data must never enter proactive benefit queries');
+$missing($service, 'ir.phone', 'CRM phone data must never enter proactive benefit queries');
+
+// Venue gap: benefits must be explicitly enabled for the relationship, the
+// event must be upcoming/published, and an existing Business campaign at the
+// location suppresses the signal. The result is still draft-only.
+$contains($service, 'function coveted_admin_agent_benefit_venue_gaps(', 'venue-gap reader is required');
+$contains($service, "'kind' => 'venue_program_gap'", 'venue-gap recommendation kind is required');
+$contains($service, "c.owner_type = 'business'", 'venue gap must inspect existing Business campaigns');
+$contains($service, '(c.location_id IS NULL OR c.location_id = l.id)', 'venue gap must respect location-scoped and business-wide programs');
+$contains($service, 'review any Group-owned event rewards before launch to avoid unintended overlap', 'venue recommendation must warn about overlapping event value');
+$contains($service, "'owner_type' => 'business'", 'venue draft must preserve Business ownership');
 
 // Return-visit opportunity: benefit-enabled canonical venue relationship,
 // completed event and verified attendance are mandatory. Existing return
 // programs suppress the recommendation.
-$contains($service, 'COALESCE(vr.benefits_enabled, 0) = 1', 'return opportunity must require benefits-enabled venue relationship');
+$contains($service, 'COALESCE(vr.benefits_enabled, 0) = 1', 'venue/return opportunities must require benefits-enabled relationship');
 $contains($service, "e.status = 'completed'", 'return opportunity must originate from completed events');
 $contains($service, "ea.status IN ('checked_in','attended','left_early')", 'return opportunity must require verified attendance');
 $contains($service, "c.trigger_key IN ('return_visit','guest_return')", 'existing return campaigns must suppress duplicate suggestions');
+$contains($service, "'kind' => 'return_visit_gap'", 'return recommendation kind is required');
 $contains($service, "'trigger_key' => 'return_visit'", 'return opportunity must suggest canonical return_visit trigger');
 $contains($service, "'location_ref' => (string)\$row['location_ref']", 'return opportunity must carry the canonical location ref');
 
@@ -78,7 +94,7 @@ $contains($service, "'location_ref' => (string)\$row['location_ref']", 'return o
 $contains($service, "'kind' => 'crm_demand_alignment'", 'aggregate CRM alignment opportunity is required');
 $contains($service, 'CRM demand alone must never be used to infer an owner or person-level intent.', 'CRM owner-inference prohibition must remain explicit');
 $contains($service, "'suggested_draft' => null", 'CRM-only signal must not carry an inferred draft owner');
-$contains($service, "'execution_ready' => false", 'CRM-only signal must remain analysis-only');
+$contains($service, "'execution_ready' => false", 'analysis-only signals must remain non-executable');
 $contains($service, "'active_crm'", 'CRM signal must expose only aggregate workflow counts');
 
 // Low/exhausted pools remain recommendations, not automatic refill or status
