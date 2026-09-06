@@ -35,7 +35,7 @@ function coveted_admin_agent_task_execution_require_schema(?PDO $pdo = null): vo
 {
     if (!coveted_admin_agent_task_execution_schema_available($pdo)) {
         throw new RuntimeException(
-            'Approved task execution storage is unavailable. Import database/migrations/20260905_admin_agent_task_execution.sql.'
+            'Approved task execution storage is unavailable. Import database/migrations/20260905_admin_agent_tasks_execution.sql.'
         );
     }
 }
