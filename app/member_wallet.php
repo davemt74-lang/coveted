@@ -18,6 +18,9 @@ function coveted_member_wallet_rewards(int $userId, string $state): array
         'redeemed' => "rc.id IS NOT NULL",
         'expired' => "ri.status <> 'cancelled' AND ri.status <> 'claimed' AND (ri.status = 'expired' OR (ri.expires_at IS NOT NULL AND ri.expires_at <= NOW()))",
     };
+    $claimJoin = $state === 'redeemed'
+        ? 'JOIN reward_claims rc ON rc.reward_issuance_id = ri.id'
+        : 'LEFT JOIN reward_claims rc ON 1 = 0';
 
     $sql = "SELECT
                 ri.*,
@@ -61,10 +64,10 @@ function coveted_member_wallet_rewards(int $userId, string $state): array
             JOIN campaigns c ON c.id = ri.campaign_id
             LEFT JOIN events e ON e.id = ri.event_id
             LEFT JOIN social_groups g ON g.id = COALESCE(c.group_id, rt.group_id, e.group_id)
-            LEFT JOIN businesses b ON b.id = COALESCE(c.business_id, rt.business_id)
+            {$claimJoin}
+            LEFT JOIN locations il ON il.id = COALESCE(rc.location_id, ri.location_id)
+            LEFT JOIN businesses b ON b.id = COALESCE(c.business_id, rt.business_id, il.business_id)
             LEFT JOIN artist_profiles ap ON ap.id = COALESCE(ri.artist_id, c.artist_id, rt.artist_id)
-            LEFT JOIN locations il ON il.id = ri.location_id
-            LEFT JOIN reward_claims rc ON rc.reward_issuance_id = ri.id
             WHERE ri.user_id = ?
               AND {$where}
             ORDER BY " . ($state === 'redeemed' ? 'rc.claimed_at' : 'ri.issued_at') . " DESC, ri.id DESC
