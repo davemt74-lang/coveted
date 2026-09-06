@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/member_pages_v2.php';
+require_once __DIR__ . '/event_experience.php';
 require_once __DIR__ . '/notifications.php';
 
 /**
@@ -44,7 +45,18 @@ function coveted_attendee_event_set_rsvp(
         throw new InvalidArgumentException('Choose whether you are attending or declining.');
     }
 
+    // The canonical event service owns eligibility, capacity, +1, waitlist,
+    // invitation synchronization, auditing and all RSVP mutations.
     return coveted_event_set_rsvp($actor, $eventRef, $decision, $decision === 'attending' ? $guestCount : 0);
+}
+
+function coveted_attendee_event_has_verified_attendance(array $event): bool
+{
+    return in_array(
+        (string)($event['attendance_status'] ?? ''),
+        ['checked_in', 'attended', 'left_early'],
+        true
+    );
 }
 
 function coveted_attendee_event_location_visible(array $event): bool
@@ -57,18 +69,41 @@ function coveted_attendee_event_location_visible(array $event): bool
     }
 
     $visibility = (string)($event['location_visibility'] ?? 'immediate');
+    if ($visibility === 'host_only') {
+        return false;
+    }
     if ($visibility === 'immediate') {
         return true;
     }
 
-    return $visibility === 'scheduled_reveal' && !empty($event['location_revealed']);
+    return $visibility === 'scheduled_reveal'
+        && (
+            !empty($event['location_revealed'])
+            || ((string)($event['status'] ?? '') === 'completed' && coveted_attendee_event_has_verified_attendance($event))
+        );
+}
+
+function coveted_attendee_event_value_preview_visible(array $event): bool
+{
+    if ((string)($event['event_type'] ?? '') !== 'mystery') {
+        return true;
+    }
+    if (!empty($event['can_manage'])) {
+        return true;
+    }
+    if (in_array((string)($event['assigned_host_role'] ?? ''), ['lead', 'cohost', 'checkin'], true)) {
+        return true;
+    }
+
+    $startsAt = trim((string)($event['starts_at'] ?? ''));
+    return $startsAt !== '' && coveted_utc_datetime($startsAt)->getTimestamp() <= time();
 }
 
 /** @return array<int,array<string,mixed>> */
 function coveted_attendee_event_active_perks(array $event, int $limit = 4, ?PDO $pdo = null): array
 {
     $eventId = (int)($event['id'] ?? 0);
-    if ($eventId < 1) {
+    if ($eventId < 1 || !coveted_attendee_event_value_preview_visible($event)) {
         return [];
     }
 
