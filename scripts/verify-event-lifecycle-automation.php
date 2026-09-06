@@ -37,7 +37,8 @@ $contains($worker, "if (PHP_SAPI !== 'cli')", 'lifecycle worker must remain CLI-
 $contains($worker, "require_once dirname(__DIR__) . '/app/event_lifecycle_automation.php';", 'existing lifecycle worker must load event automation');
 $contains($worker, 'coveted_lifecycle_reconcile($limit, $maxBatches)', 'existing invitation/Guest Pass reconciliation must remain canonical');
 $contains($worker, 'coveted_event_lifecycle_automation_reconcile($limit)', 'worker must invoke bounded event automation');
-$contains($worker, 'exit(3);', 'bounded item failures must surface a non-zero worker exit');
+$contains($worker, 'reward_limit_skips', 'worker must report expected campaign-limit skips separately');
+$contains($worker, 'exit(3);', 'bounded unexpected item failures must surface a non-zero worker exit');
 
 // No new scheduler schema or runtime DDL.
 foreach (['CREATE TABLE', 'ALTER TABLE', 'DROP TABLE', 'TRUNCATE TABLE'] as $ddl) {
@@ -54,18 +55,28 @@ $contains($service, "'event-attendee-'", 'attendee milestone reminders need dura
 $contains($service, "n.dedupe_key = CONCAT('event-reveal:'", 'mystery reveals need durable dedupe');
 $contains($service, "n.dedupe_key = CONCAT('event-post:'", 'post-event opening needs durable dedupe');
 $contains($service, '$key = \'event-\' . $trigger', 'reward issuance needs deterministic event idempotency keys');
+$contains($service, 'coveted_event_automation_has_backlog()', 'exact-limit batches must be rechecked before backlog is reported');
 $contains($rewards, 'function coveted_reward_issue(', 'canonical reward issuance service is required');
 $contains($rewards, 'coveted_reward_existing_idempotent', 'canonical reward issuance must retain idempotency handling');
 $contains($notifications, 'function coveted_notification_create(', 'canonical notification service is required');
 $contains($schema, 'UNIQUE KEY uq_notifications_user_dedupe (user_id,dedupe_key)', 'notification dedupe schema contract is required');
 $contains($schema, 'UNIQUE KEY uq_reward_issuance_idempotency (idempotency_key)', 'reward issuance idempotency schema contract is required');
 
-// Campaign bounds and trigger scope.
+// Campaign bounds, recent-only rollout and trigger scope.
 $contains($service, "['attendance', 'completion']", 'automation may only issue attendance/completion event rewards');
 $contains($service, 'c.quantity_limit IS NULL', 'campaign quantity limits must be respected before automation');
 $contains($service, 'c.per_user_limit IS NULL', 'per-member campaign limits must be respected before automation');
+$contains($service, 'Campaign distribution limit has been reached.', 'quantity-limit races must be classified as expected skips');
+$contains($service, 'Member campaign limit has been reached.', 'per-member-limit races must be classified as expected skips');
+$contains($service, 'reward_limit_skips', 'expected campaign-limit skips must not be counted as worker failures');
+$contains($service, 'ea.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)', 'attendance automation must not backfill stale historical attendance');
+$contains($service, "e.status = 'completed' AND e.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)", 'completion rewards must be limited to recently completed events');
+$contains($service, "e.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)", 'post-event notifications must avoid historical deployment backfill');
 $contains($service, "ea.status IN ('checked_in','attended','left_early')", 'rewards require verified attendance states');
 $contains($service, "c.trigger_key IN ('attendance','completion')", 'exceptions must only report automated reward triggers');
+
+// Notification cadence must avoid immediate publish/reminder double sends.
+$contains($service, "recent.created_at >= DATE_SUB(NOW(), INTERVAL 6 HOUR)", 'fresh publication notifications must suppress immediate RSVP reminder duplication');
 
 // The worker automates delivery, not event authority.
 $contains($events, 'function coveted_event_require_system_admin(array $actor): void', 'System Admin event authority contract is missing');
