@@ -23,6 +23,7 @@ $liveRoutes = [
     'artists' => '/admin/?view=artists',
     'loyalty' => '/admin/loyalty.php',
     'benefits' => '/admin/?view=benefits',
+    'operations' => '/admin/operations.php',
 ];
 
 if (!isset($liveRoutes[$view])) {
@@ -58,6 +59,7 @@ $active = match ($view) {
     'artists' => 'artists',
     'loyalty' => 'loyalty',
     'benefits' => 'benefits',
+    'operations' => 'operations',
     default => 'dashboard',
 };
 
@@ -73,6 +75,7 @@ $pageTitle = match ($view) {
     'artists' => 'Artists',
     'loyalty' => 'Group Loyalty',
     'benefits' => 'Benefits',
+    'operations' => 'Operations',
     default => 'Dashboard',
 };
 
@@ -133,7 +136,7 @@ coveted_admin_ui_start($admin, $active, $pageTitle, $counts);
 <nav class="cv-action-row" aria-label="Sample system views">
     <?php foreach ([
         'dashboard'=>'Dashboard','people'=>'People','crm'=>'CRM','businesses'=>'Businesses','groups'=>'Groups',
-        'events'=>'Events','artists'=>'Artists','loyalty'=>'Loyalty','benefits'=>'Benefits'
+        'events'=>'Events','artists'=>'Artists','loyalty'=>'Loyalty','benefits'=>'Benefits','operations'=>'Operations'
     ] as $key => $label): ?>
         <a class="cv-button <?= $view === $key ? 'cv-button-primary' : 'cv-button-soft' ?>" href="/admin/system-preview.php?view=<?= coveted_e($key) ?>"><?= coveted_e($label) ?></a>
     <?php endforeach; ?>
@@ -292,7 +295,7 @@ coveted_admin_ui_start($admin, $active, $pageTitle, $counts);
             <?php foreach ($relationships as $relationship): ?><div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong><?= coveted_e((string)$relationship['group_name']) ?> × <?= coveted_e((string)$relationship['location_name']) ?></strong><small><?= (int)$relationship['completed_events'] ?> completed · <?= (int)$relationship['verified_visits'] ?> verified visits · <?= (int)$relationship['return_claims'] ?> return claims</small></span><span class="cv-status"><?= coveted_e(ucwords(str_replace('_',' ',(string)$relationship['relationship_status']))) ?></span></div><?php endforeach; ?>
         </div></section>
         <section class="cv-admin-panel"><div class="cv-admin-panel-head"><div><span class="cv-eyebrow">CONTACTS</span><h2>Partner people</h2></div></div><div class="cv-admin-list">
-            <?php foreach ($contacts as $contact): ?><div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong><?= coveted_e((string)$contact['full_name']) ?></strong><small><?= coveted_e((string)$contact['role_title']) ?> · <?= coveted_e((string)$contact['preferred_contact']) ?></small></span><?= !empty($contact['is_primary']) ? '<span class="cv-pill">Primary</span>' : '' ?></div><?php endforeach; ?>
+            <?php foreach ($contacts as $contact): ?><div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong><?= coveted_e((string)$contact['full_name']) ?></strong><small><?= coveted_e((string)$contact['role_title']) ?> · <?= coveted_e((string)$contact['preferred_contact']) ?></small></span><?php if (!empty($contact['is_primary'])): ?><span class="cv-pill">Primary</span><?php endif; ?></div><?php endforeach; ?>
         </div></section>
     </div>
     <section class="cv-admin-panel cv-admin-section-gap"><div class="cv-admin-panel-head"><div><span class="cv-eyebrow">FOLLOW-UPS</span><h2>Next actions</h2></div></div><div class="cv-admin-list">
@@ -372,6 +375,24 @@ coveted_admin_ui_start($admin, $active, $pageTitle, $counts);
         <section class="cv-admin-panel"><div class="cv-admin-panel-head"><div><span class="cv-eyebrow">DISTRIBUTION</span><h2>Recent runs</h2></div></div><div class="cv-admin-list"><?php foreach ((array)$sample['distribution'] as $run): ?><div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong><?= coveted_e((string)$run['campaign']) ?></strong><small><?= coveted_e((string)$run['event']) ?> · <?= (int)$run['issued_count'] ?> issued · <?= (int)$run['skipped_count'] ?> skipped</small></span><span><?= coveted_e($formatTime((string)$run['created_at'])) ?></span></div><?php endforeach; ?></div></section>
     </div>
     <section class="cv-admin-panel cv-admin-section-gap"><div class="cv-admin-panel-head"><div><span class="cv-eyebrow">CLAIMS</span><h2>Observed value</h2></div></div><div class="cv-admin-list"><?php foreach ((array)$sample['claims'] as $claim): ?><div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong><?= coveted_e((string)$claim['reward']) ?> · <?= coveted_e((string)$claim['member']) ?></strong><small><?= coveted_e((string)$claim['business']) ?> · <?= coveted_e((string)$claim['location']) ?> · <?= coveted_e((string)$claim['value']) ?></small></span><span class="cv-status"><?= coveted_e(ucfirst((string)$claim['status'])) ?></span></div><?php endforeach; ?></div></section>
+<?php endif; ?>
+
+<?php if ($view === 'operations'): ?>
+    <?php $ops = (array)$sample['operations']; $summary = (array)($ops['summary'] ?? []); ?>
+    <div class="cv-admin-metric-grid cv-admin-metric-grid-four">
+        <div><span>Lifecycle backlog</span><strong><?= (int)($summary['lifecycle_backlog'] ?? 0) ?></strong><small>Records to reconcile</small></div>
+        <div><span>Stuck deliveries</span><strong><?= (int)($summary['stuck_deliveries'] ?? 0) ?></strong><small>Notification retries</small></div>
+        <div><span>Future events</span><strong><?= (int)($summary['future_events'] ?? 0) ?></strong><small>Scheduled</small></div>
+        <div><span>Partner follow-ups</span><strong><?= (int)($summary['partner_followups_overdue'] ?? 0) ?></strong><small>Overdue</small></div>
+    </div>
+    <div class="cv-admin-dashboard-grid cv-admin-section-gap">
+        <section class="cv-admin-panel"><div class="cv-admin-panel-head"><div><span class="cv-eyebrow">EVENT AUTOMATION</span><h2>Lifecycle workers</h2></div></div><div class="cv-admin-list"><?php foreach ((array)($ops['automation'] ?? []) as $job): ?><div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong><?= coveted_e((string)$job['label']) ?></strong><small>Last run <?= coveted_e($formatTime((string)$job['last_run'])) ?></small></span><span class="cv-status"><?= coveted_e(ucfirst((string)$job['status'])) ?></span></div><?php endforeach; ?></div></section>
+        <section class="cv-admin-panel"><div class="cv-admin-panel-head"><div><span class="cv-eyebrow">BACKLOG</span><h2>Current work</h2></div></div><div class="cv-admin-list"><?php foreach ((array)($ops['lifecycle'] ?? []) as $item): ?><div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong><?= coveted_e((string)$item['label']) ?></strong><small><?= coveted_e(ucwords(str_replace('_',' ',(string)$item['kind']))) ?></small></span><span>P<?= (int)$item['priority'] ?></span></div><?php endforeach; ?></div></section>
+    </div>
+    <div class="cv-admin-dashboard-grid cv-admin-section-gap">
+        <section class="cv-admin-panel"><div class="cv-admin-panel-head"><div><span class="cv-eyebrow">NOTIFICATIONS</span><h2>Delivery state</h2></div></div><div class="cv-admin-list"><?php foreach ((array)$sample['notifications'] as $notification): ?><div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong><?= coveted_e((string)$notification['title']) ?></strong><small><?= coveted_e((string)$notification['recipient']) ?> · <?= coveted_e((string)$notification['type']) ?> · <?= coveted_e($formatTime((string)$notification['created_at'])) ?></small></span><span class="cv-status"><?= coveted_e(ucfirst((string)$notification['status'])) ?></span></div><?php endforeach; ?></div></section>
+        <section class="cv-admin-panel"><div class="cv-admin-panel-head"><div><span class="cv-eyebrow">AGENT TASKS</span><h2>Read-only queue</h2></div></div><div class="cv-admin-list"><?php foreach ((array)$sample['agent']['tasks'] as $task): ?><div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong><?= coveted_e((string)$task['title']) ?></strong><small><?= coveted_e((string)$task['source']) ?> · Due <?= coveted_e($formatTime((string)$task['due_at'])) ?></small></span><span class="cv-status"><?= coveted_e(ucfirst((string)$task['status'])) ?></span></div><?php endforeach; ?></div></section>
+    </div>
 <?php endif; ?>
 
 <?php coveted_admin_ui_end(); ?>
