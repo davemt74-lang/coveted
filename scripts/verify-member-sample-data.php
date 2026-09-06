@@ -2,7 +2,8 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
-$samplePath = $root . '/app/member_sample_data.php';
+$systemPath = $root . '/app/system_sample_data.php';
+$memberPath = $root . '/app/member_sample_data.php';
 $homePath = $root . '/app/member_home_v2.php';
 $pagesPath = $root . '/app/member_pages_v2.php';
 $peoplePath = $root . '/app/member_people_v2.php';
@@ -14,15 +15,17 @@ $walletPath = $root . '/wallet.php';
 $reconnectPath = $root . '/reconnect.php';
 $profilePath = $root . '/profile.php';
 $adminPath = $root . '/admin/sample-data.php';
+$settingsPath = $root . '/app/site_settings.php';
 
-foreach ([$samplePath, $homePath, $pagesPath, $peoplePath, $invitationsPath, $eventsPath, $groupsPath, $benefitsPath, $walletPath, $reconnectPath, $profilePath, $adminPath] as $path) {
+foreach ([$systemPath,$memberPath,$homePath,$pagesPath,$peoplePath,$invitationsPath,$eventsPath,$groupsPath,$benefitsPath,$walletPath,$reconnectPath,$profilePath,$adminPath,$settingsPath] as $path) {
     if (!is_file($path)) {
-        fwrite(STDERR, "Missing required member sample-data file: {$path}\n");
+        fwrite(STDERR, "Missing required sample-data file: {$path}\n");
         exit(1);
     }
 }
 
-$sample = (string)file_get_contents($samplePath);
+$system = (string)file_get_contents($systemPath);
+$member = (string)file_get_contents($memberPath);
 $home = (string)file_get_contents($homePath);
 $pages = (string)file_get_contents($pagesPath);
 $people = (string)file_get_contents($peoplePath);
@@ -34,11 +37,15 @@ $wallet = (string)file_get_contents($walletPath);
 $reconnect = (string)file_get_contents($reconnectPath);
 $profile = (string)file_get_contents($profilePath);
 $admin = (string)file_get_contents($adminPath);
+$settings = (string)file_get_contents($settingsPath);
 
-$requiredSampleFragments = [
-    'function coveted_member_sample_mode',
-    'coveted_is_system_admin($user)',
-    'COVETED_SETTING_MEMBER_SAMPLE_DATA',
+foreach ([
+    'function coveted_system_sample_mode',
+    'function coveted_system_sample_data',
+    'function coveted_system_sample_inventory',
+    'function coveted_system_sample_admin_counts',
+    'function coveted_system_sample_agent_snapshot',
+    'Coveted Full System Demo',
     'Saturday Night Supper Club',
     'Sunset Dinner',
     'Vinyl & Cocktails',
@@ -47,22 +54,43 @@ $requiredSampleFragments = [
     'Late Night Listening',
     'Dinner on us',
     'Member welcome',
-    'First Friday Supper',
-    'Listening Room Night',
-    "'profile' => \$profile",
-    'Phoenix, Arizona',
-];
-
-foreach ($requiredSampleFragments as $fragment) {
-    if (!str_contains($sample, $fragment)) {
-        fwrite(STDERR, "Member sample-data contract missing: {$fragment}\n");
+    'Ember Hospitality',
+    'Harbor House Group',
+    'Velvet Note',
+    'Desert Bloom Wellness',
+    'Sienna Cole',
+    'partner_relationships',
+    'partner_contacts',
+    'partner_followups',
+    'benefit_programs',
+    'sponsorships',
+    'daily_events',
+    'loyalty',
+    'artist_media',
+    'notifications',
+    'agent_tasks',
+] as $fragment) {
+    if (!str_contains($system, $fragment)) {
+        fwrite(STDERR, "Full system sample-data contract missing: {$fragment}\n");
         exit(1);
     }
 }
 
-foreach (['INSERT INTO', 'UPDATE ', 'DELETE FROM', 'REPLACE INTO'] as $mutation) {
-    if (stripos($sample, $mutation) !== false) {
-        fwrite(STDERR, "Synthetic member sample data must remain read-only/in-memory: {$mutation}\n");
+foreach (['INSERT INTO','UPDATE ','DELETE FROM','REPLACE INTO','CREATE TABLE','ALTER TABLE'] as $mutation) {
+    if (stripos($system, $mutation) !== false) {
+        fwrite(STDERR, "Full system sample data must remain read-only/in-memory: {$mutation}\n");
+        exit(1);
+    }
+}
+
+foreach ([
+    'function coveted_member_sample_mode',
+    'coveted_system_sample_mode($user, $pdo)',
+    'COVETED_SETTING_MEMBER_SAMPLE_DATA',
+    "return (array)coveted_system_sample_data()['member'];",
+] as $fragment) {
+    if (!str_contains($member, $fragment)) {
+        fwrite(STDERR, "Member sample projection contract missing: {$fragment}\n");
         exit(1);
     }
 }
@@ -71,15 +99,13 @@ if (!str_contains($home, 'coveted_member_sample_mode($user, $pdo)')) {
     fwrite(STDERR, "Home v2 must route sample preview through the guarded sample-mode helper.\n");
     exit(1);
 }
-
-foreach (['coveted_member_v2_invitations', 'coveted_member_v2_events', 'coveted_member_sample_mode($user, $pdo)'] as $fragment) {
+foreach (['coveted_member_v2_invitations','coveted_member_v2_events','coveted_member_sample_mode($user, $pdo)'] as $fragment) {
     if (!str_contains($pages, $fragment)) {
         fwrite(STDERR, "Member page adapter contract missing: {$fragment}\n");
         exit(1);
     }
 }
-
-foreach (['coveted_member_v2_profile_data', 'coveted_member_v2_reconnect_events', 'coveted_member_v2_reconnect_attendees', 'coveted_member_v2_reconnect_matches'] as $fragment) {
+foreach (['coveted_member_v2_profile_data','coveted_member_v2_reconnect_events','coveted_member_v2_reconnect_attendees','coveted_member_v2_reconnect_matches'] as $fragment) {
     if (!str_contains($people, $fragment)) {
         fwrite(STDERR, "Member people adapter contract missing: {$fragment}\n");
         exit(1);
@@ -113,16 +139,32 @@ if (!str_contains($profile, 'The sample profile is preview-only') || !str_contai
     exit(1);
 }
 if (!str_contains($profile, 'interests_json = VALUES(interests_json)')) {
-    fwrite(STDERR, "Profile must persist interests and gathering-style context through the canonical profiles JSON column.\n");
+    fwrite(STDERR, "Profile must persist interests through canonical profiles JSON outside sample mode.\n");
     exit(1);
 }
 
-if (!str_contains($admin, 'coveted_require_system_admin()')) {
-    fwrite(STDERR, "Sample Data control must remain System Admin-only.\n");
+foreach ([
+    'coveted_require_system_admin()',
+    'set_system_sample_data',
+    'COVETED_SETTING_SYSTEM_SAMPLE_DATA',
+    'coveted_system_sample_inventory',
+    'Full Coveted demo network',
+    'Read-only by design',
+    'Autonomous Agent execution is disabled',
+] as $fragment) {
+    if (!str_contains($admin, $fragment)) {
+        fwrite(STDERR, "Full-system Sample Data Admin contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
+if (!str_contains($settings, "const COVETED_SETTING_SYSTEM_SAMPLE_DATA = 'system_sample_data_enabled';")) {
+    fwrite(STDERR, "Full-system sample setting constant is missing.\n");
     exit(1);
 }
-if (!str_contains($admin, 'coveted_site_setting_set_bool(COVETED_SETTING_MEMBER_SAMPLE_DATA')) {
-    fwrite(STDERR, "Sample Data control must use the canonical site setting.\n");
+if (!str_contains($settings, '$key === COVETED_SETTING_ADMIN_AGENT_AUTONOMOUS_ACTIONS')
+    || !str_contains($settings, 'COVETED_SETTING_SYSTEM_SAMPLE_DATA')) {
+    fwrite(STDERR, "Agent autonomous actions must resolve false while full-system sample mode is active.\n");
     exit(1);
 }
 
@@ -142,19 +184,17 @@ $previewAssets = [
     'assets/images/sample/people/sienna-cole.webp',
     'assets/images/sample/people/noah-bennett.webp',
 ];
-
 foreach ($previewAssets as $relative) {
     $path = $root . '/' . $relative;
     if (!is_file($path) || filesize($path) < 100) {
-        fwrite(STDERR, "Missing member preview image: {$relative}\n");
+        fwrite(STDERR, "Missing sample preview image: {$relative}\n");
         exit(1);
     }
-
     $header = (string)file_get_contents($path, false, null, 0, 12);
-    if (strlen($header) < 12 || substr($header, 0, 4) !== 'RIFF' || substr($header, 8, 4) !== 'WEBP') {
-        fwrite(STDERR, "Invalid WebP member preview image: {$relative}\n");
+    if (strlen($header) < 12 || substr($header,0,4) !== 'RIFF' || substr($header,8,4) !== 'WEBP') {
+        fwrite(STDERR, "Invalid WebP sample preview image: {$relative}\n");
         exit(1);
     }
 }
 
-echo "Member sample-data contract OK\n";
+echo "Full system + member sample-data contract OK\n";
