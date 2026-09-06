@@ -25,6 +25,7 @@ $missing = static function (string $content, string $needle, string $label): voi
 
 $migration = $read('database/migrations/20260906_partner_profile_crm.sql');
 $service = $read('app/partner_crm.php');
+$agent = $read('app/partner_crm_agent.php');
 $page = $read('partner-profile.php');
 $nav = $read('assets/js/partner-profile-nav-v1.js');
 $loader = $read('assets/js/coveted.js');
@@ -57,14 +58,20 @@ $contains($service, 'coveted_daily_event_business_rows(', 'timeline must reuse c
 $contains($service, 'coveted_partner_perks_for_relationship(', 'timeline must reuse canonical Partner Perks');
 $contains($service, 'coveted_audit(', 'CRM mutations must enter canonical audit memory');
 
-// Agent brain + chat integration.
-$contains($service, 'function coveted_partner_crm_agent_context', 'Partner CRM must expose compact Agent context');
-$contains($service, 'Raw partner email addresses and phone numbers stay out of the broad LLM context', 'broad Agent context must exclude raw partner contact endpoints');
-$contains($partnerOps, "require_once __DIR__ . '/partner_crm.php';", 'Partner Opportunities must load Partner CRM intelligence');
-$contains($partnerOps, 'coveted_partner_crm_agent_context(', 'Partner CRM must join canonical Partner Opportunities context');
-$contains($partnerOps, "'crm'=>\$partnerCrm", 'Partner CRM snapshot must be preserved for the Agent brain');
-$contains($partnerOps, "'partner_followup_overdue'", 'overdue partner follow-ups must become Agent opportunities');
-$contains($partnerOps, "'partner_contact_missing'", 'missing partner contacts must become Agent opportunities');
+// Agent brain + chat integration uses a bulk reader rather than N+1 UI readers.
+$contains($agent, 'function coveted_partner_crm_agent_context_v2', 'optimized Partner CRM Agent context must exist');
+$contains($agent, 'Raw email/phone fields are never selected into this context', 'broad Agent context must exclude raw partner contact endpoints');
+$contains($agent, "FROM partner_contacts pc", 'Agent context must read partner contacts in bulk');
+$contains($agent, "FROM partner_followups pf", 'Agent context must read partner follow-ups in bulk');
+$contains($agent, "FROM partner_interactions pi", 'Agent context must read partner interactions in bulk');
+$contains($agent, "FROM partner_notes pn", 'Agent context must include recent partner notes');
+$contains($agent, "'recent_activity'", 'Agent context must expose unified recent CRM activity');
+$contains($agent, "'partner_followup_overdue'", 'overdue partner follow-ups must become Agent opportunities');
+$contains($agent, "'partner_contact_missing'", 'missing partner contacts must become Agent opportunities');
+$contains($agent, "'partner_owner_missing'", 'missing relationship owners must become Agent opportunities');
+$contains($partnerOps, "require_once __DIR__ . '/partner_crm_agent.php';", 'Partner Opportunities must load optimized Partner CRM Agent intelligence');
+$contains($partnerOps, 'coveted_partner_crm_agent_context_v2(', 'Partner CRM must join canonical Partner Opportunities context');
+$contains($partnerOps, "'crm' => \$partnerCrm", 'Partner CRM snapshot must be preserved for the Agent brain');
 $contains($branding, "'partner_opportunities'", 'site enrichment must preserve Partner Opportunities in Agent operations');
 $contains($brain, "'operations' => \$snapshot['operations']", 'Agent provider context must include enriched operations');
 $contains($chat, 'coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin))', 'Agent Chat must rebuild enriched partner context on each request');
@@ -89,6 +96,7 @@ foreach (['coveted_event_create(', 'coveted_event_update(', 'coveted_event_set_l
 }
 foreach (['CREATE TABLE', 'ALTER TABLE', 'DROP TABLE', 'TRUNCATE TABLE'] as $ddl) {
     $missing($service, $ddl, 'Partner CRM service must not modify schema at runtime: ' . $ddl);
+    $missing($agent, $ddl, 'Partner CRM Agent reader must not modify schema at runtime: ' . $ddl);
 }
 
 fwrite(STDOUT, "Partner Profile CRM contract verified.\n");
