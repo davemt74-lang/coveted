@@ -164,14 +164,74 @@ function coveted_attendee_event_benefit_count(int $userId, ?PDO $pdo = null): in
     return (int)$stmt->fetchColumn();
 }
 
+/** @return array<int,true> */
+function coveted_attendee_event_active_group_ids(int $userId, ?PDO $pdo = null): array
+{
+    if ($userId < 1) {
+        return [];
+    }
+
+    $pdo ??= coveted_db();
+    $stmt = $pdo->prepare(
+        "SELECT group_id
+         FROM group_memberships
+         WHERE user_id = ? AND membership_status = 'active'"
+    );
+    $stmt->execute([$userId]);
+
+    $result = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $result[(int)$row['group_id']] = true;
+    }
+    return $result;
+}
+
+function coveted_attendee_event_is_personal(array $event, array $activeGroupIds): bool
+{
+    if ((string)($event['response'] ?? '') !== '') {
+        return true;
+    }
+    if ((string)($event['invitation_status'] ?? '') !== '') {
+        return true;
+    }
+    if ((string)($event['attendance_status'] ?? '') !== '') {
+        return true;
+    }
+
+    return (string)($event['audience'] ?? '') === 'group'
+        && isset($activeGroupIds[(int)($event['group_id'] ?? 0)]);
+}
+
 /** @return array<string,mixed> */
 function coveted_attendee_event_workspace(array $actor, ?PDO $pdo = null): array
 {
     $pdo ??= coveted_db();
     $sampleMode = coveted_member_sample_mode($actor, $pdo);
-    $events = coveted_member_v2_events($actor, $pdo);
+    $allEvents = coveted_member_v2_events($actor, $pdo);
     $invitations = coveted_member_v2_invitations($actor, $pdo);
     $now = time();
+
+    $hostAssignmentCount = count(array_filter(
+        $allEvents,
+        static fn(array $event): bool => in_array(
+            (string)($event['assigned_host_role'] ?? ''),
+            ['lead', 'cohost', 'checkin'],
+            true
+        )
+    ));
+    $hasHostWorkspaceAccess = !$sampleMode && (
+        in_array('attendee_host', (array)($actor['roles'] ?? []), true)
+        || $hostAssignmentCount > 0
+    );
+
+    $events = $allEvents;
+    if (!$sampleMode) {
+        $activeGroupIds = coveted_attendee_event_active_group_ids((int)$actor['id'], $pdo);
+        $events = array_values(array_filter(
+            $allEvents,
+            static fn(array $event): bool => coveted_attendee_event_is_personal($event, $activeGroupIds)
+        ));
+    }
 
     $upcoming = array_values(array_filter(
         $events,
@@ -216,5 +276,7 @@ function coveted_attendee_event_workspace(array $actor, ?PDO $pdo = null): array
         'attending_count' => $attendingCount,
         'benefit_count' => $sampleMode ? 0 : coveted_attendee_event_benefit_count((int)$actor['id'], $pdo),
         'unread_notifications' => $sampleMode ? 0 : coveted_notification_unread_count((int)$actor['id']),
+        'host_assignment_count' => $hostAssignmentCount,
+        'has_host_workspace_access' => $hasHostWorkspaceAccess,
     ];
 }
