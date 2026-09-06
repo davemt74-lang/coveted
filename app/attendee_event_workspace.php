@@ -41,14 +41,9 @@ function coveted_attendee_event_can_rsvp(array $event): bool
         return $invitationStatus !== '' && !in_array($invitationStatus, ['expired', 'revoked'], true);
     }
 
-    // A host-only visibility path should not manufacture attendee RSVP UI when
-    // the host is not also a member/invitee. The canonical RSVP service still
-    // rechecks eligibility on every mutation.
-    $hostRole = (string)($event['assigned_host_role'] ?? '');
-    if ($hostRole !== '' && $invitationStatus === '' && (string)($event['response'] ?? '') === '') {
-        return false;
-    }
-
+    // Group-audience eligibility is rechecked transactionally by the canonical
+    // RSVP service. A member may also hold a host assignment without losing
+    // their separate right to RSVP as an attendee.
     return true;
 }
 
