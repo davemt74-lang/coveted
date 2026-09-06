@@ -175,7 +175,9 @@ function coveted_admin_agent_task_create_manual(
 /**
  * Persist current deterministic Agent opportunities as Suggested tasks.
  * The unique source key and upsert make concurrent refreshes idempotent.
- * Completed/dismissed tasks are never silently reopened.
+ * Completed/dismissed tasks are never silently reopened. Opportunities may
+ * explicitly opt out with task_sync=false when they are analysis-only signals
+ * that the autonomous task executor cannot safely complete through a canonical action.
  *
  * @return array{created:int,updated:int,skipped:int}
  */
@@ -208,6 +210,10 @@ function coveted_admin_agent_tasks_sync_opportunities(array $admin, array $oppor
 
     foreach (array_slice(array_values($opportunities), 0, 20) as $item) {
         if (!is_array($item)) {
+            continue;
+        }
+        if (array_key_exists('task_sync', $item) && $item['task_sync'] === false) {
+            $skipped++;
             continue;
         }
         $key = trim((string)($item['key'] ?? ''));
