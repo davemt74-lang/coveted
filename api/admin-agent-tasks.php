@@ -14,6 +14,17 @@ try {
         exit;
     }
 
+    if (!coveted_admin_agent_tasks_schema_available()) {
+        echo coveted_json([
+            'ok' => true,
+            'available' => false,
+            'active_total' => 0,
+            'counts' => [],
+            'href' => '/admin/agent-tasks.php',
+        ]);
+        exit;
+    }
+
     $counts = coveted_admin_agent_task_counts($admin);
     echo coveted_json([
         'ok' => true,
