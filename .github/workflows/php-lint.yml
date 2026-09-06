@@ -71,6 +71,12 @@ jobs:
       - name: Verify Partner Relationship opportunities JavaScript syntax
         run: node --check assets/js/partner-opportunities-v1.js
 
+      - name: Verify Partner Offers / Perks contract
+        run: php scripts/verify-partner-perks.php
+
+      - name: Verify Partner Offers / Perks JavaScript syntax
+        run: node --check assets/js/partner-perks-v1.js
+
       - name: Verify Group Perk Wallet contract
         run: php scripts/verify-group-perk-wallet.php
 
