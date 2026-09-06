@@ -7,21 +7,77 @@ require_once __DIR__ . '/system_sample_data.php';
 
 coveted_admin_integrity_guard_request();
 
-// Admin Agent is the canonical Admin landing surface. This routing guard runs
-// while the shared Admin bootstrap is being required, before coveted_page_start
-// or any other HTML output. Only a bare GET is redirected; explicit views and
-// every POST action continue through their existing controllers unchanged.
 $covetedAdminRequestPath = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
+$covetedAdminRequestMethod = (string)($_SERVER['REQUEST_METHOD'] ?? 'GET');
+$covetedAdminCurrentUser = coveted_current_user();
+
+// Full System Sample Mode is a read-only alternate read layer. Keep direct
+// bookmarks consistent with the sample-aware navigation and stop live Admin
+// mutators before a synthetic-view session can accidentally change real data.
 if (
     PHP_SAPI !== 'cli'
-    && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'
+    && $covetedAdminCurrentUser
+    && coveted_is_system_admin($covetedAdminCurrentUser)
+) {
+    try {
+        $covetedAdminSampleMode = coveted_system_sample_mode($covetedAdminCurrentUser, coveted_db());
+    } catch (Throwable) {
+        $covetedAdminSampleMode = false;
+    }
+
+    if ($covetedAdminSampleMode) {
+        $covetedAdminSampleView = null;
+        if (in_array($covetedAdminRequestPath, ['/admin', '/admin/', '/admin/index.php'], true)) {
+            $covetedAdminSampleView = match (strtolower(trim((string)($_GET['view'] ?? '')))) {
+                'dashboard' => 'dashboard',
+                'users' => 'people',
+                'requests' => 'requests',
+                'businesses' => 'businesses',
+                'groups' => 'groups',
+                'events' => 'events',
+                'artists' => 'artists',
+                'benefits', 'distribution' => 'benefits',
+                default => null,
+            };
+        } else {
+            $covetedAdminSampleView = match ($covetedAdminRequestPath) {
+                '/admin/crm.php' => 'crm',
+                '/admin/cities.php' => 'cities',
+                '/admin/loyalty.php' => 'loyalty',
+                '/admin/daily-events.php' => 'events',
+                '/admin/benefit-programs.php',
+                '/admin/benefit-sponsorships.php',
+                '/admin/benefit-economy.php',
+                '/admin/benefit-performance.php' => 'benefits',
+                '/admin/operations.php',
+                '/admin/event-automation.php' => 'operations',
+                default => null,
+            };
+        }
+
+        if ($covetedAdminSampleView !== null && $covetedAdminRequestPath !== '/admin/system-preview.php') {
+            if ($covetedAdminRequestMethod !== 'GET') {
+                http_response_code(405);
+                header('Allow: GET');
+                exit('Full System Sample Mode is read-only. Turn it off before changing live Admin data.');
+            }
+            coveted_redirect('/admin/system-preview.php?view=' . rawurlencode($covetedAdminSampleView));
+        }
+    }
+}
+
+// Admin Agent is the canonical Admin landing surface. Only a bare Admin GET is
+// redirected; explicit views use their normal live or sample-aware controller.
+if (
+    PHP_SAPI !== 'cli'
+    && $covetedAdminRequestMethod === 'GET'
     && !array_key_exists('view', $_GET)
     && in_array($covetedAdminRequestPath, ['/admin', '/admin/', '/admin/index.php'], true)
 ) {
     coveted_require_system_admin();
     coveted_redirect('/admin/agent.php');
 }
-unset($covetedAdminRequestPath);
+unset($covetedAdminRequestPath, $covetedAdminRequestMethod, $covetedAdminCurrentUser, $covetedAdminSampleMode, $covetedAdminSampleView);
 
 /**
  * Read-only counts for the System Admin shell.
@@ -168,8 +224,8 @@ function coveted_admin_ui_start(
                     <span class="cv-admin-nav-chevron" aria-hidden="true">⌄</span>
                 </summary>
                 <div class="cv-admin-nav-body">
-                    <?php coveted_admin_nav_link($active, 'operations', '/admin/operations.php', 'Operations'); ?>
-                    <?php coveted_admin_nav_link($active, 'event-automation', '/admin/event-automation.php', 'Event Automation'); ?>
+                    <?php coveted_admin_nav_link($active, 'operations', $sampleRoute('operations', '/admin/operations.php'), 'Operations'); ?>
+                    <?php coveted_admin_nav_link($active, 'event-automation', $sampleRoute('operations', '/admin/event-automation.php'), 'Event Automation'); ?>
                     <?php coveted_admin_nav_link($active, 'landing', '/admin/landing.php', 'Landing Page'); ?>
                     <?php coveted_admin_nav_link($active, 'branding', '/admin/branding.php', 'Branding'); ?>
                     <?php coveted_admin_nav_link($active, 'sample-data', '/admin/sample-data.php', 'Sample Data'); ?>
