@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/venue_relationships.php';
 require_once __DIR__ . '/daily_events.php';
+require_once __DIR__ . '/partner_crm.php';
+require_once __DIR__ . '/partner_crm_agent.php';
 
 function coveted_partner_opportunity_key(string $kind, int $businessId, int $groupId, int $locationId): string
 {
@@ -355,6 +357,29 @@ function coveted_partner_opportunities_agent_context(array $admin, int $limit = 
         }
     }
 
+    $partnerCrm = [
+        'unavailable' => true,
+        'counts' => [],
+        'relationships' => [],
+        'recent_activity' => [],
+        'recommendations' => [],
+    ];
+    try {
+        $partnerCrm = coveted_partner_crm_agent_context_v2($admin, min(12, $limit), $pdo);
+        foreach ((array)($partnerCrm['recommendations'] ?? []) as $item) {
+            if (is_array($item)) $recommendations[] = $item;
+        }
+    } catch (Throwable $e) {
+        $issues[] = 'partner_crm';
+        error_log('Partner CRM Agent context unavailable: ' . $e->getMessage());
+    }
+
+    $deduped = [];
+    foreach ($recommendations as $item) {
+        $key = trim((string)($item['key'] ?? ''));
+        if ($key !== '') $deduped[$key] = $item;
+    }
+    $recommendations = array_values($deduped);
     usort($recommendations, static function (array $a, array $b): int {
         $priority = (int)($a['priority'] ?? 3) <=> (int)($b['priority'] ?? 3);
         return $priority !== 0 ? $priority : strcmp((string)($a['key'] ?? ''), (string)($b['key'] ?? ''));
@@ -366,9 +391,10 @@ function coveted_partner_opportunities_agent_context(array $admin, int $limit = 
 
     return [
         'generated_at' => gmdate('Y-m-d H:i:s'),
-        'privacy' => 'Aggregate partner relationship intelligence only; no member identities or private Loyalty balances.',
-        'action_policy' => 'Read-only recommendations. The Admin Agent may explain and prioritize these opportunities but must not treat them as authorization to mutate relationship, event, reward or campaign state.',
+        'privacy' => 'Aggregate partner relationship intelligence plus compact Partner CRM context. Contact names, roles, preferred contact methods and concise CRM activity may be supplied to the Admin Agent; raw partner email and phone values stay out of broad LLM context. No member identities or private Loyalty balances are exposed.',
+        'action_policy' => 'Read-only recommendations. The Admin Agent may explain and prioritize partner opportunities and CRM follow-ups but must not treat them as authorization to mutate contacts, notes, follow-ups, relationship, event, reward or campaign state.',
         'counts' => $counts,
+        'crm' => $partnerCrm,
         'recommendations' => $recommendations,
         'issues' => array_values(array_unique($issues)),
     ];
