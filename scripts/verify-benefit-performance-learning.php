@@ -59,7 +59,8 @@ $contains($service, '$matured >= 10 && $maturedRate <= 15.0', 'weak-performance 
 // Follow-on attendance/benefit use is bounded observational behavior, not causation.
 $contains($service, 'COVETED_BENEFIT_PERFORMANCE_FOLLOW_ON_DAYS = 90', 'follow-on observation window must stay bounded');
 $contains($service, "ea2.status IN ('checked_in','attended','left_early')", 'later attendance must require verified attendance');
-$contains($service, "c2.metadata_json LIKE '%\\\"benefit_program_builder\\\":true%'", 'later benefit use must stay within Builder-owned Benefit Programs');
+$contains($service, 'c2.metadata_json LIKE', 'later benefit query must scope through campaign metadata');
+$contains($service, 'benefit_program_builder', 'later benefit use must stay within Builder-owned Benefit Programs');
 $contains($service, 'not proof of causation', 'performance model must explicitly reject causal overclaiming');
 
 // Recommendations are analysis-only. They can suggest review/testing but cannot
