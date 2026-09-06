@@ -101,10 +101,47 @@ function coveted_benefit_program_optional_positive_int(mixed $value, string $lab
     if ($value === null || trim((string)$value) === '') {
         return null;
     }
-    if (!is_numeric($value) || (int)$value < 1) {
-        throw new InvalidArgumentException($label . ' must be at least 1.');
+    $raw = trim((string)$value);
+    if (preg_match('/^[1-9][0-9]*$/', $raw) !== 1) {
+        throw new InvalidArgumentException($label . ' must be a whole number of at least 1.');
     }
-    return (int)$value;
+    $parsed = filter_var($raw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 1000000]]);
+    if ($parsed === false) {
+        throw new InvalidArgumentException($label . ' must be between 1 and 1,000,000.');
+    }
+    return (int)$parsed;
+}
+
+function coveted_benefit_program_validate_trigger_context(string $triggerKey, array $owner, ?array $event): void
+{
+    $triggerKey = strtolower(trim($triggerKey));
+    $allowed = ['membership','attendance','completion','return_visit','guest_return','mystery_unlock','manual'];
+    if (!in_array($triggerKey, $allowed, true)) {
+        throw new InvalidArgumentException('Choose a Benefit Program trigger that Coveted can currently execute.');
+    }
+
+    if ($triggerKey === 'membership') {
+        if ((string)$owner['type'] !== 'group') {
+            throw new InvalidArgumentException('Membership Benefit Programs must belong to a Group.');
+        }
+        if ($event !== null) {
+            throw new InvalidArgumentException('Membership Benefit Programs distribute from group membership and cannot be linked to one event.');
+        }
+        return;
+    }
+
+    if (in_array($triggerKey, ['attendance','completion','mystery_unlock'], true) && $event === null) {
+        throw new InvalidArgumentException('That Benefit Program trigger requires an event.');
+    }
+
+    if (in_array($triggerKey, ['return_visit','guest_return'], true)) {
+        if ((string)$owner['type'] !== 'business') {
+            throw new InvalidArgumentException('Return-visit Benefit Programs must belong to a Business.');
+        }
+        if ($event === null) {
+            throw new InvalidArgumentException('Return-visit Benefit Programs require the originating event.');
+        }
+    }
 }
 
 /** @return array<string,mixed> */
@@ -136,10 +173,11 @@ function coveted_benefit_program_create_draft(array $actor, array $data): array
     if ($rewardTitle === '' || mb_strlen($rewardTitle) > 190) {
         throw new InvalidArgumentException('Enter a reward title.');
     }
+    coveted_benefit_program_validate_trigger_context($triggerKey, $owner, $event);
     if ($claimMode === 'location_code' && (string)$owner['type'] !== 'business') {
         throw new InvalidArgumentException('Partner-code redemption requires a Business-owned Benefit Program.');
     }
-    if ($event !== null && !in_array($triggerKey, ['attendance','completion','manual','mystery_unlock'], true)) {
+    if ($event !== null && !in_array($triggerKey, ['attendance','completion','manual','mystery_unlock','return_visit','guest_return'], true)) {
         throw new InvalidArgumentException('That trigger cannot be linked directly to an event.');
     }
     if ($event !== null && (string)$owner['type'] === 'group' && (int)$event['group_id'] !== (int)$owner['id']) {
@@ -277,6 +315,15 @@ function coveted_benefit_program_set_status(array $actor, string $programRef, st
         throw new InvalidArgumentException('Benefit Program not found.');
     }
 
+    $shared = coveted_db()->prepare(
+        "SELECT COUNT(*) FROM campaigns
+         WHERE reward_template_id = ? AND id <> ? AND status <> 'archived'"
+    );
+    $shared->execute([(int)$program['reward_template_id'], (int)$program['id']]);
+    if ((int)$shared->fetchColumn() > 0) {
+        throw new InvalidArgumentException('This program reward is shared with another active campaign. Manage its statuses in Rewards & Campaigns instead.');
+    }
+
     $rewardRef = (string)$program['reward_template_ref'];
     $previousCampaignStatus = (string)$program['status'];
     $previousRewardStatus = (string)$program['reward_status'];
@@ -361,6 +408,7 @@ function coveted_benefit_program_audience_preview(array $data): array
     );
     $event = coveted_benefit_program_resolve_event((string)($data['event_ref'] ?? ''));
     $trigger = strtolower(trim((string)($data['trigger_key'] ?? 'manual')));
+    coveted_benefit_program_validate_trigger_context($trigger, $owner, $event);
     $pdo = coveted_db();
 
     $eligibleNow = null;
@@ -380,23 +428,44 @@ function coveted_benefit_program_audience_preview(array $data): array
     } elseif ($event !== null) {
         $stmt = $pdo->prepare(
             "SELECT
-                COUNT(DISTINCT CASE WHEN er.response = 'attending' OR ei.status = 'accepted' THEN COALESCE(er.user_id, ei.user_id) END) AS reachable,
-                COUNT(DISTINCT CASE WHEN ea.status IN ('checked_in','attended') THEN ea.user_id END) AS attended
-             FROM events e
-             LEFT JOIN event_rsvps er ON er.event_id = e.id
-             LEFT JOIN event_invitations ei ON ei.event_id = e.id
-             LEFT JOIN event_attendance ea ON ea.event_id = e.id
-             WHERE e.id = ?"
+                (SELECT COUNT(DISTINCT er.user_id)
+                 FROM event_rsvps er
+                 JOIN users u1 ON u1.id = er.user_id AND u1.status = 'active'
+                 WHERE er.event_id = ? AND er.response = 'attending') AS attending_rsvps,
+                (SELECT COUNT(DISTINCT ei.user_id)
+                 FROM event_invitations ei
+                 JOIN users u2 ON u2.id = ei.user_id AND u2.status = 'active'
+                 WHERE ei.event_id = ? AND ei.status = 'accepted'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM event_rsvps er2
+                       WHERE er2.event_id = ei.event_id
+                         AND er2.user_id = ei.user_id
+                         AND er2.response = 'attending'
+                   )) AS accepted_without_rsvp,
+                (SELECT COUNT(DISTINCT ea.user_id)
+                 FROM event_attendance ea
+                 JOIN users u3 ON u3.id = ea.user_id AND u3.status = 'active'
+                 WHERE ea.event_id = ? AND ea.status IN ('checked_in','attended','left_early')) AS attendance_verified,
+                (SELECT COUNT(DISTINCT ea2.user_id)
+                 FROM event_attendance ea2
+                 JOIN users u4 ON u4.id = ea2.user_id AND u4.status = 'active'
+                 WHERE ea2.event_id = ? AND ea2.status IN ('attended','left_early')) AS completed_attendance"
         );
-        $stmt->execute([(int)$event['id']]);
+        $stmt->execute([(int)$event['id'], (int)$event['id'], (int)$event['id'], (int)$event['id']]);
         $counts = $stmt->fetch() ?: [];
-        $reachable = (int)($counts['reachable'] ?? 0);
-        $eligibleNow = in_array($trigger, ['attendance','completion'], true)
-            ? (int)($counts['attended'] ?? 0)
-            : $reachable;
-        $basis = in_array($trigger, ['attendance','completion'], true)
-            ? 'Verified attendees are eligible now; attending/accepted members are the reachable event audience.'
-            : 'Attending/accepted members for the selected event.';
+        $reachable = (int)($counts['attending_rsvps'] ?? 0) + (int)($counts['accepted_without_rsvp'] ?? 0);
+        $eligibleNow = match ($trigger) {
+            'attendance' => (int)($counts['attendance_verified'] ?? 0),
+            'completion' => (int)($counts['completed_attendance'] ?? 0),
+            default => $reachable,
+        };
+        $basis = match ($trigger) {
+            'attendance' => 'Verified checked-in/attended members are eligible now; attending/accepted members are the reachable event audience.',
+            'completion' => 'Completed attendance is eligible now; attending/accepted members are the reachable event audience.',
+            'return_visit', 'guest_return' => 'Return rewards unlock only after a qualifying verified later visit to the originating business location.',
+            'mystery_unlock' => 'Attending/accepted members are reachable; mystery reward distribution is an explicit event distribution action after the reveal condition is satisfied.',
+            default => 'Attending/accepted members for the selected event.',
+        };
     } elseif ($trigger === 'manual' && (string)$owner['type'] === 'group') {
         $stmt = $pdo->prepare(
             "SELECT COUNT(*) FROM group_memberships gm
@@ -409,9 +478,14 @@ function coveted_benefit_program_audience_preview(array $data): array
     }
 
     $quantity = coveted_benefit_program_optional_positive_int($data['quantity_limit'] ?? null, 'Pool quantity');
-    $valueAmount = ($data['value_amount'] ?? '') !== '' && is_numeric($data['value_amount'])
-        ? max(0.0, (float)$data['value_amount'])
-        : null;
+    $valueRaw = trim((string)($data['value_amount'] ?? ''));
+    $valueAmount = null;
+    if ($valueRaw !== '') {
+        if (!is_numeric($valueRaw) || (float)$valueRaw < 0) {
+            throw new InvalidArgumentException('Face value must be zero or greater.');
+        }
+        $valueAmount = round((float)$valueRaw, 2);
+    }
     $exposure = $quantity !== null && $valueAmount !== null ? round($quantity * $valueAmount, 2) : null;
 
     return [
