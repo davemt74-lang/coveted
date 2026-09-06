@@ -56,6 +56,12 @@ jobs:
       - name: Verify Admin Agent briefing contract
         run: php scripts/verify-admin-agent-briefing.php
 
+      - name: Verify Admin CRM intelligence contract
+        run: php scripts/verify-admin-crm-intelligence.php
+
+      - name: Verify CRM intelligence JavaScript syntax
+        run: node --check assets/js/invite-crm-v2.js
+
       - name: Verify member sample-data contract
         run: php scripts/verify-member-sample-data.php
 
