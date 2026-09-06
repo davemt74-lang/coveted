@@ -56,6 +56,9 @@ jobs:
       - name: Verify Attendee Event navigation JavaScript syntax
         run: node --check assets/js/attendee-event-nav-v1.js
 
+      - name: Verify Event Lifecycle Automation contract
+        run: php scripts/verify-event-lifecycle-automation.php
+
       - name: Verify Admin Event Workspace contract
         run: php scripts/verify-admin-event-workspace.php
 
