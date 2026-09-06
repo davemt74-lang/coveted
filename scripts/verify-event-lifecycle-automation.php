@@ -71,12 +71,14 @@ $contains($service, 'Member campaign limit has been reached.', 'per-member-limit
 $contains($service, 'reward_limit_skips', 'expected campaign-limit skips must not be counted as worker failures');
 $contains($service, 'ea.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)', 'attendance automation must not backfill stale historical attendance');
 $contains($service, "e.status = 'completed' AND e.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)", 'completion rewards must be limited to recently completed events');
-$contains($service, "e.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)", 'post-event notifications must avoid historical deployment backfill');
+$contains($service, "e.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)", 'event automation must avoid stale event rollout backfill');
 $contains($service, "ea.status IN ('checked_in','attended','left_early')", 'rewards require verified attendance states');
 $contains($service, "c.trigger_key IN ('attendance','completion')", 'exceptions must only report automated reward triggers');
 
 // Notification cadence must avoid immediate publish/reminder double sends.
-$contains($service, "recent.created_at >= DATE_SUB(NOW(), INTERVAL 6 HOUR)", 'fresh publication notifications must suppress immediate RSVP reminder duplication');
+$contains($service, "recent.created_at >= DATE_SUB(NOW(), INTERVAL 6 HOUR)", 'fresh publication notifications must suppress immediate reminder duplication');
+$contains($service, "recent.dedupe_key = CONCAT('event-published:', e.id, ':', er.user_id)", 'fresh publication notifications must suppress attendee milestone stacking');
+$contains($service, "recent.dedupe_key = CONCAT('event-published:', e.id, ':', ei.user_id)", 'fresh publication notifications must suppress RSVP reminder stacking');
 
 // The worker automates delivery, not event authority.
 $contains($events, 'function coveted_event_require_system_admin(array $actor): void', 'System Admin event authority contract is missing');
