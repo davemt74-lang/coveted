@@ -137,6 +137,7 @@ function coveted_benefit_performance_program_rows(PDO $pdo, int $days = COVETED_
     $stmt = $pdo->prepare(
         "SELECT DISTINCT
             cel.campaign_id,
+            e.id AS event_id,
             e.public_id,
             e.title,
             e.status,
@@ -402,7 +403,7 @@ function coveted_benefit_performance_portfolio_summary(PDO $pdo, int $days): arr
 
     $activity = $pdo->query(
         "SELECT
-            COUNT(DISTINCT c.id) AS programs_with_activity,
+            COUNT(DISTINCT CASE WHEN ri.id IS NOT NULL THEN c.id END) AS programs_with_activity,
             COUNT(DISTINCT ri.id) AS issued_count,
             COUNT(DISTINCT ri.user_id) AS unique_members,
             COUNT(DISTINCT CASE WHEN rc.id IS NOT NULL THEN ri.id END) AS claimed_count,
