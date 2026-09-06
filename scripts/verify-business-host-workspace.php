@@ -95,7 +95,7 @@ $contains($page, 'coveted_require_csrf();', 'workspace POST must require CSRF');
 $contains($page, "['record_attendance','report_issue']", 'workspace POST action allowlist is missing');
 $contains($page, 'coveted_business_host_record_attendance(', 'workspace must call the bounded attendance wrapper');
 $contains($page, 'coveted_business_host_report_issue(', 'workspace must call the bounded issue-report wrapper');
-$contains($page, "(string)$guest['response'] === 'attending'", 'attendance controls must be limited to attending guests');
+$contains($page, '(string)$guest[\'response\'] === \'attending\'', 'attendance controls must be limited to attending guests');
 $missing($page, 'INSERT INTO ', 'workspace page must not contain direct insert SQL');
 $missing($page, 'UPDATE events ', 'workspace page must not mutate events directly');
 
