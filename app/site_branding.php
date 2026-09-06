@@ -183,6 +183,12 @@ function coveted_site_logo_delete(array $admin): void
  */
 function coveted_site_branding_enrich_agent_snapshot(array $snapshot): array
 {
+    // A Full System Sample snapshot is already a complete, internally coherent
+    // synthetic world. Never append live CRM/business/value data to it.
+    if (!empty($snapshot['sample_mode'])) {
+        return $snapshot;
+    }
+
     $logo = coveted_site_logo_asset();
     $readiness = (array)($snapshot['readiness'] ?? []);
     $checks = array_values((array)($readiness['checks'] ?? []));
