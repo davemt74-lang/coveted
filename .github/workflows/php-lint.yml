@@ -53,6 +53,9 @@ jobs:
       - name: Verify Admin Agent contract
         run: php scripts/verify-admin-agent.php
 
+      - name: Verify Admin Agent briefing contract
+        run: php scripts/verify-admin-agent-briefing.php
+
       - name: Verify member sample-data contract
         run: php scripts/verify-member-sample-data.php
 

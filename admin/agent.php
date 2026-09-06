@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
+require_once dirname(__DIR__) . '/app/admin_agent_briefing.php';
 require_once dirname(__DIR__) . '/app/admin_agent_actions.php';
 require_once dirname(__DIR__) . '/app/admin_agent_threads.php';
 require_once dirname(__DIR__) . '/app/admin_agent_runs.php';
@@ -13,6 +14,7 @@ $pdo = coveted_db();
 $error = '';
 $brainError = '';
 $threadError = '';
+$briefingError = '';
 $crmCursor = 0;
 $auditCursor = 0;
 $currentThreadRef = '';
@@ -81,9 +83,32 @@ try {
     $brainError = 'The Agent could not read the full platform snapshot. Chat is still available, but proactive recommendations may be incomplete.';
 }
 
-$readiness = (array)($brain['readiness'] ?? []);
-$opportunities = array_slice((array)($brain['opportunities'] ?? []), 0, 7);
-$brainIssues = array_values((array)($brain['issues'] ?? []));
+try {
+    $briefing = coveted_admin_agent_briefing($admin, $brain, $pdo);
+} catch (Throwable $e) {
+    error_log('Admin Agent briefing unavailable: ' . $e->getMessage());
+    $briefing = [
+        'headline' => 'The proactive briefing is temporarily unavailable',
+        'summary' => 'The Agent can still use the current canonical platform snapshot in chat.',
+        'generated_at' => '',
+        'readiness' => (int)($brain['readiness']['percent'] ?? 0),
+        'priority_count' => 0,
+        'crm_ready' => 0,
+        'operations_attention' => 0,
+        'changes_24h' => 0,
+        'top_moves' => array_slice((array)($brain['opportunities'] ?? []), 0, 3),
+        'recent' => [],
+        'issues' => ['briefing'],
+    ];
+    $briefingError = 'The daily briefing could not read all of its inputs. The Agent will not invent missing activity.';
+}
+
+$brainIssues = array_values(array_unique([
+    ...(array)($brain['issues'] ?? []),
+    ...(array)($briefing['issues'] ?? []),
+]));
+$topMoves = (array)($briefing['top_moves'] ?? []);
+$recentBriefing = (array)($briefing['recent'] ?? []);
 
 coveted_page_start('Admin Agent', '', true);
 coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
@@ -104,6 +129,7 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
     <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
     <?php if ($brainError !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($brainError) ?></div><?php endif; ?>
     <?php if ($threadError !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($threadError) ?></div><?php endif; ?>
+    <?php if ($briefingError !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($briefingError) ?></div><?php endif; ?>
 
     <div class="cv-admin-agent-thread-toolbar">
         <div class="cv-admin-agent-thread-heading">
@@ -135,56 +161,72 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
                 before it <?= $autonomousActionsEnabled ? 'recommends or autonomously executes an allowlisted Admin action.' : 'recommends the next move.' ?>
             </p>
 
-            <div class="cv-stat-grid cv-stat-grid-compact" aria-label="Admin Agent readiness">
-                <div class="cv-card cv-stat">
-                    <strong><?= (int)($readiness['percent'] ?? 0) ?>%</strong>
-                    <span>Launch readiness</span>
-                </div>
-                <div class="cv-card cv-stat">
-                    <strong><?= count((array)($brain['opportunities'] ?? [])) ?></strong>
-                    <span>Current opportunities</span>
-                </div>
-                <div class="cv-card cv-stat">
-                    <strong><?= count((array)($brain['memory'] ?? [])) ?></strong>
-                    <span>Recent tracked changes</span>
-                </div>
-                <div class="cv-card cv-stat">
-                    <strong><?= $autonomousActionsEnabled ? 'ON' : 'OFF' ?></strong>
-                    <span>Autonomous actions</span>
-                </div>
-            </div>
+            <section class="cv-admin-agent-briefing" aria-labelledby="agent-briefing-title">
+                <header class="cv-admin-agent-briefing-head">
+                    <div>
+                        <span class="cv-eyebrow">DAILY BRIEFING</span>
+                        <h3 id="agent-briefing-title"><?= coveted_e((string)$briefing['headline']) ?></h3>
+                        <p><?= coveted_e((string)$briefing['summary']) ?></p>
+                    </div>
+                    <?php if (trim((string)($briefing['generated_at'] ?? '')) !== ''): ?>
+                        <small>Updated <?= coveted_e((string)$briefing['generated_at']) ?> · no AI call</small>
+                    <?php endif; ?>
+                </header>
 
-            <?php if ($opportunities): ?>
-                <section class="cv-admin-panel" aria-labelledby="agent-opportunities-title">
-                    <div class="cv-admin-panel-head">
-                        <div>
-                            <span class="cv-eyebrow">PROACTIVE OPPORTUNITIES</span>
-                            <h3 id="agent-opportunities-title">What needs attention or can create value next</h3>
-                        </div>
-                        <span class="cv-status"><?= (int)($readiness['ready'] ?? 0) ?>/<?= (int)($readiness['total'] ?? 0) ?> readiness checks</span>
-                    </div>
-                    <div class="cv-admin-list">
-                        <?php foreach ($opportunities as $opportunity): ?>
-                            <a class="cv-admin-list-row" href="<?= coveted_e((string)$opportunity['href']) ?>">
-                                <span class="cv-admin-list-copy">
-                                    <strong><?= coveted_e((string)$opportunity['title']) ?></strong>
-                                    <small><?= coveted_e((string)$opportunity['detail']) ?></small>
-                                    <?php if (trim((string)($opportunity['evidence'] ?? '')) !== ''): ?>
-                                        <small><?= coveted_e((string)$opportunity['evidence']) ?></small>
-                                    <?php endif; ?>
-                                </span>
-                                <span>P<?= (int)$opportunity['priority'] ?> · <?= coveted_e((string)$opportunity['category']) ?> →</span>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                </section>
-            <?php else: ?>
-                <section class="cv-admin-panel">
-                    <span class="cv-eyebrow">OPPORTUNITIES</span>
-                    <h3>No current setup or operational gap is being flagged.</h3>
-                    <p>The Agent can still review growth, partner, event and member-value opportunities from the live platform state.</p>
-                </section>
-            <?php endif; ?>
+                <div class="cv-admin-agent-briefing-stats" aria-label="Daily briefing signals">
+                    <div><strong><?= (int)($briefing['readiness'] ?? 0) ?>%</strong><span>Launch readiness</span></div>
+                    <div><strong><?= (int)($briefing['priority_count'] ?? 0) ?></strong><span>P1 priorities</span></div>
+                    <div><strong><?= (int)($briefing['crm_ready'] ?? 0) ?></strong><span>CRM ready</span></div>
+                    <div><strong><?= (int)($briefing['operations_attention'] ?? 0) ?></strong><span>Ops attention</span></div>
+                    <div><strong><?= (int)($briefing['changes_24h'] ?? 0) ?></strong><span>Changes / 24h</span></div>
+                </div>
+
+                <div class="cv-admin-agent-briefing-grid">
+                    <section aria-labelledby="briefing-moves-title">
+                        <span class="cv-eyebrow">PROACTIVE OPPORTUNITIES</span>
+                        <h4 id="briefing-moves-title">Next best moves</h4>
+                        <?php if ($topMoves): ?>
+                            <div class="cv-admin-agent-briefing-list">
+                                <?php foreach ($topMoves as $move): ?>
+                                    <a href="<?= coveted_e((string)($move['href'] ?? '/admin/agent.php')) ?>">
+                                        <span>
+                                            <strong><?= coveted_e((string)($move['title'] ?? 'Review opportunity')) ?></strong>
+                                            <small><?= coveted_e((string)($move['evidence'] ?? $move['detail'] ?? '')) ?></small>
+                                        </span>
+                                        <em>P<?= (int)($move['priority'] ?? 3) ?> · <?= coveted_e((string)($move['category'] ?? 'Admin')) ?></em>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <p class="cv-form-help">No current setup or operational gap is being flagged.</p>
+                        <?php endif; ?>
+                    </section>
+
+                    <section aria-labelledby="briefing-recent-title">
+                        <span class="cv-eyebrow">LAST 24 HOURS</span>
+                        <h4 id="briefing-recent-title">Meaningful changes</h4>
+                        <?php if ($recentBriefing): ?>
+                            <div class="cv-admin-agent-briefing-list">
+                                <?php foreach ($recentBriefing as $change): ?>
+                                    <div class="cv-admin-agent-briefing-change">
+                                        <span>
+                                            <strong><?= coveted_e((string)($change['label'] ?? 'Coveted activity')) ?></strong>
+                                            <small><?= coveted_e((string)($change['actor'] ?? 'System')) ?><?php if (trim((string)($change['entity'] ?? '')) !== ''): ?> · <?= coveted_e((string)$change['entity']) ?><?php endif; ?></small>
+                                        </span>
+                                        <em><?= coveted_e((string)($change['category'] ?? 'Platform')) ?><?php if (trim((string)($change['at'] ?? '')) !== ''): ?> · <?= coveted_e((string)$change['at']) ?><?php endif; ?></em>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <p class="cv-form-help">No meaningful audited change has been recorded in the last 24 hours.</p>
+                        <?php endif; ?>
+                    </section>
+                </div>
+
+                <?php if ($chatProviders): ?>
+                    <button type="button" class="cv-button cv-button-soft cv-admin-agent-briefing-discuss" data-agent-starter="Review the current Coveted daily briefing using the live server context. Explain the most important change, the highest-priority risk, and the best next action. Do not invent missing facts.">Discuss this briefing</button>
+                <?php endif; ?>
+            </section>
 
             <?php if ($brainIssues): ?>
                 <p class="cv-form-help">Partial data: <?= coveted_e(implode(', ', $brainIssues)) ?>. The Agent will not guess about unavailable sources.</p>
@@ -192,8 +234,8 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
 
             <?php if (!$chatProviders): ?>
                 <div class="cv-admin-agent-setup-callout">
-                    <strong>Connect a chat provider to reason over these opportunities.</strong>
-                    <span>The readiness and opportunity engine works without an LLM. Add OpenAI or Anthropic to discuss and prioritize the live state.</span>
+                    <strong>Connect a chat provider to reason over this briefing.</strong>
+                    <span>The briefing, readiness and opportunity engine work without an LLM. Add OpenAI or Anthropic only when you want to discuss or act on the live state.</span>
                     <a href="/admin/ai-settings.php">Open AI Settings →</a>
                 </div>
             <?php else: ?>
