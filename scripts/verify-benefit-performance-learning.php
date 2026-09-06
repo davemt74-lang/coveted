@@ -48,6 +48,7 @@ $missing($service, 'coveted_reward_issue(', 'performance intelligence must never
 // Return conversion must use exact source linkage from the canonical return engine.
 $contains($service, "JSON_UNQUOTE(JSON_EXTRACT(followup.metadata_json, '$.source_reward_issuance_id')) = source.public_id", 'return conversion must use exact source issuance linkage');
 $contains($service, "followup_campaign.trigger_key IN ('return_visit','guest_return')", 'return conversion must require canonical return triggers');
+$contains($service, 'followup.issued_at >= source.issued_at', 'return conversion must not predate its source issuance');
 $contains($service, 'Return conversions use the exact source_reward_issuance_id', 'exact attribution boundary must remain documented');
 
 // Learning cohorts must avoid judging brand-new issuances as failures.
@@ -56,9 +57,28 @@ $contains($service, "'matured_claim_rate'", 'matured claim rate is required');
 $contains($service, '$maturedIssued < 5', 'learning band must require a minimum matured sample');
 $contains($service, '$matured >= 10 && $maturedRate <= 15.0', 'weak-performance signal must require enough matured data');
 
+// Event attribution must follow the canonical linked event into its real group
+// and venue rather than assuming campaign owner == event source.
+$contains($service, 'JOIN social_groups eg ON eg.id = e.group_id', 'source event group attribution is required');
+$contains($service, 'LEFT JOIN event_locations eel ON eel.event_id = e.id', 'source event location link is required');
+$contains($service, 'LEFT JOIN businesses evb ON evb.id = evl.business_id', 'source event venue business attribution is required');
+$contains($service, "'event_group_ref'", 'performance rows must expose source event group ref');
+$contains($service, "'event_location_ref'", 'performance rows must expose source event location ref');
+$contains($service, "'event_business_ref'", 'performance rows must expose source event business ref');
+
+// Repeat attendance is stricter than general later participation: source event
+// attendance and later different-event attendance must both be verified.
+$contains($service, 'AS repeat_attendee_members', 'repeat attendance metric is required');
+$contains($service, "origin_ea.status IN ('checked_in','attended','left_early')", 'repeat attendance must require verified source-event attendance');
+$contains($service, "later_ea.status IN ('checked_in','attended','left_early')", 'repeat attendance must require verified later-event attendance');
+$contains($service, 'later_e.id <> ri.event_id', 'repeat attendance must use a different event');
+$contains($service, "'repeat_attendance_rate'", 'repeat attendance rate is required');
+$contains($service, 'coveted_benefit_performance_rate($repeatAttendees, $verifiedOriginAttendees)', 'program repeat rate denominator must be verified source-event attendees');
+$contains($service, 'coveted_benefit_performance_rate($repeatAttendees, $originAttendeeMembers)', 'portfolio repeat rate denominator must be verified source-event attendees');
+
 // Follow-on attendance/benefit use is bounded observational behavior, not causation.
 $contains($service, 'COVETED_BENEFIT_PERFORMANCE_FOLLOW_ON_DAYS = 90', 'follow-on observation window must stay bounded');
-$contains($service, "ea2.status IN ('checked_in','attended','left_early')", 'later attendance must require verified attendance');
+$contains($service, "ea2.status IN ('checked_in','attended','left_early')", 'general later attendance must require verified attendance');
 $contains($service, 'c2.metadata_json LIKE', 'later benefit query must scope through campaign metadata');
 $contains($service, 'benefit_program_builder', 'later benefit use must stay within Builder-owned Benefit Programs');
 $contains($service, 'not proof of causation', 'performance model must explicitly reject causal overclaiming');
@@ -69,6 +89,7 @@ $contains($service, "'kind' => 'successful_pool_review'", 'successful low-pool r
 $contains($service, "'kind' => 'underperforming_program_review'", 'underperforming program review signal is required');
 $contains($service, "'kind' => 'clone_candidate'", 'future-template signal is required');
 $contains($service, "'kind' => 'return_behavior_signal'", 'return behavior signal is required');
+$contains($service, "'kind' => 'repeat_attendance_signal'", 'repeat-attendance relationship signal is required');
 $contains($service, "'task_sync' => false", 'all performance insights must opt out of task sync');
 $contains($service, "'execution_ready' => false", 'all performance insights must remain non-executable');
 $contains($service, 'Never refill a pool, change economics, pause, archive or launch a program from performance context alone.', 'Agent performance policy must forbid autonomous economics/status changes');
@@ -82,10 +103,12 @@ $missing($service, 'display_name', 'member names must not enter performance cont
 $missing($service, 'u.email', 'member emails must not enter performance context');
 $missing($service, 'u.phone', 'member phone numbers must not enter performance context');
 
-// Admin dashboard is read-only and discoverable.
+// Admin dashboard is read-only, attribution-aware and discoverable.
 $contains($page, 'coveted_require_system_admin()', 'performance dashboard must require System Admin');
 $contains($page, 'Observed behavior, not invented causation.', 'dashboard must explain attribution limits');
 $contains($page, 'BENEFIT PERFORMANCE', 'performance dashboard heading is required');
+$contains($page, 'Repeat attendance', 'dashboard must distinguish repeat attendance');
+$contains($page, 'Source attribution:', 'dashboard must surface source group/venue attribution');
 $missing($page, '<form', 'performance dashboard must not expose mutations');
 $missing($page, 'INSERT INTO', 'performance dashboard must not bypass canonical services');
 $missing($page, 'UPDATE ', 'performance dashboard must not bypass canonical services');
@@ -98,6 +121,9 @@ $contains($branding, 'coveted_benefit_performance_agent_context()', 'Agent snaps
 $contains($branding, "\$operations['benefit_performance']", 'Agent operations context must include performance');
 $contains($branding, "'task_sync' => false", 'performance Agent opportunities must remain analysis-only');
 $contains($branding, "'execution_ready' => false", 'performance Agent opportunities must remain non-executable');
+$contains($service, "'event_group_ref' => (string)(\$program['event_group_ref'] ?? '')", 'Agent performance context must carry event group ref');
+$contains($service, "'event_business_ref' => (string)(\$program['event_business_ref'] ?? '')", 'Agent performance context must carry event business ref');
+$contains($service, "'repeat_attendee_members' => (int)\$program['repeat_attendee_members']", 'Agent performance context must carry repeat-attendance count');
 
 // Direct Agent starter is analysis-only and explicitly preserves approval rules.
 $contains($js, "label: 'Benefit performance'", 'Admin Agent must expose Benefit performance starter');
