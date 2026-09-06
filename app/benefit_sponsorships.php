@@ -85,6 +85,41 @@ function coveted_benefit_sponsorship_value_amount(mixed $value): ?float
     return $amount;
 }
 
+function coveted_benefit_sponsorship_lock_key(string $proposalRef): string
+{
+    $proposalRef = trim($proposalRef);
+    if ($proposalRef === '' || strlen($proposalRef) > 64) {
+        throw new InvalidArgumentException('Choose a valid sponsorship proposal.');
+    }
+    return 'coveted:sponsor:' . substr(hash('sha256', $proposalRef), 0, 40);
+}
+
+function coveted_benefit_sponsorship_acquire_lock(string $proposalRef, ?PDO $pdo = null): string
+{
+    $pdo ??= coveted_db();
+    $lockKey = coveted_benefit_sponsorship_lock_key($proposalRef);
+    $stmt = $pdo->prepare('SELECT GET_LOCK(?, 5)');
+    $stmt->execute([$lockKey]);
+    if ((int)$stmt->fetchColumn() !== 1) {
+        throw new RuntimeException('That sponsorship proposal is currently being reviewed.');
+    }
+    return $lockKey;
+}
+
+function coveted_benefit_sponsorship_release_lock(string $lockKey, ?PDO $pdo = null): void
+{
+    if ($lockKey === '') {
+        return;
+    }
+    $pdo ??= coveted_db();
+    try {
+        $stmt = $pdo->prepare('SELECT RELEASE_LOCK(?)');
+        $stmt->execute([$lockKey]);
+    } catch (Throwable $e) {
+        error_log('Benefit sponsorship lock release failed: ' . $e->getMessage());
+    }
+}
+
 /** @return array<string,mixed> */
 function coveted_benefit_sponsorship_resolve_scope(
     array $actor,
@@ -247,47 +282,56 @@ function coveted_benefit_sponsorship_create(array $actor, int $businessId, array
     $validated = coveted_benefit_sponsorship_validate_payload($scope, $data);
 
     $publicId = coveted_uuid('sponsor');
-    $pdo->prepare(
-        "INSERT INTO benefit_sponsorship_proposals
-            (public_id,business_id,group_id,event_id,location_id,created_by_user_id,
-             program_title,reward_title,description,reward_type,claim_mode,trigger_key,
-             quantity_limit,per_user_limit,value_amount,value_text,starts_at,ends_at,status)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'submitted')"
-    )->execute([
-        $publicId,
-        $businessId,
-        (int)$scope['group_id'],
-        $scope['event'] !== null ? (int)$scope['event']['id'] : null,
-        (int)$scope['location_id'],
-        (int)$actor['id'],
-        $validated['program_title'],
-        $validated['reward_title'],
-        $validated['description'] !== '' ? $validated['description'] : null,
-        $validated['reward_type'],
-        $validated['claim_mode'],
-        $validated['trigger_key'],
-        $validated['quantity_limit'],
-        $validated['per_user_limit'],
-        $validated['value_amount'],
-        $validated['value_text'] !== '' ? $validated['value_text'] : null,
-        $validated['starts_at'],
-        $validated['ends_at'],
-    ]);
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare(
+            "INSERT INTO benefit_sponsorship_proposals
+                (public_id,business_id,group_id,event_id,location_id,created_by_user_id,
+                 program_title,reward_title,description,reward_type,claim_mode,trigger_key,
+                 quantity_limit,per_user_limit,value_amount,value_text,starts_at,ends_at,status)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'submitted')"
+        )->execute([
+            $publicId,
+            $businessId,
+            (int)$scope['group_id'],
+            $scope['event'] !== null ? (int)$scope['event']['id'] : null,
+            (int)$scope['location_id'],
+            (int)$actor['id'],
+            $validated['program_title'],
+            $validated['reward_title'],
+            $validated['description'] !== '' ? $validated['description'] : null,
+            $validated['reward_type'],
+            $validated['claim_mode'],
+            $validated['trigger_key'],
+            $validated['quantity_limit'],
+            $validated['per_user_limit'],
+            $validated['value_amount'],
+            $validated['value_text'] !== '' ? $validated['value_text'] : null,
+            $validated['starts_at'],
+            $validated['ends_at'],
+        ]);
 
-    coveted_audit(
-        'benefit_sponsorship.submitted',
-        'benefit_sponsorship_proposal',
-        $publicId,
-        [
-            'business_ref' => (string)$scope['business']['public_id'],
-            'group_ref' => (string)$scope['group_ref'],
-            'event_ref' => $scope['event'] !== null ? (string)$scope['event']['public_id'] : null,
-            'location_ref' => (string)$scope['location_ref'],
-            'trigger_key' => (string)$validated['trigger_key'],
-            'quantity_limit' => (int)$validated['quantity_limit'],
-        ],
-        (int)$actor['id']
-    );
+        coveted_audit(
+            'benefit_sponsorship.submitted',
+            'benefit_sponsorship_proposal',
+            $publicId,
+            [
+                'business_ref' => (string)$scope['business']['public_id'],
+                'group_ref' => (string)$scope['group_ref'],
+                'event_ref' => $scope['event'] !== null ? (string)$scope['event']['public_id'] : null,
+                'location_ref' => (string)$scope['location_ref'],
+                'trigger_key' => (string)$validated['trigger_key'],
+                'quantity_limit' => (int)$validated['quantity_limit'],
+            ],
+            (int)$actor['id']
+        );
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 
     try {
         coveted_benefit_sponsorship_notify_admins($publicId);
@@ -334,27 +378,37 @@ function coveted_benefit_sponsorship_by_ref(string $proposalRef, ?PDO $pdo = nul
 function coveted_benefit_sponsorship_cancel(array $actor, int $businessId, string $proposalRef): void
 {
     coveted_business_require_mutable($actor, $businessId);
-    $proposal = coveted_benefit_sponsorship_by_ref($proposalRef);
-    if (!$proposal || (int)$proposal['business_id'] !== $businessId) {
-        throw new InvalidArgumentException('Sponsorship proposal not found for this business.');
-    }
-    if ((string)$proposal['status'] !== 'submitted') {
-        throw new InvalidArgumentException('Only a submitted sponsorship proposal can be cancelled.');
-    }
+    $pdo = coveted_db();
+    $lockKey = coveted_benefit_sponsorship_acquire_lock($proposalRef, $pdo);
+    try {
+        $proposal = coveted_benefit_sponsorship_by_ref($proposalRef, $pdo);
+        if (!$proposal || (int)$proposal['business_id'] !== $businessId) {
+            throw new InvalidArgumentException('Sponsorship proposal not found for this business.');
+        }
+        if ((string)$proposal['status'] !== 'submitted') {
+            throw new InvalidArgumentException('Only a submitted sponsorship proposal can be cancelled.');
+        }
 
-    coveted_db()->prepare(
-        "UPDATE benefit_sponsorship_proposals
-         SET status='cancelled', reviewed_at=UTC_TIMESTAMP(), updated_at=UTC_TIMESTAMP()
-         WHERE id=? AND status='submitted'"
-    )->execute([(int)$proposal['id']]);
+        $stmt = $pdo->prepare(
+            "UPDATE benefit_sponsorship_proposals
+             SET status='cancelled', reviewed_at=UTC_TIMESTAMP(), updated_at=UTC_TIMESTAMP()
+             WHERE id=? AND status='submitted'"
+        );
+        $stmt->execute([(int)$proposal['id']]);
+        if ($stmt->rowCount() !== 1) {
+            throw new RuntimeException('Sponsorship proposal changed before it could be cancelled.');
+        }
 
-    coveted_audit(
-        'benefit_sponsorship.cancelled',
-        'benefit_sponsorship_proposal',
-        (string)$proposal['public_id'],
-        ['business_ref' => (string)$proposal['business_ref']],
-        (int)$actor['id']
-    );
+        coveted_audit(
+            'benefit_sponsorship.cancelled',
+            'benefit_sponsorship_proposal',
+            (string)$proposal['public_id'],
+            ['business_ref' => (string)$proposal['business_ref']],
+            (int)$actor['id']
+        );
+    } finally {
+        coveted_benefit_sponsorship_release_lock($lockKey, $pdo);
+    }
 }
 
 function coveted_benefit_sponsorship_decline(array $admin, string $proposalRef, string $note = ''): void
@@ -362,36 +416,47 @@ function coveted_benefit_sponsorship_decline(array $admin, string $proposalRef, 
     if (!coveted_is_system_admin($admin)) {
         throw new InvalidArgumentException('System Admin access is required to decline sponsorship proposals.');
     }
-    $proposal = coveted_benefit_sponsorship_by_ref($proposalRef);
-    if (!$proposal) {
-        throw new InvalidArgumentException('Sponsorship proposal not found.');
-    }
-    if ((string)$proposal['status'] !== 'submitted') {
-        throw new InvalidArgumentException('Only submitted sponsorship proposals can be declined.');
-    }
     $note = trim($note);
     if (mb_strlen($note) > 1000) {
         throw new InvalidArgumentException('Review note must be 1,000 characters or fewer.');
     }
 
-    $stmt = coveted_db()->prepare(
-        "UPDATE benefit_sponsorship_proposals
-         SET status='declined', review_note=?, reviewed_by_user_id=?, reviewed_at=UTC_TIMESTAMP(), updated_at=UTC_TIMESTAMP()
-         WHERE id=? AND status='submitted'"
-    );
-    $stmt->execute([$note !== '' ? $note : null, (int)$admin['id'], (int)$proposal['id']]);
-    if ($stmt->rowCount() !== 1) {
-        throw new RuntimeException('Sponsorship proposal changed before it could be declined.');
+    $pdo = coveted_db();
+    $lockKey = coveted_benefit_sponsorship_acquire_lock($proposalRef, $pdo);
+    $proposal = null;
+    try {
+        $proposal = coveted_benefit_sponsorship_by_ref($proposalRef, $pdo);
+        if (!$proposal) {
+            throw new InvalidArgumentException('Sponsorship proposal not found.');
+        }
+        if ((string)$proposal['status'] !== 'submitted') {
+            throw new InvalidArgumentException('Only submitted sponsorship proposals can be declined.');
+        }
+
+        $stmt = $pdo->prepare(
+            "UPDATE benefit_sponsorship_proposals
+             SET status='declined', review_note=?, reviewed_by_user_id=?, reviewed_at=UTC_TIMESTAMP(), updated_at=UTC_TIMESTAMP()
+             WHERE id=? AND status='submitted'"
+        );
+        $stmt->execute([$note !== '' ? $note : null, (int)$admin['id'], (int)$proposal['id']]);
+        if ($stmt->rowCount() !== 1) {
+            throw new RuntimeException('Sponsorship proposal changed before it could be declined.');
+        }
+
+        coveted_audit(
+            'benefit_sponsorship.declined',
+            'benefit_sponsorship_proposal',
+            (string)$proposal['public_id'],
+            ['business_ref' => (string)$proposal['business_ref']],
+            (int)$admin['id']
+        );
+    } finally {
+        coveted_benefit_sponsorship_release_lock($lockKey, $pdo);
     }
 
-    coveted_audit(
-        'benefit_sponsorship.declined',
-        'benefit_sponsorship_proposal',
-        (string)$proposal['public_id'],
-        ['business_ref' => (string)$proposal['business_ref']],
-        (int)$admin['id']
-    );
-    coveted_benefit_sponsorship_notify_submitter($proposal, 'declined', null, $note);
+    if ($proposal !== null) {
+        coveted_benefit_sponsorship_notify_submitter($proposal, 'declined', null, $note);
+    }
 }
 
 function coveted_benefit_sponsorship_notify_admins(string $proposalRef): void
