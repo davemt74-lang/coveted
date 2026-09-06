@@ -311,13 +311,15 @@ function coveted_admin_agent_live_business_weekly_changes(PDO $pdo): array
     return $result;
 }
 
-/** @return array<string,mixed> */
-function coveted_admin_agent_live_business_snapshot(array $admin, ?PDO $pdo = null): array
+/**
+ * Internal read-only analytics snapshot. This is intentionally not an HTTP
+ * endpoint and is attached only from the already System-Admin-gated Agent
+ * page/chat enrichment path. It does not accept model-authored SQL or filters.
+ *
+ * @return array<string,mixed>
+ */
+function coveted_admin_agent_live_business_snapshot(?PDO $pdo = null): array
 {
-    if (!coveted_is_system_admin($admin)) {
-        throw new InvalidArgumentException('System Admin access is required.');
-    }
-
     $pdo ??= coveted_db();
     $issues = [];
     return [
