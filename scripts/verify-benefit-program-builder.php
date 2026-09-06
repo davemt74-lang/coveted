@@ -46,9 +46,9 @@ $contains($service, 'coveted_campaign_link_event($actor', 'event links must use 
 $contains($service, 'coveted_reward_set_status($actor', 'status changes must use canonical reward status service');
 $contains($service, 'coveted_campaign_set_status($actor', 'status changes must use canonical campaign status service');
 $contains($service, "['active','paused','archived']", 'program status surface must be bounded');
-$contains($service, 'benefit_program_builder', 'program identity marker is required');
-$contains($service, 'c.metadata_json LIKE', 'status lookup must filter on program metadata');
-$contains($service, 'benefit_program_builder\\\":true', 'status lookup must only resolve builder-owned programs');
+$contains($service, 'function coveted_benefit_program_by_ref', 'builder-owned program resolver is required');
+$contains($service, 'c.metadata_json LIKE', 'program resolver must filter through metadata');
+$contains($service, 'benefit_program_builder', 'program resolver must require the builder identity marker');
 $contains($service, 'reward_template_id = ? AND id <> ? AND status <>', 'program status must reject shared active reward templates');
 $contains($service, '$previousCampaignStatus', 'program status rollback must preserve previous campaign state');
 $contains($service, '$previousRewardStatus', 'program status rollback must preserve previous reward state');
