@@ -4,15 +4,42 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
 require_once dirname(__DIR__) . '/app/admin_agent_actions.php';
+require_once dirname(__DIR__) . '/app/admin_agent_threads.php';
+require_once dirname(__DIR__) . '/app/admin_agent_runs.php';
 require_once dirname(__DIR__) . '/app/site_branding.php';
 
 $admin = coveted_require_system_admin();
 $pdo = coveted_db();
 $error = '';
 $brainError = '';
+$threadError = '';
 $crmCursor = 0;
 $auditCursor = 0;
+$currentThreadRef = '';
+$currentThreadTitle = 'New Chat';
+$threadStorageReady = false;
 $autonomousActionsEnabled = coveted_admin_agent_autonomous_actions_enabled($pdo);
+
+try {
+    coveted_admin_agent_runs_ensure_schema($pdo);
+    $threadStorageReady = true;
+
+    if (!isset($_GET['new'])) {
+        $requestedThread = trim((string)($_GET['thread'] ?? ''));
+        if ($requestedThread !== '') {
+            $thread = coveted_admin_agent_thread_by_ref($admin, $requestedThread, $pdo);
+            if (!$thread || $thread['status'] !== 'active') {
+                $threadError = 'That Admin Agent chat is unavailable or archived.';
+            } else {
+                $currentThreadRef = (string)$thread['public_id'];
+                $currentThreadTitle = (string)$thread['title'];
+            }
+        }
+    }
+} catch (Throwable $e) {
+    error_log('Admin Agent thread storage unavailable: ' . $e->getMessage());
+    $threadError = 'Persistent Admin Agent chat storage is unavailable. Import the current database migration or verify database DDL permissions.';
+}
 
 try {
     $providers = coveted_ai_provider_statuses($pdo);
@@ -33,16 +60,12 @@ $counts = coveted_admin_ui_counts($pdo);
 try {
     $crmCursor = (int)($pdo->query('SELECT COALESCE(MAX(id), 0) FROM invite_requests')->fetchColumn() ?: 0);
 } catch (Throwable $e) {
-    // The Invite CRM migration is optional on older installs. Live activity
-    // polling stays disabled until that canonical table is available.
     $crmCursor = 0;
 }
 
 try {
     $auditCursor = (int)($pdo->query('SELECT COALESCE(MAX(id), 0) FROM audit_events')->fetchColumn() ?: 0);
 } catch (Throwable $e) {
-    // Audit history is canonical on current installs but this remains fail-soft
-    // so the Agent workspace still loads if an older/incomplete DB is deployed.
     $auditCursor = 0;
 }
 
@@ -68,8 +91,11 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
 <div class="cv-admin-agent-page"
      data-admin-agent
      data-endpoint="/api/admin-agent-chat.php"
+     data-threads-endpoint="/api/admin-agent-threads.php"
      data-activity-endpoint="/api/admin-agent-activity.php"
      data-operations-activity-endpoint="/api/admin-agent-operations-activity.php"
+     data-current-thread="<?= coveted_e($currentThreadRef) ?>"
+     data-thread-storage-ready="<?= $threadStorageReady ? '1' : '0' ?>"
      data-crm-cursor="<?= $crmCursor ?>"
      data-audit-cursor="<?= $auditCursor ?>"
      data-autonomous-actions="<?= $autonomousActionsEnabled ? '1' : '0' ?>"
@@ -77,6 +103,28 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
      data-start-new="<?= isset($_GET['new']) ? '1' : '0' ?>">
     <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
     <?php if ($brainError !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($brainError) ?></div><?php endif; ?>
+    <?php if ($threadError !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($threadError) ?></div><?php endif; ?>
+
+    <div class="cv-admin-agent-thread-toolbar">
+        <div class="cv-admin-agent-thread-heading">
+            <span class="cv-eyebrow">CHAT</span>
+            <strong data-agent-thread-title><?= coveted_e($currentThreadTitle) ?></strong>
+        </div>
+        <div class="cv-admin-agent-thread-actions">
+            <button type="button" class="cv-button cv-button-soft" data-agent-history-toggle>Search Chats</button>
+            <button type="button" class="cv-button cv-button-soft" data-agent-rename-thread <?= $currentThreadRef === '' ? 'hidden' : '' ?>>Rename</button>
+            <button type="button" class="cv-button cv-button-soft" data-agent-archive-thread <?= $currentThreadRef === '' ? 'hidden' : '' ?>>Archive</button>
+            <a class="cv-button cv-button-primary" href="/admin/agent.php?new=1">New Chat</a>
+        </div>
+    </div>
+
+    <section class="cv-admin-agent-history" data-agent-history-panel hidden aria-label="Search Admin Agent chats">
+        <div class="cv-admin-agent-history-search">
+            <input type="search" maxlength="120" placeholder="Search chat titles and messages…" aria-label="Search Admin Agent chats" data-agent-thread-search>
+            <button type="button" class="cv-button cv-button-soft" data-agent-history-close>Close</button>
+        </div>
+        <div class="cv-admin-agent-history-results" data-agent-thread-results></div>
+    </section>
 
     <section class="cv-admin-agent-canvas" aria-label="Admin Agent conversation" aria-live="polite" data-agent-canvas>
         <div class="cv-admin-agent-empty" data-agent-empty>
@@ -164,7 +212,7 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
     <div class="cv-admin-agent-composer-shell">
         <form class="cv-admin-agent-composer" data-agent-form>
             <div class="cv-admin-agent-provider">
-                <select name="provider" aria-label="AI provider" data-agent-provider <?= !$chatProviders ? 'disabled' : '' ?>>
+                <select name="provider" aria-label="AI provider" data-agent-provider <?= !$chatProviders || !$threadStorageReady ? 'disabled' : '' ?>>
                     <?php if (!$chatProviders): ?>
                         <option>No provider</option>
                     <?php endif; ?>
@@ -176,12 +224,12 @@ coveted_admin_ui_start($admin, 'agent', 'Admin Agent', $counts);
                 </select>
             </div>
             <div class="cv-admin-agent-input-wrap">
-                <textarea name="message" rows="1" maxlength="12000" placeholder="Message Coveted Admin Agent…" aria-label="Message Coveted Admin Agent" data-agent-input <?= !$chatProviders ? 'disabled' : '' ?>></textarea>
-                <button type="submit" class="cv-admin-agent-send" aria-label="Send message" <?= !$chatProviders ? 'disabled' : '' ?>>↑</button>
+                <textarea name="message" rows="1" maxlength="12000" placeholder="Message Coveted Admin Agent…" aria-label="Message Coveted Admin Agent" data-agent-input <?= !$chatProviders || !$threadStorageReady ? 'disabled' : '' ?>></textarea>
+                <button type="submit" class="cv-admin-agent-send" aria-label="Send message" <?= !$chatProviders || !$threadStorageReady ? 'disabled' : '' ?>>↑</button>
             </div>
             <div class="cv-admin-agent-composer-meta">
-                <span data-agent-status><?= $chatProviders ? ($autonomousActionsEnabled ? 'Ready · Autonomous actions ON' : 'Ready · Read/advise mode') : 'Provider required' ?></span>
-                <span><a href="/admin/ai-settings.php">Autonomous actions <?= $autonomousActionsEnabled ? 'ON' : 'OFF' ?></a> · System Admin only · canonical services</span>
+                <span data-agent-status><?= !$threadStorageReady ? 'Chat storage required' : ($chatProviders ? ($autonomousActionsEnabled ? 'Ready · Autonomous actions ON' : 'Ready · Read/advise mode') : 'Provider required') ?></span>
+                <span>Persistent server history · <a href="/admin/ai-settings.php">Autonomous actions <?= $autonomousActionsEnabled ? 'ON' : 'OFF' ?></a></span>
             </div>
         </form>
     </div>
