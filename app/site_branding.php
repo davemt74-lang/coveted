@@ -438,6 +438,42 @@ function coveted_site_branding_enrich_agent_snapshot(array $snapshot): array
     }
 
     try {
+        require_once __DIR__ . '/loyalty.php';
+        $loyalty = coveted_loyalty_agent_context();
+        $operations = (array)($snapshot['operations'] ?? []);
+        $operations['loyalty'] = $loyalty;
+        $snapshot['operations'] = $operations;
+        $snapshot['loyalty'] = $loyalty;
+
+        if (empty($loyalty['unavailable'])) {
+            foreach ((array)($loyalty['insights'] ?? []) as $insight) {
+                if (!is_array($insight)) continue;
+                $key = trim((string)($insight['key'] ?? ''));
+                $title = trim((string)($insight['title'] ?? ''));
+                if ($key === '' || $title === '') continue;
+                $opportunities[] = [
+                    'priority' => max(1, min(3, (int)($insight['priority'] ?? 2))),
+                    'key' => $key,
+                    'category' => 'Membership',
+                    'title' => $title,
+                    'detail' => (string)($insight['detail'] ?? ''),
+                    'href' => '/admin/loyalty.php',
+                    'evidence' => (string)($insight['evidence'] ?? ''),
+                    'kind' => 'loyalty_intelligence',
+                    'execution_ready' => false,
+                    'task_sync' => false,
+                    'suggested_draft' => null,
+                ];
+            }
+        }
+    } catch (Throwable $e) {
+        $issues = array_values((array)($snapshot['issues'] ?? []));
+        $issues[] = 'loyalty';
+        $snapshot['issues'] = array_values(array_unique($issues));
+        error_log('Admin Agent Group Loyalty intelligence unavailable: ' . $e->getMessage());
+    }
+
+    try {
         require_once __DIR__ . '/benefit_performance.php';
         $benefitPerformance = coveted_benefit_performance_agent_context();
         $operations = (array)($snapshot['operations'] ?? []);
