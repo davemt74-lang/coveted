@@ -88,6 +88,7 @@ function coveted_event_automation_published_invites(int $limit): array
          JOIN users u ON u.id = ei.user_id AND u.status = 'active'
          WHERE e.status = 'published'
            AND e.starts_at > NOW()
+           AND e.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)
            AND ei.status IN ('pending','accepted')
            AND NOT EXISTS (
                SELECT 1 FROM notifications n
@@ -153,6 +154,12 @@ function coveted_event_automation_attendee_reminders(int $limit): array
                      IF(e.starts_at <= DATE_ADD(NOW(), INTERVAL 3 HOUR), '3h', '24h'),
                      ':', e.id, ':', er.user_id
                  )
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM notifications recent
+               WHERE recent.user_id = er.user_id
+                 AND recent.dedupe_key = CONCAT('event-published:', e.id, ':', er.user_id)
+                 AND recent.created_at >= DATE_SUB(NOW(), INTERVAL 6 HOUR)
            )
          ORDER BY e.starts_at ASC, er.event_id ASC, er.user_id ASC
          LIMIT {$limit}"
