@@ -2,129 +2,135 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
-$samplePath = $root . '/app/member_sample_data.php';
-$homePath = $root . '/app/member_home_v2.php';
-$pagesPath = $root . '/app/member_pages_v2.php';
-$peoplePath = $root . '/app/member_people_v2.php';
-$invitationsPath = $root . '/invitations.php';
-$eventsPath = $root . '/events.php';
-$groupsPath = $root . '/groups.php';
-$benefitsPath = $root . '/benefits.php';
-$walletPath = $root . '/wallet.php';
-$reconnectPath = $root . '/reconnect.php';
-$profilePath = $root . '/profile.php';
-$adminPath = $root . '/admin/sample-data.php';
+$required = [
+    'system' => 'app/system_sample_data.php',
+    'member' => 'app/member_sample_data.php',
+    'home' => 'app/member_home_v2.php',
+    'pages' => 'app/member_pages_v2.php',
+    'people' => 'app/member_people_v2.php',
+    'invitations' => 'invitations.php',
+    'events' => 'events.php',
+    'groups' => 'groups.php',
+    'benefits' => 'benefits.php',
+    'wallet' => 'wallet.php',
+    'reconnect' => 'reconnect.php',
+    'profile' => 'profile.php',
+    'admin' => 'admin/sample-data.php',
+    'api' => 'api/admin-system-sample.php',
+    'settings' => 'app/site_settings.php',
+];
 
-foreach ([$samplePath, $homePath, $pagesPath, $peoplePath, $invitationsPath, $eventsPath, $groupsPath, $benefitsPath, $walletPath, $reconnectPath, $profilePath, $adminPath] as $path) {
+$files = [];
+foreach ($required as $key => $relative) {
+    $path = $root . '/' . $relative;
     if (!is_file($path)) {
-        fwrite(STDERR, "Missing required member sample-data file: {$path}\n");
+        fwrite(STDERR, "Missing required sample-data file: {$relative}\n");
         exit(1);
     }
+    $files[$key] = (string)file_get_contents($path);
 }
 
-$sample = (string)file_get_contents($samplePath);
-$home = (string)file_get_contents($homePath);
-$pages = (string)file_get_contents($pagesPath);
-$people = (string)file_get_contents($peoplePath);
-$invitations = (string)file_get_contents($invitationsPath);
-$events = (string)file_get_contents($eventsPath);
-$groups = (string)file_get_contents($groupsPath);
-$benefits = (string)file_get_contents($benefitsPath);
-$wallet = (string)file_get_contents($walletPath);
-$reconnect = (string)file_get_contents($reconnectPath);
-$profile = (string)file_get_contents($profilePath);
-$admin = (string)file_get_contents($adminPath);
+$assertContains = static function (string $content, array $needles, string $label): void {
+    foreach ($needles as $needle) {
+        if (!str_contains($content, $needle)) {
+            fwrite(STDERR, "{$label} missing: {$needle}\n");
+            exit(1);
+        }
+    }
+};
+$assertNoMutationSql = static function (string $content, string $label): void {
+    foreach (['INSERT INTO','UPDATE ','DELETE FROM','REPLACE INTO','CREATE TABLE','ALTER TABLE'] as $needle) {
+        if (stripos($content, $needle) !== false) {
+            fwrite(STDERR, "{$label} must remain read-only: {$needle}\n");
+            exit(1);
+        }
+    }
+};
 
-$requiredSampleFragments = [
-    'function coveted_member_sample_mode',
-    'coveted_is_system_admin($user)',
-    'COVETED_SETTING_MEMBER_SAMPLE_DATA',
+$assertContains($files['system'], [
+    'function coveted_system_sample_mode',
+    'function coveted_system_sample_data',
+    'function coveted_system_sample_inventory',
+    'function coveted_system_sample_admin_counts',
+    'function coveted_system_sample_agent_snapshot',
+    'Coveted Full System Demo',
     'Saturday Night Supper Club',
     'Sunset Dinner',
     'Vinyl & Cocktails',
     'The Inner Circle',
     'City Table Club',
     'Late Night Listening',
-    'Dinner on us',
-    'Member welcome',
-    'First Friday Supper',
-    'Listening Room Night',
-    "'profile' => \$profile",
-    'Phoenix, Arizona',
-];
+    'Ember Hospitality',
+    'Harbor House Group',
+    'Velvet Note',
+    'Desert Bloom Wellness',
+    'Sienna Cole',
+    'partner_relationships',
+    'partner_contacts',
+    'partner_notes',
+    'partner_interactions',
+    'partner_followups',
+    'partner_perks',
+    'daily_events',
+    'benefit_programs',
+    'sponsorships',
+    'loyalty',
+    'claims',
+    'distribution',
+    'artist_media',
+    'artist_appearances',
+    'notifications',
+    'agent_tasks',
+], 'Full system sample-data contract');
+$assertNoMutationSql($files['system'], 'Full system sample pack');
 
-foreach ($requiredSampleFragments as $fragment) {
-    if (!str_contains($sample, $fragment)) {
-        fwrite(STDERR, "Member sample-data contract missing: {$fragment}\n");
-        exit(1);
-    }
-}
+$assertContains($files['member'], [
+    'function coveted_member_sample_mode',
+    'coveted_system_sample_mode($user, $pdo)',
+    'COVETED_SETTING_MEMBER_SAMPLE_DATA',
+    "coveted_system_sample_data()['member']",
+], 'Member sample projection contract');
 
-foreach (['INSERT INTO', 'UPDATE ', 'DELETE FROM', 'REPLACE INTO'] as $mutation) {
-    if (stripos($sample, $mutation) !== false) {
-        fwrite(STDERR, "Synthetic member sample data must remain read-only/in-memory: {$mutation}\n");
-        exit(1);
-    }
-}
+$assertContains($files['home'], ['coveted_member_sample_mode($user, $pdo)'], 'Home sample adapter');
+$assertContains($files['pages'], ['coveted_member_v2_invitations','coveted_member_v2_events','coveted_member_sample_mode($user, $pdo)'], 'Member page adapters');
+$assertContains($files['people'], ['coveted_member_v2_profile_data','coveted_member_v2_reconnect_events','coveted_member_v2_reconnect_attendees','coveted_member_v2_reconnect_matches'], 'Member people adapters');
+$assertContains($files['invitations'], ['Sample invitations are preview-only'], 'Invitation sample guard');
+$assertContains($files['events'], ['coveted_member_v2_events($user, $pdo)'], 'Event sample adapter');
+$assertContains($files['groups'], ['Sample groups are preview-only','coveted_member_sample_mode($user, $pdo)'], 'Group sample guard');
+$assertContains($files['benefits'], ["require __DIR__ . '/wallet.php';"], 'Benefits sample route');
+$assertContains($files['wallet'], ['Sample benefits are preview-only','coveted_member_sample_mode($user, $pdo)'], 'Wallet sample guard');
+$assertContains($files['reconnect'], ['Sample reconnect choices are preview-only','coveted_member_v2_reconnect_attendees'], 'Reconnect sample guard');
+$assertContains($files['profile'], ['The sample profile is preview-only','coveted_member_v2_profile_data','interests_json = VALUES(interests_json)'], 'Profile sample guard');
 
-if (!str_contains($home, 'coveted_member_sample_mode($user, $pdo)')) {
-    fwrite(STDERR, "Home v2 must route sample preview through the guarded sample-mode helper.\n");
-    exit(1);
-}
+$assertContains($files['admin'], [
+    'coveted_require_system_admin()',
+    'set_system_sample_data',
+    'COVETED_SETTING_SYSTEM_SAMPLE_DATA',
+    'coveted_system_sample_inventory',
+    'Full Coveted demo network',
+    'Read-only by design',
+    'Autonomous Agent execution is disabled',
+], 'Full-system Sample Data Admin contract');
 
-foreach (['coveted_member_v2_invitations', 'coveted_member_v2_events', 'coveted_member_sample_mode($user, $pdo)'] as $fragment) {
-    if (!str_contains($pages, $fragment)) {
-        fwrite(STDERR, "Member page adapter contract missing: {$fragment}\n");
-        exit(1);
-    }
-}
+$assertContains($files['api'], [
+    'coveted_require_system_admin()',
+    'GET required.',
+    'coveted_system_sample_data()',
+    'coveted_system_sample_inventory($sample)',
+    "'read_only' => true",
+    "'sample' => true",
+    "'partner_relationships'",
+    "'benefit_programs'",
+    "'artist_media'",
+    "'agent'",
+], 'System sample read API contract');
+$assertNoMutationSql($files['api'], 'System sample read API');
 
-foreach (['coveted_member_v2_profile_data', 'coveted_member_v2_reconnect_events', 'coveted_member_v2_reconnect_attendees', 'coveted_member_v2_reconnect_matches'] as $fragment) {
-    if (!str_contains($people, $fragment)) {
-        fwrite(STDERR, "Member people adapter contract missing: {$fragment}\n");
-        exit(1);
-    }
-}
-
-if (!str_contains($invitations, 'Sample invitations are preview-only')) {
-    fwrite(STDERR, "Invitations sample mode must block synthetic RSVP mutations.\n");
-    exit(1);
-}
-if (!str_contains($events, 'coveted_member_v2_events($user, $pdo)')) {
-    fwrite(STDERR, "Events page must use the guarded Member v2 event adapter.\n");
-    exit(1);
-}
-if (!str_contains($groups, 'Sample groups are preview-only') || !str_contains($groups, 'coveted_member_sample_mode($user, $pdo)')) {
-    fwrite(STDERR, "Groups sample mode must stay guarded and mutation-free.\n");
-    exit(1);
-}
-if (!str_contains($benefits, "require __DIR__ . '/wallet.php';")
-    || !str_contains($wallet, 'Sample benefits are preview-only')
-    || !str_contains($wallet, 'coveted_member_sample_mode($user, $pdo)')) {
-    fwrite(STDERR, "Benefits sample mode must stay guarded and mutation-free through the wallet route.\n");
-    exit(1);
-}
-if (!str_contains($reconnect, 'Sample reconnect choices are preview-only') || !str_contains($reconnect, 'coveted_member_v2_reconnect_attendees')) {
-    fwrite(STDERR, "Reconnect sample mode must stay guarded and mutation-free.\n");
-    exit(1);
-}
-if (!str_contains($profile, 'The sample profile is preview-only') || !str_contains($profile, 'coveted_member_v2_profile_data')) {
-    fwrite(STDERR, "Profile sample mode must stay guarded and use the Member v2 adapter.\n");
-    exit(1);
-}
-if (!str_contains($profile, 'interests_json = VALUES(interests_json)')) {
-    fwrite(STDERR, "Profile must persist interests and gathering-style context through the canonical profiles JSON column.\n");
-    exit(1);
-}
-
-if (!str_contains($admin, 'coveted_require_system_admin()')) {
-    fwrite(STDERR, "Sample Data control must remain System Admin-only.\n");
-    exit(1);
-}
-if (!str_contains($admin, 'coveted_site_setting_set_bool(COVETED_SETTING_MEMBER_SAMPLE_DATA')) {
-    fwrite(STDERR, "Sample Data control must use the canonical site setting.\n");
-    exit(1);
-}
+$assertContains($files['settings'], [
+    "const COVETED_SETTING_SYSTEM_SAMPLE_DATA = 'system_sample_data_enabled';",
+    '$key === COVETED_SETTING_ADMIN_AGENT_AUTONOMOUS_ACTIONS',
+    'COVETED_SETTING_SYSTEM_SAMPLE_DATA',
+], 'System sample setting / Agent safety contract');
 
 $previewAssets = [
     'assets/images/sample/events/saturday-night-supper-club-hero.webp',
@@ -142,19 +148,17 @@ $previewAssets = [
     'assets/images/sample/people/sienna-cole.webp',
     'assets/images/sample/people/noah-bennett.webp',
 ];
-
 foreach ($previewAssets as $relative) {
     $path = $root . '/' . $relative;
     if (!is_file($path) || filesize($path) < 100) {
-        fwrite(STDERR, "Missing member preview image: {$relative}\n");
+        fwrite(STDERR, "Missing sample preview image: {$relative}\n");
         exit(1);
     }
-
     $header = (string)file_get_contents($path, false, null, 0, 12);
-    if (strlen($header) < 12 || substr($header, 0, 4) !== 'RIFF' || substr($header, 8, 4) !== 'WEBP') {
-        fwrite(STDERR, "Invalid WebP member preview image: {$relative}\n");
+    if (strlen($header) < 12 || substr($header,0,4) !== 'RIFF' || substr($header,8,4) !== 'WEBP') {
+        fwrite(STDERR, "Invalid WebP sample preview image: {$relative}\n");
         exit(1);
     }
 }
 
-echo "Member sample-data contract OK\n";
+echo "Full system + member sample-data contract OK\n";

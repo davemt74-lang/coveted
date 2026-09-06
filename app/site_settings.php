@@ -6,6 +6,7 @@ require_once __DIR__ . '/bootstrap.php';
 const COVETED_SETTING_LANDING_EVENTS = 'landing_upcoming_events_enabled';
 const COVETED_SETTING_LANDING_SAMPLE_EVENTS = 'landing_sample_events_enabled';
 const COVETED_SETTING_MEMBER_SAMPLE_DATA = 'member_sample_data_enabled';
+const COVETED_SETTING_SYSTEM_SAMPLE_DATA = 'system_sample_data_enabled';
 const COVETED_SETTING_LANDING_CITY_STRIP = 'landing_city_strip_enabled';
 const COVETED_SETTING_LANDING_NETWORK_STATS = 'landing_network_stats_enabled';
 const COVETED_SETTING_ADMIN_AGENT_AUTONOMOUS_ACTIONS = 'admin_agent_autonomous_actions_enabled';
@@ -70,8 +71,20 @@ function coveted_site_setting_get(string $key, ?string $default = null, ?PDO $pd
 
 function coveted_site_setting_bool(string $key, bool $default = false, ?PDO $pdo = null): bool
 {
-    $raw = coveted_site_setting_get($key, $default ? '1' : '0', $pdo);
+    $pdo ??= coveted_db();
+    $key = coveted_site_setting_key($key);
 
+    // Full-system sample mode is strictly observational. Even if the stored
+    // autonomy preference is on, the Agent cannot execute mutations while the
+    // System Admin is reasoning over synthetic sample references.
+    if ($key === COVETED_SETTING_ADMIN_AGENT_AUTONOMOUS_ACTIONS) {
+        $sampleRaw = coveted_site_setting_get(COVETED_SETTING_SYSTEM_SAMPLE_DATA, '0', $pdo);
+        if (in_array(strtolower(trim((string)$sampleRaw)), ['1','true','yes','on'], true)) {
+            return false;
+        }
+    }
+
+    $raw = coveted_site_setting_get($key, $default ? '1' : '0', $pdo);
     return in_array(strtolower(trim((string)$raw)), ['1', 'true', 'yes', 'on'], true);
 }
 
