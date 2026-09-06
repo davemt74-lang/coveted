@@ -34,6 +34,8 @@ $worker = $read('scripts/reconcile-lifecycle.php');
 $loyalty = $read('app/loyalty.php');
 $events = $read('app/events.php');
 $workflow = $read('.github/workflows/php-lint.yml');
+$appLoader = $read('assets/js/coveted.js');
+$dailyNav = $read('assets/js/daily-events-nav-v1.js');
 
 // Durable Daily Event relationship. The event remains canonical; this table
 // adds partner location, threshold reward, Admin-defined Loyalty value and unlock state.
@@ -132,6 +134,14 @@ $contains($worker, "!empty(\$daily['more_work_possible'])", 'Daily Event reward 
 $contains($worker, "!empty(\$dailyLoyalty['more'])", 'Daily Event point backlog must affect worker exit');
 $contains($worker, "(int)\$daily['failures'] > 0", 'Daily Event reward failures must affect worker exit');
 $contains($worker, "(int)\$dailyLoyalty['failures'] > 0", 'Daily Event point failures must affect worker exit');
+
+// Daily Events must be discoverable on the same client-side navigation layer
+// already used for member/Admin shell refinements.
+$contains($appLoader, '/assets/js/daily-events-nav-v1.js', 'global application loader must load Daily Events navigation');
+$contains($dailyNav, 'href = \'/daily.php\'', 'member navigation must expose Daily Events');
+$contains($dailyNav, '/admin/daily-events.php', 'Admin Community navigation must expose Daily Events');
+$contains($dailyNav, '/business-daily-events.php?business=', 'Business workspace must expose its scoped Daily Events dashboard');
+$contains($dailyNav, 'encodeURIComponent(businessRef)', 'Business Daily Events link must safely encode the resource ref');
 
 // Partner reporting stays aggregate and member balances remain private.
 $contains($partner, 'Partner reporting is aggregate', 'Business Partner privacy boundary must be explicit');
