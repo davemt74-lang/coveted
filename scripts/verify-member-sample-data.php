@@ -15,9 +15,10 @@ $walletPath = $root . '/wallet.php';
 $reconnectPath = $root . '/reconnect.php';
 $profilePath = $root . '/profile.php';
 $adminPath = $root . '/admin/sample-data.php';
+$apiPath = $root . '/api/admin-system-sample.php';
 $settingsPath = $root . '/app/site_settings.php';
 
-foreach ([$systemPath,$memberPath,$homePath,$pagesPath,$peoplePath,$invitationsPath,$eventsPath,$groupsPath,$benefitsPath,$walletPath,$reconnectPath,$profilePath,$adminPath,$settingsPath] as $path) {
+foreach ([$systemPath,$memberPath,$homePath,$pagesPath,$peoplePath,$invitationsPath,$eventsPath,$groupsPath,$benefitsPath,$walletPath,$reconnectPath,$profilePath,$adminPath,$apiPath,$settingsPath] as $path) {
     if (!is_file($path)) {
         fwrite(STDERR, "Missing required sample-data file: {$path}\n");
         exit(1);
@@ -37,6 +38,7 @@ $wallet = (string)file_get_contents($walletPath);
 $reconnect = (string)file_get_contents($reconnectPath);
 $profile = (string)file_get_contents($profilePath);
 $admin = (string)file_get_contents($adminPath);
+$api = (string)file_get_contents($apiPath);
 $settings = (string)file_get_contents($settingsPath);
 
 foreach ([
@@ -154,6 +156,31 @@ foreach ([
 ] as $fragment) {
     if (!str_contains($admin, $fragment)) {
         fwrite(STDERR, "Full-system Sample Data Admin contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+
+foreach ([
+    'coveted_require_system_admin()',
+    "($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET'",
+    'coveted_system_sample_data()',
+    'coveted_system_sample_inventory($sample)',
+    "'read_only' => true",
+    "'sample' => true",
+    "'section' => $section",
+    "'partner_relationships'",
+    "'benefit_programs'",
+    "'artist_media'",
+    "'agent'",
+] as $fragment) {
+    if (!str_contains($api, $fragment)) {
+        fwrite(STDERR, "System sample read API contract missing: {$fragment}\n");
+        exit(1);
+    }
+}
+foreach (['INSERT INTO','UPDATE ','DELETE FROM','REPLACE INTO'] as $mutation) {
+    if (stripos($api, $mutation) !== false) {
+        fwrite(STDERR, "System sample read API must not mutate application data: {$mutation}\n");
         exit(1);
     }
 }
