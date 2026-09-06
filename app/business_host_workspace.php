@@ -346,10 +346,10 @@ function coveted_business_host_expected_count(array $event): int
 
 function coveted_business_host_attendance_rate(array $event): ?int
 {
-    $expected = coveted_business_host_expected_count($event);
-    if ($expected < 1) {
+    $trackableMembers = max(0, (int)($event['attending_count'] ?? 0));
+    if ($trackableMembers < 1) {
         return null;
     }
 
-    return (int)round(min(100, max(0, ((int)($event['attendance_count'] ?? 0) / $expected) * 100)));
+    return (int)round(min(100, max(0, ((int)($event['attendance_count'] ?? 0) / $trackableMembers) * 100)));
 }
