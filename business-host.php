@@ -27,57 +27,84 @@ if (!coveted_business_host_has_access($user)) {
 $businesses = coveted_business_host_businesses($user);
 $requestedBusinessRef = trim((string)($_GET['business'] ?? $_POST['business_ref'] ?? ''));
 $requestedEventRef = trim((string)($_GET['event'] ?? $_POST['event_ref'] ?? ''));
+$isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 $error = '';
 $optionalWarning = '';
-$notice = trim((string)($_GET['saved'] ?? '')) === 'attendance' ? 'Attendance updated.' : '';
+$saved = trim((string)($_GET['saved'] ?? ''));
+$notice = match ($saved) {
+    'attendance' => 'Attendance updated.',
+    'issue' => 'Issue sent to Coveted Admin.',
+    default => '',
+};
 $business = null;
 
 try {
     $business = coveted_business_host_resolve_business($user, $requestedBusinessRef);
 } catch (InvalidArgumentException $e) {
     $error = $e->getMessage();
-    $business = $businesses[0] ?? null;
+    if (!$isPost) {
+        $business = $businesses[0] ?? null;
+    }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($isPost) {
     coveted_require_csrf();
 
     try {
         if (!$business) {
-            throw new InvalidArgumentException('Choose a business first.');
+            throw new InvalidArgumentException('Choose a valid business first.');
         }
 
         $action = trim((string)($_POST['action'] ?? ''));
-        if ($action !== 'record_attendance') {
+        if (!in_array($action, ['record_attendance','report_issue'], true)) {
             throw new InvalidArgumentException('Unsupported Business Host action.');
         }
 
         $eventRef = trim((string)($_POST['event_ref'] ?? ''));
-        $userId = (int)($_POST['user_id'] ?? 0);
-        $attendanceStatus = trim((string)($_POST['attendance_status'] ?? ''));
-        if ($eventRef === '' || $userId < 1) {
-            throw new InvalidArgumentException('Choose a valid guest and event.');
+        if ($eventRef === '') {
+            throw new InvalidArgumentException('Choose a valid event.');
         }
 
-        coveted_business_host_record_attendance(
+        if ($action === 'record_attendance') {
+            $userId = (int)($_POST['user_id'] ?? 0);
+            $attendanceStatus = trim((string)($_POST['attendance_status'] ?? ''));
+            if ($userId < 1) {
+                throw new InvalidArgumentException('Choose a valid guest.');
+            }
+
+            coveted_business_host_record_attendance(
+                $user,
+                (int)$business['id'],
+                $eventRef,
+                $userId,
+                $attendanceStatus
+            );
+
+            coveted_redirect(
+                '/business-host.php?business=' . rawurlencode((string)$business['public_id'])
+                . '&event=' . rawurlencode($eventRef)
+                . '&saved=attendance#event-day'
+            );
+        }
+
+        coveted_business_host_report_issue(
             $user,
             (int)$business['id'],
             $eventRef,
-            $userId,
-            $attendanceStatus
+            (string)($_POST['issue_category'] ?? ''),
+            (string)($_POST['issue_message'] ?? '')
         );
-
         coveted_redirect(
             '/business-host.php?business=' . rawurlencode((string)$business['public_id'])
             . '&event=' . rawurlencode($eventRef)
-            . '&saved=attendance#event-day'
+            . '&saved=issue#admin-coordination'
         );
     } catch (InvalidArgumentException $e) {
         $error = $e->getMessage();
         $requestedEventRef = trim((string)($_POST['event_ref'] ?? $requestedEventRef));
     } catch (Throwable $e) {
         error_log('Coveted Business Host Workspace error: ' . $e->getMessage());
-        $error = 'Unable to update attendance right now.';
+        $error = 'Unable to complete that venue action right now.';
         $requestedEventRef = trim((string)($_POST['event_ref'] ?? $requestedEventRef));
     }
 }
@@ -204,7 +231,7 @@ coveted_page_start('Business Host', 'Events');
 
     <section class="cv-business-host-stats" aria-label="Venue overview">
         <div class="cv-business-host-stat"><span>Upcoming events</span><strong><?= count($upcomingEvents) ?></strong></div>
-        <div class="cv-business-host-stat"><span>Expected next event</span><strong><?= $selectedEvent ? $expectedCount : 0 ?></strong></div>
+        <div class="cv-business-host-stat"><span>Expected selected event</span><strong><?= $selectedEvent ? $expectedCount : 0 ?></strong></div>
         <div class="cv-business-host-stat"><span>Checked in / attended</span><strong><?= $selectedEvent ? (int)$selectedEvent['attendance_count'] : 0 ?></strong></div>
         <div class="cv-business-host-stat"><span>Event rewards</span><strong><?= count($campaigns) ?></strong></div>
     </section>
@@ -438,12 +465,43 @@ coveted_page_start('Business Host', 'Events');
                         <div class="cv-business-host-panel-head">
                             <div>
                                 <span class="cv-eyebrow">GUEST ISSUES &amp; ADMIN COORDINATION</span>
-                                <h2>Escalate configuration changes to Coveted Admin</h2>
-                                <p>Venue hosts do not change event timing, location assignment, audience, capacity, lineup, reward setup or member eligibility from this workspace. Use the existing Coveted channels when an operational issue needs Admin attention.</p>
+                                <h2>Flag an operational issue without changing event setup</h2>
+                                <p>Send guest, venue, timing, reward, artist or safety issues to active Coveted System Admins. Venue hosts still cannot change event timing, location assignment, audience, capacity, lineup, reward setup or member eligibility here.</p>
+                            </div>
+                        </div>
+                        <div class="cv-business-host-grid">
+                            <form class="cv-business-host-issue-form" method="post" action="/business-host.php">
+                                <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+                                <input type="hidden" name="action" value="report_issue">
+                                <input type="hidden" name="business_ref" value="<?= coveted_e($businessRef) ?>">
+                                <input type="hidden" name="event_ref" value="<?= coveted_e($eventRef) ?>">
+                                <label for="business-host-issue-category">Issue type</label>
+                                <select id="business-host-issue-category" name="issue_category" required>
+                                    <option value="guest">Guest issue</option>
+                                    <option value="venue">Venue / operations</option>
+                                    <option value="timing">Timing / schedule</option>
+                                    <option value="reward">Reward / perk</option>
+                                    <option value="artist">Artist / entertainment</option>
+                                    <option value="safety">Safety / urgent</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                <label for="business-host-issue-message">What does Admin need to know?</label>
+                                <textarea id="business-host-issue-message" name="issue_message" maxlength="1500" rows="5" required></textarea>
+                                <button class="cv-button cv-button-primary" type="submit">Send to Coveted Admin</button>
+                            </form>
+                            <div class="cv-business-host-list">
+                                <div class="cv-business-host-item">
+                                    <strong>What happens next</strong>
+                                    <p>The report is written through Coveted’s canonical notification service to active System Admins. Safety reports are sent at high priority.</p>
+                                </div>
+                                <div class="cv-business-host-item">
+                                    <strong>Configuration stays protected</strong>
+                                    <p>Reporting an issue does not modify the event, RSVP eligibility, rewards, artist lineup or venue assignment.</p>
+                                </div>
                             </div>
                         </div>
                         <div class="cv-business-host-actions">
-                            <a class="cv-button cv-button-primary" href="/notifications.php">Open Notifications</a>
+                            <a class="cv-button cv-button-soft" href="/notifications.php">Open Notifications</a>
                             <a class="cv-button cv-button-soft" href="/business.php?business=<?= coveted_e(rawurlencode($businessRef)) ?>">Business Profile</a>
                             <?php if (coveted_is_system_admin($user)): ?>
                                 <a class="cv-button cv-button-soft" href="/admin/event.php?event=<?= coveted_e(rawurlencode($eventRef)) ?>">Open Event Admin</a>
