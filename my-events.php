@@ -117,6 +117,9 @@ coveted_page_start('My Events', 'Events');
         <div class="cv-attendee-events-hero-actions">
             <a class="cv-button cv-button-soft" href="/invitations.php">Invitations<?= count($waitingInvitations) > 0 ? ' · ' . count($waitingInvitations) : '' ?></a>
             <a class="cv-button cv-button-soft" href="/notifications.php">Updates<?= (int)$workspace['unread_notifications'] > 0 ? ' · ' . (int)$workspace['unread_notifications'] : '' ?></a>
+            <?php if (!empty($workspace['has_host_workspace_access'])): ?>
+                <a class="cv-button cv-button-soft" href="/events.php?view=hosting">Hosting<?= (int)$workspace['host_assignment_count'] > 0 ? ' · ' . (int)$workspace['host_assignment_count'] : '' ?></a>
+            <?php endif; ?>
         </div>
     </section>
 
