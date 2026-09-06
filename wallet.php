@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     coveted_require_csrf();
     try {
         if ($sampleMode) {
-            throw new InvalidArgumentException('Sample benefits are preview-only. Turn Sample Data off to claim live benefits.');
+            throw new InvalidArgumentException('Sample benefits are preview-only. Turn Sample Data off to redeem live benefits.');
         }
         if ((string)($_POST['action'] ?? '') !== 'claim') {
             throw new InvalidArgumentException('Unsupported wallet action.');
@@ -82,10 +82,18 @@ if (!isset($sources[$source])) {
 $mediaByTemplate = [];
 $eligibleLocations = [];
 $summary = [
-    'ready' => 0, 'redeemed' => 0, 'expired' => 0, 'upcoming' => 0,
-    'expiring_soon' => 0, 'return_ready' => 0, 'media_ready' => 0,
-    'group_ready' => 0, 'business_ready' => 0, 'artist_ready' => 0,
-    'event_ready' => 0, 'claimable' => 0,
+    'ready' => 0,
+    'redeemed' => 0,
+    'expired' => 0,
+    'upcoming' => 0,
+    'expiring_soon' => 0,
+    'return_ready' => 0,
+    'media_ready' => 0,
+    'group_ready' => 0,
+    'business_ready' => 0,
+    'artist_ready' => 0,
+    'event_ready' => 0,
+    'claimable' => 0,
 ];
 
 if ($sampleMode) {
@@ -111,10 +119,14 @@ if ($sampleMode) {
             'trigger_key' => 'manual',
             'expires_at' => null,
             'issued_at' => gmdate('Y-m-d H:i:s'),
+            'claim_status' => null,
             'is_sample' => true,
         ];
         if ((string)($benefit['state'] ?? 'inbox') === 'claimed') {
-            $redeemed[] = $row + ['claim_recorded_at' => gmdate('Y-m-d H:i:s', time() - 864000)];
+            $redeemed[] = $row + [
+                'claim_status' => 'claimed',
+                'claim_recorded_at' => gmdate('Y-m-d H:i:s', time() - 864000),
+            ];
         } else {
             $ready[] = $row;
         }
@@ -142,25 +154,28 @@ $rewards = match ($box) {
 };
 
 $activeTypes = $filters[$type]['types'];
-$rewards = array_values(array_filter($rewards, static function (array $reward) use ($activeTypes, $source, $box): bool {
-    if ($activeTypes && !in_array((string)($reward['reward_type'] ?? ''), $activeTypes, true)) {
-        return false;
+$rewards = array_values(array_filter(
+    $rewards,
+    static function (array $reward) use ($activeTypes, $source, $box): bool {
+        if ($activeTypes && !in_array((string)($reward['reward_type'] ?? ''), $activeTypes, true)) {
+            return false;
+        }
+        if ($source === 'all') {
+            return true;
+        }
+        if ($box === 'upcoming') {
+            return $source === 'group';
+        }
+        return match ($source) {
+            'group' => (string)($reward['owner_type'] ?? '') === 'group',
+            'event' => !empty($reward['event_id']),
+            'business' => (string)($reward['owner_type'] ?? '') === 'business',
+            'artist' => (string)($reward['owner_type'] ?? '') === 'artist',
+            'return' => in_array((string)($reward['trigger_key'] ?? ''), ['return_visit', 'guest_return'], true),
+            default => true,
+        };
     }
-    if ($source === 'all') {
-        return true;
-    }
-    if ($box === 'upcoming') {
-        return $source === 'group';
-    }
-    return match ($source) {
-        'group' => (string)($reward['owner_type'] ?? '') === 'group',
-        'event' => !empty($reward['event_id']),
-        'business' => (string)($reward['owner_type'] ?? '') === 'business',
-        'artist' => (string)($reward['owner_type'] ?? '') === 'artist',
-        'return' => in_array((string)($reward['trigger_key'] ?? ''), ['return_visit', 'guest_return'], true),
-        default => true,
-    };
-}));
+));
 
 $timezone = coveted_timezone();
 $formatDate = static function (?string $value) use ($timezone): string {
@@ -216,7 +231,7 @@ coveted_page_start('Perk Wallet', 'Benefits');
 
     <nav class="cv-benefit-filter-v2" aria-label="Benefit type filters">
         <?php foreach ($filters as $key => $filter): ?>
-            <a class="<?= $type === $key ? 'is-active' : '' ?>" href="/benefits.php?box=<?= coveted_e($box) ?>&amp;type=<?= coveted_e($key) ?>&amp;source=<?= coveted_e($source) ?>"><?= coveted_e($filter['label']) ?></a>
+            <a class="<?= $type === $key ? 'is-active' : '' ?>" href="/benefits.php?box=<?= coveted_e($box) ?>&amp;type=<?= coveted_e($key) ?>&amp;source=<?= coveted_e($source) ?>"><?= coveted_e((string)$filter['label']) ?></a>
         <?php endforeach; ?>
     </nav>
 
@@ -247,9 +262,18 @@ coveted_page_start('Perk Wallet', 'Benefits');
                 $templateId = (int)($reward['reward_template_id'] ?? 0);
                 $media = $mediaByTemplate[$templateId] ?? [];
                 $rewardLocations = $eligibleLocations[(string)($reward['public_id'] ?? '')] ?? [];
+                $claimStatus = (string)($reward['claim_status'] ?? '');
                 $sourceLabel = $box === 'upcoming'
                     ? 'Group · ' . (string)($reward['group_name'] ?? 'Membership')
                     : coveted_member_wallet_source_label($reward);
+                $statusLabel = match ($box) {
+                    'upcoming' => 'Coming soon',
+                    'redeemed' => $claimStatus === 'refunded' ? 'Refunded' : 'Redeemed',
+                    'expired' => 'Expired',
+                    default => in_array((string)($reward['trigger_key'] ?? ''), ['return_visit', 'guest_return'], true)
+                        ? 'Return perk'
+                        : 'Ready',
+                };
                 ?>
                 <article class="cv-benefit-card-v2">
                     <div class="cv-benefit-card-media <?= $cover === '' ? 'is-empty' : '' ?>">
@@ -258,12 +282,7 @@ coveted_page_start('Perk Wallet', 'Benefits');
                     <div class="cv-benefit-card-copy-v2">
                         <div class="cv-benefit-card-topline">
                             <span class="cv-member-overline"><?= coveted_e(strtoupper(str_replace('_', ' ', (string)($reward['reward_type'] ?? 'perk')))) ?></span>
-                            <span class="cv-member-status-chip"><?= coveted_e(match ($box) {
-                                'upcoming' => 'Coming soon',
-                                'redeemed' => 'Redeemed',
-                                'expired' => 'Expired',
-                                default => in_array((string)($reward['trigger_key'] ?? ''), ['return_visit','guest_return'], true) ? 'Return perk' : 'Ready',
-                            }) ?></span>
+                            <span class="cv-member-status-chip"><?= coveted_e($statusLabel) ?></span>
                         </div>
                         <h3><?= coveted_e((string)$reward['title']) ?></h3>
                         <?php if (!empty($reward['description'])): ?><p><?= coveted_e(mb_strimwidth((string)$reward['description'], 0, 240, '…')) ?></p><?php endif; ?>
@@ -273,38 +292,53 @@ coveted_page_start('Perk Wallet', 'Benefits');
                             <?php if ($box === 'upcoming' && !empty($reward['available_at'])): ?><span>Opens <?= coveted_e($formatDate((string)$reward['available_at'])) ?></span><?php endif; ?>
                             <?php if ($box === 'ready' && !empty($reward['expires_at'])): ?><span>Expires <?= coveted_e($formatDate((string)$reward['expires_at'])) ?></span><?php endif; ?>
                             <?php if ($box === 'redeemed' && !empty($reward['claim_recorded_at'])): ?><span>Used <?= coveted_e($formatDate((string)$reward['claim_recorded_at'])) ?></span><?php endif; ?>
+                            <?php if ($box === 'redeemed' && $claimStatus === 'refunded' && !empty($reward['claim_refunded_at'])): ?><span>Refunded <?= coveted_e($formatDate((string)$reward['claim_refunded_at'])) ?></span><?php endif; ?>
                         </div>
 
-                        <?php if ($media): ?>
-                            <div class="cv-benefit-media-list">
+                        <?php if ($box === 'redeemed' && $claimStatus === 'refunded'): ?>
+                            <div class="cv-benefit-receipt-v2 is-refunded">
+                                <strong>Refunded<?= !empty($reward['location_name']) ? ' · ' . coveted_e((string)$reward['location_name']) : '' ?></strong>
+                                <?php if (!empty($reward['claim_refund_reason'])): ?><span><?= coveted_e((string)$reward['claim_refund_reason']) ?></span><?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if ($media && ($box === 'ready' || ($box === 'redeemed' && $claimStatus === 'claimed'))): ?>
+                            <div class="cv-media-list">
                                 <?php foreach ($media as $item): ?>
-                                    <?php $mediaUrl = coveted_safe_url($item['media_url'] ?? null, false); if ($mediaUrl === null) continue; ?>
+                                    <?php
+                                    $mediaUrl = coveted_safe_url($item['media_url'] ?? null, false);
+                                    if ($mediaUrl === null) {
+                                        continue;
+                                    }
+                                    $mediaTitle = (string)($item['title'] ?: $reward['title']);
+                                    ?>
                                     <?php if ((string)$item['media_type'] === 'audio'): ?>
-                                        <audio controls preload="none" src="<?= coveted_e($mediaUrl) ?>"></audio>
-                                    <?php elseif ((string)$item['media_type'] === 'video'): ?>
-                                        <video controls preload="metadata" src="<?= coveted_e($mediaUrl) ?>"></video>
-                                    <?php else: ?>
-                                        <a class="cv-text-link" href="<?= coveted_e($mediaUrl) ?>" target="_blank" rel="noopener">Open <?= coveted_e((string)($item['title'] ?: 'reward media')) ?> →</a>
+                                        <button type="button" class="cv-media-action" data-play-audio data-src="<?= coveted_e($mediaUrl) ?>" data-title="<?= coveted_e($mediaTitle) ?>" data-artist="<?= coveted_e((string)($reward['artist_name'] ?? 'Coveted')) ?>" data-artwork="<?= coveted_e($cover) ?>">▶ <?= coveted_e($mediaTitle) ?></button>
+                                    <?php elseif ((string)$item['media_type'] === 'video' && !empty($reward['public_id'])): ?>
+                                        <form method="post" action="/media.php">
+                                            <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+                                            <input type="hidden" name="action" value="open">
+                                            <input type="hidden" name="issuance" value="<?= coveted_e((string)$reward['public_id']) ?>">
+                                            <input type="hidden" name="media" value="<?= (int)$item['sort_order'] ?>">
+                                            <button class="cv-media-action" type="submit">Watch · <?= coveted_e($mediaTitle) ?></button>
+                                        </form>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
                             </div>
                         <?php endif; ?>
 
                         <?php if ($box === 'ready' && $rewardLocations && !$sampleMode): ?>
-                            <details class="cv-benefit-claim-panel">
-                                <summary>Redeem at partner</summary>
-                                <form method="post" action="/benefits.php">
+                            <details class="cv-form-details cv-benefit-claim-v2">
+                                <summary>Redeem at partner location</summary>
+                                <form method="post" action="/benefits.php" autocomplete="off">
                                     <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
                                     <input type="hidden" name="action" value="claim">
                                     <input type="hidden" name="box" value="ready">
                                     <input type="hidden" name="issuance_id" value="<?= coveted_e((string)$reward['public_id']) ?>">
-                                    <label>Location
-                                        <select name="location_id" required>
-                                            <?php foreach ($rewardLocations as $location): ?><option value="<?= (int)$location['id'] ?>"><?= coveted_e((string)$location['name']) ?></option><?php endforeach; ?>
-                                        </select>
-                                    </label>
-                                    <label>Partner claim code<input type="text" name="claim_code" inputmode="numeric" autocomplete="one-time-code" required></label>
-                                    <button class="cv-button cv-button-primary" type="submit">Redeem Benefit</button>
+                                    <label><span>Location</span><select name="location_id" required><?php foreach ($rewardLocations as $location): ?><option value="<?= (int)$location['id'] ?>"><?= coveted_e((string)$location['name']) ?></option><?php endforeach; ?></select></label>
+                                    <label><span>Partner claim code</span><input type="password" name="claim_code" minlength="5" maxlength="10" pattern="[A-Za-z0-9]{5,10}" autocomplete="off" required></label>
+                                    <p class="cv-form-help">Show this benefit to the partner. They enter their location or employee claim code on your device.</p>
+                                    <button class="cv-button cv-button-primary" type="submit">Verify &amp; redeem</button>
                                 </form>
                             </details>
                         <?php elseif ($sampleMode && $box === 'ready'): ?>
