@@ -101,12 +101,23 @@ try {
         );
     }
 
+    $dailyLoyalty = coveted_daily_event_loyalty_reconcile($limit);
+    fwrite(
+        STDOUT,
+        sprintf(
+            "Coveted Daily Event loyalty: %d point adjustments, %d failures.\n",
+            (int)$dailyLoyalty['adjustments'],
+            (int)$dailyLoyalty['failures']
+        )
+    );
+
     if (
         !empty($summary['more_work_possible'])
         || !empty($events['more_work_possible'])
         || !empty($daily['more_work_possible'])
         || !empty($membership['more_work_possible'])
         || !empty($loyalty['more_work_possible'])
+        || !empty($dailyLoyalty['more'])
     ) {
         fwrite(STDERR, "Coveted lifecycle backlog remains after the configured worker limit.\n");
         exit(2);
@@ -116,6 +127,7 @@ try {
         || (int)$daily['failures'] > 0
         || (int)$membership['failures'] > 0
         || (int)$loyalty['failures'] > 0
+        || (int)$dailyLoyalty['failures'] > 0
     ) {
         fwrite(STDERR, "Coveted automation completed with one or more bounded item failures; review Admin operations and server logs.\n");
         exit(3);
