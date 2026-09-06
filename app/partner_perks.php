@@ -33,8 +33,7 @@ function coveted_partner_perks_schema_available(?PDO $pdo = null): bool
 {
     $pdo ??= coveted_db();
     try {
-        $stmt = $pdo->query("SHOW TABLES LIKE 'partner_perks'");
-        return (bool)$stmt->fetchColumn();
+        return (bool)$pdo->query("SHOW TABLES LIKE 'partner_perks'")->fetchColumn();
     } catch (Throwable) {
         return false;
     }
@@ -61,27 +60,26 @@ function coveted_partner_perk_unlock(PDO $pdo): void
 function coveted_partner_perk_by_ref(string $ref, ?PDO $pdo = null): ?array
 {
     $ref = trim($ref);
-    if ($ref === '' || strlen($ref) > 64 || !coveted_partner_perks_schema_available($pdo)) {
-        return null;
-    }
-
+    if ($ref === '' || strlen($ref) > 64) return null;
     $pdo ??= coveted_db();
+    if (!coveted_partner_perks_schema_available($pdo)) return null;
+
     $stmt = $pdo->prepare(
         "SELECT pp.*,
-                b.public_id AS business_public_id, b.name AS business_name, b.status AS business_status,
-                g.public_id AS group_public_id, g.name AS group_name, g.status AS group_status,
-                l.public_id AS location_public_id, l.name AS location_name, l.status AS location_status,
-                c.public_id AS campaign_public_id, c.title AS campaign_title, c.status AS campaign_status,
-                c.trigger_key, c.location_id AS campaign_location_id, c.quantity_limit, c.per_user_limit,
-                rt.public_id AS reward_public_id, rt.title AS reward_title, rt.reward_type,
-                rt.claim_mode, rt.status AS reward_status
+                b.public_id AS business_public_id,b.name AS business_name,b.status AS business_status,
+                g.public_id AS group_public_id,g.name AS group_name,g.status AS group_status,
+                l.public_id AS location_public_id,l.name AS location_name,l.status AS location_status,
+                c.public_id AS campaign_public_id,c.title AS campaign_title,c.status AS campaign_status,
+                c.trigger_key,c.location_id AS campaign_location_id,c.quantity_limit,c.per_user_limit,
+                rt.public_id AS reward_public_id,rt.title AS reward_title,rt.reward_type,
+                rt.claim_mode,rt.status AS reward_status
          FROM partner_perks pp
-         JOIN businesses b ON b.id = pp.business_id
-         JOIN social_groups g ON g.id = pp.group_id
-         JOIN locations l ON l.id = pp.location_id
-         JOIN campaigns c ON c.id = pp.campaign_id
-         JOIN reward_templates rt ON rt.id = c.reward_template_id
-         WHERE pp.public_id = ? OR CAST(pp.id AS CHAR) = ?
+         JOIN businesses b ON b.id=pp.business_id
+         JOIN social_groups g ON g.id=pp.group_id
+         JOIN locations l ON l.id=pp.location_id
+         JOIN campaigns c ON c.id=pp.campaign_id
+         JOIN reward_templates rt ON rt.id=c.reward_template_id
+         WHERE pp.public_id=? OR CAST(pp.id AS CHAR)=?
          LIMIT 1"
     );
     $stmt->execute([$ref, $ref]);
@@ -95,21 +93,15 @@ function coveted_partner_perk_campaign_candidates(array $actor, int $businessId,
     if (!coveted_business_actor_can_manage($actor, $businessId)) {
         throw new InvalidArgumentException('Business Admin access is required.');
     }
-
     $stmt = coveted_db()->prepare(
-        "SELECT c.public_id, c.title, c.status, c.trigger_key, c.quantity_limit, c.per_user_limit,
-                rt.title AS reward_title, rt.reward_type, rt.claim_mode, rt.status AS reward_status
+        "SELECT c.public_id,c.title,c.status,c.trigger_key,c.quantity_limit,c.per_user_limit,
+                rt.title AS reward_title,rt.reward_type,rt.claim_mode,rt.status AS reward_status
          FROM campaigns c
-         JOIN reward_templates rt ON rt.id = c.reward_template_id
-         WHERE c.owner_type = 'business'
-           AND c.business_id = ?
-           AND c.location_id = ?
-           AND c.trigger_key = 'manual'
-           AND c.status <> 'archived'
-           AND rt.owner_type = 'business'
-           AND rt.business_id = ?
-           AND rt.status <> 'archived'
-         ORDER BY FIELD(c.status,'active','paused','draft'), c.updated_at DESC, c.id DESC"
+         JOIN reward_templates rt ON rt.id=c.reward_template_id
+         WHERE c.owner_type='business' AND c.business_id=? AND c.location_id=?
+           AND c.trigger_key='manual' AND c.status<>'archived'
+           AND rt.owner_type='business' AND rt.business_id=? AND rt.status<>'archived'
+         ORDER BY FIELD(c.status,'active','paused','draft'),c.updated_at DESC,c.id DESC"
     );
     $stmt->execute([$businessId, $locationId, $businessId]);
     return $stmt->fetchAll();
@@ -120,20 +112,17 @@ function coveted_partner_perk_relationship_state(int $businessId, int $groupId, 
 {
     $pdo ??= coveted_db();
     $stmt = $pdo->prepare(
-        "SELECT vr.relationship_status, COALESCE(vr.benefits_enabled,0) AS benefits_enabled,
-                b.status AS business_status, g.status AS group_status, l.status AS location_status
+        "SELECT vr.relationship_status,COALESCE(vr.benefits_enabled,0) AS benefits_enabled,
+                b.status AS business_status,g.status AS group_status,l.status AS location_status
          FROM locations l
-         JOIN businesses b ON b.id = l.business_id
-         JOIN social_groups g ON g.id = ?
-         LEFT JOIN venue_relationships vr ON vr.group_id = g.id AND vr.location_id = l.id
-         WHERE l.id = ? AND l.business_id = ?
-         LIMIT 1"
+         JOIN businesses b ON b.id=l.business_id
+         JOIN social_groups g ON g.id=?
+         LEFT JOIN venue_relationships vr ON vr.group_id=g.id AND vr.location_id=l.id
+         WHERE l.id=? AND l.business_id=? LIMIT 1"
     );
     $stmt->execute([$groupId, $locationId, $businessId]);
     $row = $stmt->fetch();
-    if (!$row) {
-        throw new InvalidArgumentException('Partner relationship is not available.');
-    }
+    if (!$row) throw new InvalidArgumentException('Partner relationship is not available.');
     return $row;
 }
 
@@ -142,14 +131,10 @@ function coveted_partner_perk_validate_campaign(
     int $businessId,
     int $locationId,
     string $campaignRef,
-    bool $requireActive = false,
-    ?PDO $pdo = null
+    bool $requireActive = false
 ): array {
-    $pdo ??= coveted_db();
     $campaign = coveted_campaign_by_ref($campaignRef);
-    if (!$campaign) {
-        throw new InvalidArgumentException('Choose a valid Business campaign.');
-    }
+    if (!$campaign) throw new InvalidArgumentException('Choose a valid Business campaign.');
     if ((string)$campaign['owner_type'] !== 'business' || (int)$campaign['business_id'] !== $businessId) {
         throw new InvalidArgumentException('Partner Perks must use a campaign owned by this business.');
     }
@@ -168,23 +153,21 @@ function coveted_partner_perk_validate_campaign(
         throw new InvalidArgumentException('Activate both the Business reward and campaign before activating this Partner Perk.');
     }
 
-    $campaign['reward_status'] = (string)$template['status'];
-    $campaign['reward_title'] = (string)$template['title'];
-    $campaign['reward_type'] = (string)$template['reward_type'];
-    $campaign['claim_mode'] = (string)$template['claim_mode'];
-    return $campaign;
+    return $campaign + [
+        'reward_status' => (string)$template['status'],
+        'reward_title' => (string)$template['title'],
+        'reward_type' => (string)$template['reward_type'],
+        'claim_mode' => (string)$template['claim_mode'],
+    ];
 }
 
-function coveted_partner_perk_assert_activatable(array $perk, ?PDO $pdo = null): void
+function coveted_partner_perk_assert_activatable(array $perk): void
 {
-    $pdo ??= coveted_db();
     $relationship = coveted_partner_perk_relationship_state(
         (int)$perk['business_id'],
         (int)$perk['group_id'],
-        (int)$perk['location_id'],
-        $pdo
+        (int)$perk['location_id']
     );
-
     if (
         (string)$relationship['business_status'] !== 'active'
         || (string)$relationship['group_status'] !== 'active'
@@ -195,13 +178,11 @@ function coveted_partner_perk_assert_activatable(array $perk, ?PDO $pdo = null):
     if ((int)$relationship['benefits_enabled'] !== 1) {
         throw new InvalidArgumentException('Enable Partner benefits on this venue relationship before activating a Partner Perk.');
     }
-
     coveted_partner_perk_validate_campaign(
         (int)$perk['business_id'],
         (int)$perk['location_id'],
         (string)$perk['campaign_id'],
-        true,
-        $pdo
+        true
     );
 }
 
@@ -210,12 +191,8 @@ function coveted_partner_perk_window(array $data): array
 {
     $startsAt = trim((string)($data['starts_at'] ?? '')) ?: null;
     $endsAt = trim((string)($data['ends_at'] ?? '')) ?: null;
-    if ($startsAt !== null) {
-        $startsAt = coveted_utc_datetime($startsAt)->format('Y-m-d H:i:s');
-    }
-    if ($endsAt !== null) {
-        $endsAt = coveted_utc_datetime($endsAt)->format('Y-m-d H:i:s');
-    }
+    if ($startsAt !== null) $startsAt = coveted_utc_datetime($startsAt)->format('Y-m-d H:i:s');
+    if ($endsAt !== null) $endsAt = coveted_utc_datetime($endsAt)->format('Y-m-d H:i:s');
     if ($startsAt !== null && $endsAt !== null && strtotime($endsAt) <= strtotime($startsAt)) {
         throw new InvalidArgumentException('Partner Perk end time must be after its start time.');
     }
@@ -223,13 +200,8 @@ function coveted_partner_perk_window(array $data): array
 }
 
 /** @return array{id:int,public_id:string} */
-function coveted_partner_perk_create(
-    array $actor,
-    int $businessId,
-    string $groupRef,
-    string $locationRef,
-    array $data
-): array {
+function coveted_partner_perk_create(array $actor, int $businessId, string $groupRef, string $locationRef, array $data): array
+{
     if (!coveted_partner_perks_schema_available()) {
         throw new RuntimeException('Partner Perks database migration is not installed.');
     }
@@ -243,82 +215,51 @@ function coveted_partner_perk_create(
     $perkType = strtolower(trim((string)($data['perk_type'] ?? 'member_perk')));
     $mode = strtolower(trim((string)($data['distribution_mode'] ?? 'once')));
     $status = strtolower(trim((string)($data['status'] ?? 'draft')));
-    $campaignRef = trim((string)($data['campaign_ref'] ?? ''));
     $window = coveted_partner_perk_window($data);
 
-    if ($title === '' || mb_strlen($title) > 190) {
-        throw new InvalidArgumentException('Enter a Partner Perk title.');
-    }
-    if (mb_strlen($description) > 4000) {
-        throw new InvalidArgumentException('Partner Perk description is too long.');
-    }
-    if (!array_key_exists($perkType, coveted_partner_perk_types())) {
-        throw new InvalidArgumentException('Choose a valid Partner Perk type.');
-    }
-    if (!array_key_exists($mode, coveted_partner_perk_distribution_modes())) {
-        throw new InvalidArgumentException('Choose a valid Partner Perk distribution mode.');
-    }
-    if (!in_array($status, ['draft','active'], true)) {
-        throw new InvalidArgumentException('New Partner Perks must be draft or active.');
-    }
+    if ($title === '' || mb_strlen($title) > 190) throw new InvalidArgumentException('Enter a Partner Perk title.');
+    if (mb_strlen($description) > 4000) throw new InvalidArgumentException('Partner Perk description is too long.');
+    if (!isset(coveted_partner_perk_types()[$perkType])) throw new InvalidArgumentException('Choose a valid Partner Perk type.');
+    if (!isset(coveted_partner_perk_distribution_modes()[$mode])) throw new InvalidArgumentException('Choose a valid Partner Perk distribution mode.');
+    if (!in_array($status, ['draft','active'], true)) throw new InvalidArgumentException('New Partner Perks must be draft or active.');
 
     $campaign = coveted_partner_perk_validate_campaign(
         $businessId,
         (int)$relationship['location_id'],
-        $campaignRef,
+        trim((string)($data['campaign_ref'] ?? '')),
         $status === 'active'
     );
-
     $shape = [
         'business_id' => $businessId,
         'group_id' => (int)$relationship['group_id'],
         'location_id' => (int)$relationship['location_id'],
         'campaign_id' => (int)$campaign['id'],
     ];
-    if ($status === 'active') {
-        coveted_partner_perk_assert_activatable($shape);
-    }
+    if ($status === 'active') coveted_partner_perk_assert_activatable($shape);
 
     $pdo = coveted_db();
     try {
         $publicId = coveted_uuid('prk');
-        $stmt = $pdo->prepare(
+        $pdo->prepare(
             "INSERT INTO partner_perks
                 (public_id,business_id,group_id,location_id,campaign_id,title,description,
                  perk_type,distribution_mode,status,starts_at,ends_at,created_by_user_id)
              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        );
-        $stmt->execute([
-            $publicId,
-            $businessId,
-            (int)$relationship['group_id'],
-            (int)$relationship['location_id'],
-            (int)$campaign['id'],
-            $title,
-            $description !== '' ? $description : null,
-            $perkType,
-            $mode,
-            $status,
-            $window['starts_at'],
-            $window['ends_at'],
-            (int)$actor['id'],
+        )->execute([
+            $publicId,$businessId,(int)$relationship['group_id'],(int)$relationship['location_id'],(int)$campaign['id'],
+            $title,$description !== '' ? $description : null,$perkType,$mode,$status,
+            $window['starts_at'],$window['ends_at'],(int)$actor['id'],
         ]);
         $id = (int)$pdo->lastInsertId();
-        coveted_audit(
-            'partner_perk.created',
-            'partner_perk',
-            $publicId,
-            [
-                'business_id' => $businessId,
-                'group_id' => (int)$relationship['group_id'],
-                'location_id' => (int)$relationship['location_id'],
-                'campaign_id' => (string)$campaign['public_id'],
-                'perk_type' => $perkType,
-                'distribution_mode' => $mode,
-                'status' => $status,
-            ],
-            (int)$actor['id']
-        );
+        coveted_audit('partner_perk.created','partner_perk',$publicId,[
+            'business_id' => $businessId,
+            'group_id' => (int)$relationship['group_id'],
+            'location_id' => (int)$relationship['location_id'],
+            'campaign_id' => (string)$campaign['public_id'],
+            'perk_type' => $perkType,
+            'distribution_mode' => $mode,
+            'status' => $status,
+        ],(int)$actor['id']);
         return ['id' => $id, 'public_id' => $publicId];
     } catch (PDOException $e) {
         if ((string)$e->getCode() === '23000') {
@@ -334,120 +275,93 @@ function coveted_partner_perk_set_status(array $actor, string $perkRef, string $
     if (!in_array($status, ['draft','active','paused','archived'], true)) {
         throw new InvalidArgumentException('Invalid Partner Perk status.');
     }
-
     $perk = coveted_partner_perk_by_ref($perkRef);
-    if (!$perk) {
-        throw new InvalidArgumentException('Partner Perk not found.');
-    }
+    if (!$perk) throw new InvalidArgumentException('Partner Perk not found.');
     if (!coveted_business_actor_can_manage($actor, (int)$perk['business_id'])) {
         throw new InvalidArgumentException('You cannot manage this Partner Perk.');
     }
-    if ($status === 'active') {
-        coveted_partner_perk_assert_activatable($perk);
-    }
-
-    coveted_db()->prepare('UPDATE partner_perks SET status=?, updated_at=NOW() WHERE id=?')
-        ->execute([$status, (int)$perk['id']]);
-    coveted_audit(
-        'partner_perk.status_changed',
-        'partner_perk',
-        (string)$perk['public_id'],
-        ['status' => $status],
-        (int)$actor['id']
-    );
+    if ($status === 'active') coveted_partner_perk_assert_activatable($perk);
+    coveted_db()->prepare('UPDATE partner_perks SET status=?,updated_at=NOW() WHERE id=?')
+        ->execute([$status,(int)$perk['id']]);
+    coveted_audit('partner_perk.status_changed','partner_perk',(string)$perk['public_id'],['status' => $status],(int)$actor['id']);
 }
 
 /** @return array<int,array<string,mixed>> */
-function coveted_partner_perks_for_relationship(
-    array $actor,
-    int $businessId,
-    string $groupRef,
-    string $locationRef
-): array {
-    if (!coveted_partner_perks_schema_available()) {
-        return [];
-    }
+function coveted_partner_perks_for_relationship(array $actor, int $businessId, string $groupRef, string $locationRef): array
+{
+    if (!coveted_partner_perks_schema_available()) return [];
     $relationship = coveted_venue_relationship_resolve($actor, $businessId, $groupRef, $locationRef);
     $stmt = coveted_db()->prepare(
         "SELECT pp.*,
-                c.public_id AS campaign_public_id, c.title AS campaign_title, c.status AS campaign_status,
-                c.quantity_limit, c.per_user_limit,
-                rt.public_id AS reward_public_id, rt.title AS reward_title, rt.reward_type,
-                rt.claim_mode, rt.status AS reward_status,
-                COUNT(DISTINCT CASE WHEN ri.status <> 'cancelled' THEN ri.id END) AS issued_count,
-                COUNT(DISTINCT CASE WHEN rc.status = 'claimed' THEN rc.id END) AS claimed_count
+                c.public_id AS campaign_public_id,c.title AS campaign_title,c.status AS campaign_status,
+                c.quantity_limit,c.per_user_limit,
+                rt.public_id AS reward_public_id,rt.title AS reward_title,rt.reward_type,
+                rt.claim_mode,rt.status AS reward_status,
+                COUNT(DISTINCT CASE WHEN ri.status<>'cancelled' THEN ri.id END) AS issued_count,
+                COUNT(DISTINCT CASE WHEN rc.status='claimed' THEN rc.id END) AS claimed_count
          FROM partner_perks pp
-         JOIN campaigns c ON c.id = pp.campaign_id
-         JOIN reward_templates rt ON rt.id = c.reward_template_id
-         LEFT JOIN reward_issuances ri
-           ON ri.campaign_id = c.id
-          AND ri.idempotency_key LIKE CONCAT('partner-perk:',pp.id,':%')
-         LEFT JOIN reward_claims rc ON rc.reward_issuance_id = ri.id
+         JOIN campaigns c ON c.id=pp.campaign_id
+         JOIN reward_templates rt ON rt.id=c.reward_template_id
+         LEFT JOIN reward_issuances ri ON ri.campaign_id=c.id AND ri.idempotency_key LIKE CONCAT('partner-perk:',pp.id,':%')
+         LEFT JOIN reward_claims rc ON rc.reward_issuance_id=ri.id
          WHERE pp.business_id=? AND pp.group_id=? AND pp.location_id=? AND pp.status<>'archived'
          GROUP BY pp.id,c.id,rt.id
-         ORDER BY FIELD(pp.status,'active','paused','draft'), pp.updated_at DESC, pp.id DESC"
+         ORDER BY FIELD(pp.status,'active','paused','draft'),pp.updated_at DESC,pp.id DESC"
     );
-    $stmt->execute([$businessId, (int)$relationship['group_id'], (int)$relationship['location_id']]);
+    $stmt->execute([$businessId,(int)$relationship['group_id'],(int)$relationship['location_id']]);
     return $stmt->fetchAll();
 }
 
 /** @return array<int,array<string,mixed>> */
 function coveted_partner_perk_targets(int $limit = 250, ?PDO $pdo = null): array
 {
-    $limit = max(1, min($limit, 1000));
+    $limit = max(1,min($limit,1000));
     $pdo ??= coveted_db();
-    if (!coveted_partner_perks_schema_available($pdo)) {
-        return [];
-    }
+    if (!coveted_partner_perks_schema_available($pdo)) return [];
     $period = gmdate('Y-m');
 
     $stmt = $pdo->prepare(
-        "SELECT pp.id AS perk_id, pp.public_id AS perk_public_id, pp.title AS perk_title,
-                pp.perk_type, pp.distribution_mode, pp.business_id, pp.group_id, pp.location_id,
-                c.id AS campaign_id, c.public_id AS campaign_public_id,
-                g.public_id AS group_public_id, g.name AS group_name,
-                l.public_id AS location_public_id, l.name AS location_name,
-                b.public_id AS business_public_id, b.name AS business_name,
-                rt.title AS reward_title,
-                gm.user_id
+        "SELECT pp.id AS perk_id,pp.public_id AS perk_public_id,pp.title AS perk_title,
+                pp.perk_type,pp.distribution_mode,pp.business_id,pp.group_id,pp.location_id,
+                c.id AS campaign_id,c.public_id AS campaign_public_id,
+                g.public_id AS group_public_id,g.name AS group_name,
+                l.public_id AS location_public_id,l.name AS location_name,
+                b.public_id AS business_public_id,b.name AS business_name,
+                rt.title AS reward_title,gm.user_id
          FROM partner_perks pp
          JOIN businesses b ON b.id=pp.business_id AND b.status='active'
          JOIN social_groups g ON g.id=pp.group_id AND g.status='active'
          JOIN locations l ON l.id=pp.location_id AND l.business_id=pp.business_id AND l.status='active'
-         JOIN venue_relationships vr
-           ON vr.group_id=pp.group_id AND vr.location_id=pp.location_id AND COALESCE(vr.benefits_enabled,0)=1
-         JOIN campaigns c
-           ON c.id=pp.campaign_id
-          AND c.owner_type='business'
-          AND c.business_id=pp.business_id
-          AND c.location_id=pp.location_id
-          AND c.trigger_key='manual'
-          AND c.status='active'
-         JOIN reward_templates rt
-           ON rt.id=c.reward_template_id
-          AND rt.owner_type='business'
-          AND rt.business_id=pp.business_id
-          AND rt.status='active'
-         JOIN group_memberships gm
-           ON gm.group_id=pp.group_id AND gm.membership_status='active'
+         JOIN venue_relationships vr ON vr.group_id=pp.group_id AND vr.location_id=pp.location_id AND COALESCE(vr.benefits_enabled,0)=1
+         JOIN campaigns c ON c.id=pp.campaign_id AND c.owner_type='business' AND c.business_id=pp.business_id
+           AND c.location_id=pp.location_id AND c.trigger_key='manual' AND c.status='active'
+         JOIN reward_templates rt ON rt.id=c.reward_template_id AND rt.owner_type='business'
+           AND rt.business_id=pp.business_id AND rt.status='active'
+         JOIN group_memberships gm ON gm.group_id=pp.group_id AND gm.membership_status='active'
          JOIN users u ON u.id=gm.user_id AND u.status='active'
-         WHERE pp.status='active'
-           AND pp.distribution_mode IN ('once','monthly')
+         WHERE pp.status='active' AND pp.distribution_mode IN ('once','monthly')
            AND (pp.starts_at IS NULL OR pp.starts_at<=UTC_TIMESTAMP())
            AND (pp.ends_at IS NULL OR pp.ends_at>UTC_TIMESTAMP())
            AND (c.starts_at IS NULL OR c.starts_at<=UTC_TIMESTAMP())
            AND (c.ends_at IS NULL OR c.ends_at>UTC_TIMESTAMP())
            AND (rt.starts_at IS NULL OR rt.starts_at<=UTC_TIMESTAMP())
            AND (rt.expires_at IS NULL OR rt.expires_at>UTC_TIMESTAMP())
+           AND (c.quantity_limit IS NULL OR (
+               SELECT COUNT(*) FROM reward_issuances qri
+               WHERE qri.campaign_id=c.id AND qri.status<>'cancelled'
+           ) < c.quantity_limit)
+           AND (c.per_user_limit IS NULL OR (
+               SELECT COUNT(*) FROM reward_issuances uri
+               WHERE uri.campaign_id=c.id AND uri.user_id=gm.user_id AND uri.status<>'cancelled'
+           ) < c.per_user_limit)
            AND NOT EXISTS (
                SELECT 1 FROM reward_issuances ri
-               WHERE ri.idempotency_key = CASE
-                   WHEN pp.distribution_mode='once'
-                   THEN CONCAT('partner-perk:',pp.id,':once:user:',gm.user_id)
+               WHERE ri.idempotency_key=CASE
+                   WHEN pp.distribution_mode='once' THEN CONCAT('partner-perk:',pp.id,':once:user:',gm.user_id)
                    ELSE CONCAT('partner-perk:',pp.id,':month:',?,':user:',gm.user_id)
                END
            )
-         ORDER BY pp.created_at ASC, pp.id ASC, gm.created_at ASC, gm.id ASC
+         ORDER BY pp.created_at ASC,pp.id ASC,gm.created_at ASC,gm.id ASC
          LIMIT {$limit}"
     );
     $stmt->execute([$period]);
@@ -457,15 +371,14 @@ function coveted_partner_perk_targets(int $limit = 250, ?PDO $pdo = null): array
 function coveted_partner_perk_idempotency_key(array $target): string
 {
     $base = 'partner-perk:' . (int)$target['perk_id'] . ':';
-    if ((string)$target['distribution_mode'] === 'monthly') {
-        return $base . 'month:' . gmdate('Y-m') . ':user:' . (int)$target['user_id'];
-    }
-    return $base . 'once:user:' . (int)$target['user_id'];
+    return (string)$target['distribution_mode'] === 'monthly'
+        ? $base . 'month:' . gmdate('Y-m') . ':user:' . (int)$target['user_id']
+        : $base . 'once:user:' . (int)$target['user_id'];
 }
 
 function coveted_partner_perk_expected_skip(string $message): bool
 {
-    return in_array($message, [
+    return in_array($message,[
         'Campaign distribution limit has been reached.',
         'Member campaign limit has been reached.',
         'Campaign is not active.',
@@ -474,15 +387,13 @@ function coveted_partner_perk_expected_skip(string $message): bool
         'Campaign owner is not active.',
         'Reward has expired.',
         'Member account is not active.',
-    ], true);
+    ],true);
 }
 
 function coveted_partner_perk_notify(array $target, array $issuance): void
 {
     $issuanceRef = trim((string)($issuance['public_id'] ?? ''));
-    if ($issuanceRef === '') {
-        return;
-    }
+    if ($issuanceRef === '') return;
     try {
         coveted_notification_create(
             (int)$target['user_id'],
@@ -508,15 +419,10 @@ function coveted_partner_perk_notify(array $target, array $issuance): void
 /** @return array<string,int|bool> */
 function coveted_partner_perk_reconcile(int $limit = 250): array
 {
-    $limit = max(1, min($limit, 1000));
+    $limit = max(1,min($limit,1000));
     $summary = [
-        'issued' => 0,
-        'already_issued' => 0,
-        'limit_skips' => 0,
-        'failures' => 0,
-        'more_work_possible' => false,
-        'skipped_locked' => false,
-        'unavailable' => false,
+        'issued' => 0,'already_issued' => 0,'limit_skips' => 0,'failures' => 0,
+        'more_work_possible' => false,'skipped_locked' => false,'unavailable' => false,
     ];
     $pdo = coveted_db();
     if (!coveted_partner_perks_schema_available($pdo)) {
@@ -529,16 +435,15 @@ function coveted_partner_perk_reconcile(int $limit = 250): array
     }
 
     try {
-        $targets = coveted_partner_perk_targets($limit, $pdo);
+        $targets = coveted_partner_perk_targets($limit,$pdo);
         foreach ($targets as $target) {
             $key = coveted_partner_perk_idempotency_key($target);
-            $existing = coveted_reward_existing_idempotent($pdo, $key);
+            $existing = coveted_reward_existing_idempotent($pdo,$key);
             if ($existing) {
                 $summary['already_issued']++;
-                coveted_partner_perk_notify($target, $existing);
+                coveted_partner_perk_notify($target,$existing);
                 continue;
             }
-
             try {
                 $issuance = coveted_reward_issue(
                     (int)$target['campaign_id'],
@@ -556,11 +461,10 @@ function coveted_partner_perk_reconcile(int $limit = 250): array
                     $key
                 );
                 $summary['issued']++;
-                coveted_partner_perk_notify($target, $issuance);
+                coveted_partner_perk_notify($target,$issuance);
             } catch (InvalidArgumentException $e) {
-                if (coveted_partner_perk_expected_skip($e->getMessage())) {
-                    $summary['limit_skips']++;
-                } else {
+                if (coveted_partner_perk_expected_skip($e->getMessage())) $summary['limit_skips']++;
+                else {
                     $summary['failures']++;
                     error_log('Coveted Partner Perk target failed: ' . $e->getMessage());
                 }
@@ -569,23 +473,14 @@ function coveted_partner_perk_reconcile(int $limit = 250): array
                 error_log('Coveted Partner Perk issuance failed: ' . $e->getMessage());
             }
         }
-
-        if (count($targets) >= $limit) {
-            $summary['more_work_possible'] = (bool)coveted_partner_perk_targets(1, $pdo);
-        }
+        if (count($targets) >= $limit) $summary['more_work_possible'] = (bool)coveted_partner_perk_targets(1,$pdo);
         if ($summary['issued'] > 0 || $summary['failures'] > 0) {
-            coveted_audit(
-                'partner_perk.reconciled',
-                'platform',
-                null,
-                [
-                    'issued' => $summary['issued'],
-                    'already_issued' => $summary['already_issued'],
-                    'limit_skips' => $summary['limit_skips'],
-                    'failures' => $summary['failures'],
-                ],
-                0
-            );
+            coveted_audit('partner_perk.reconciled','platform',null,[
+                'issued' => $summary['issued'],
+                'already_issued' => $summary['already_issued'],
+                'limit_skips' => $summary['limit_skips'],
+                'failures' => $summary['failures'],
+            ],0);
         }
         return $summary;
     } finally {
@@ -593,15 +488,50 @@ function coveted_partner_perk_reconcile(int $limit = 250): array
     }
 }
 
+/** @return array<int,array<string,mixed>> */
+function coveted_partner_perk_manual_targets(array $perk, string $date, int $limit): array
+{
+    $pdo = coveted_db();
+    $quantityLimit = $perk['quantity_limit'] !== null ? (int)$perk['quantity_limit'] : null;
+    $perUserLimit = $perk['per_user_limit'] !== null ? (int)$perk['per_user_limit'] : null;
+    $stmt = $pdo->prepare(
+        "SELECT ? AS perk_id,? AS perk_public_id,? AS perk_title,? AS perk_type,'manual' AS distribution_mode,
+                ? AS campaign_id,? AS campaign_public_id,? AS business_public_id,? AS business_name,
+                ? AS group_public_id,? AS group_name,? AS location_public_id,? AS location_name,
+                ? AS reward_title,gm.user_id
+         FROM group_memberships gm
+         JOIN users u ON u.id=gm.user_id AND u.status='active'
+         WHERE gm.group_id=? AND gm.membership_status='active'
+           AND (? IS NULL OR (SELECT COUNT(*) FROM reward_issuances qri WHERE qri.campaign_id=? AND qri.status<>'cancelled') < ?)
+           AND (? IS NULL OR (SELECT COUNT(*) FROM reward_issuances uri WHERE uri.campaign_id=? AND uri.user_id=gm.user_id AND uri.status<>'cancelled') < ?)
+           AND NOT EXISTS (
+               SELECT 1 FROM reward_issuances ri
+               WHERE ri.idempotency_key=CONCAT('partner-perk:',?,':manual:',?,':user:',gm.user_id)
+           )
+         ORDER BY gm.created_at ASC,gm.id ASC
+         LIMIT {$limit}"
+    );
+    $stmt->execute([
+        (int)$perk['id'],(string)$perk['public_id'],(string)$perk['title'],(string)$perk['perk_type'],
+        (int)$perk['campaign_id'],(string)$perk['campaign_public_id'],
+        (string)$perk['business_public_id'],(string)$perk['business_name'],
+        (string)$perk['group_public_id'],(string)$perk['group_name'],
+        (string)$perk['location_public_id'],(string)$perk['location_name'],(string)$perk['reward_title'],
+        (int)$perk['group_id'],
+        $quantityLimit,(int)$perk['campaign_id'],$quantityLimit,
+        $perUserLimit,(int)$perk['campaign_id'],$perUserLimit,
+        (int)$perk['id'],$date,
+    ]);
+    return $stmt->fetchAll();
+}
+
 /** @return array<string,int|bool> */
 function coveted_partner_perk_issue_today(array $actor, string $perkRef, int $limit = 500): array
 {
-    $limit = max(1, min($limit, 1000));
+    $limit = max(1,min($limit,1000));
     $perk = coveted_partner_perk_by_ref($perkRef);
-    if (!$perk) {
-        throw new InvalidArgumentException('Partner Perk not found.');
-    }
-    if (!coveted_business_actor_can_manage($actor, (int)$perk['business_id'])) {
+    if (!$perk) throw new InvalidArgumentException('Partner Perk not found.');
+    if (!coveted_business_actor_can_manage($actor,(int)$perk['business_id'])) {
         throw new InvalidArgumentException('You cannot issue this Partner Perk.');
     }
     if ((string)$perk['status'] !== 'active' || (string)$perk['distribution_mode'] !== 'manual') {
@@ -610,41 +540,12 @@ function coveted_partner_perk_issue_today(array $actor, string $perkRef, int $li
     coveted_partner_perk_assert_activatable($perk);
 
     $date = gmdate('Y-m-d');
+    $targets = coveted_partner_perk_manual_targets($perk,$date,$limit);
     $pdo = coveted_db();
-    $stmt = $pdo->prepare(
-        "SELECT ? AS perk_id, ? AS perk_public_id, ? AS perk_title, ? AS perk_type,
-                'manual' AS distribution_mode,
-                ? AS campaign_id, ? AS campaign_public_id,
-                ? AS business_public_id, ? AS business_name,
-                ? AS group_public_id, ? AS group_name,
-                ? AS location_public_id, ? AS location_name,
-                ? AS reward_title,
-                gm.user_id
-         FROM group_memberships gm
-         JOIN users u ON u.id=gm.user_id AND u.status='active'
-         WHERE gm.group_id=? AND gm.membership_status='active'
-           AND NOT EXISTS (
-               SELECT 1 FROM reward_issuances ri
-               WHERE ri.idempotency_key=CONCAT('partner-perk:',?,':manual:',?,':user:',gm.user_id)
-           )
-         ORDER BY gm.created_at ASC, gm.id ASC
-         LIMIT {$limit}"
-    );
-    $stmt->execute([
-        (int)$perk['id'], (string)$perk['public_id'], (string)$perk['title'], (string)$perk['perk_type'],
-        (int)$perk['campaign_id'], (string)$perk['campaign_public_id'],
-        (string)$perk['business_public_id'], (string)$perk['business_name'],
-        (string)$perk['group_public_id'], (string)$perk['group_name'],
-        (string)$perk['location_public_id'], (string)$perk['location_name'],
-        (string)$perk['reward_title'],
-        (int)$perk['group_id'], (int)$perk['id'], $date,
-    ]);
-    $targets = $stmt->fetchAll();
-
-    $summary = ['issued' => 0, 'already_issued' => 0, 'limit_skips' => 0, 'failures' => 0, 'more_work_possible' => false];
+    $summary = ['issued' => 0,'already_issued' => 0,'limit_skips' => 0,'failures' => 0,'more_work_possible' => false];
     foreach ($targets as $target) {
         $key = 'partner-perk:' . (int)$perk['id'] . ':manual:' . $date . ':user:' . (int)$target['user_id'];
-        $existing = coveted_reward_existing_idempotent($pdo, $key);
+        $existing = coveted_reward_existing_idempotent($pdo,$key);
         if ($existing) {
             $summary['already_issued']++;
             continue;
@@ -666,11 +567,10 @@ function coveted_partner_perk_issue_today(array $actor, string $perkRef, int $li
                 $key
             );
             $summary['issued']++;
-            coveted_partner_perk_notify($target, $issuance);
+            coveted_partner_perk_notify($target,$issuance);
         } catch (InvalidArgumentException $e) {
-            if (coveted_partner_perk_expected_skip($e->getMessage())) {
-                $summary['limit_skips']++;
-            } else {
+            if (coveted_partner_perk_expected_skip($e->getMessage())) $summary['limit_skips']++;
+            else {
                 $summary['failures']++;
                 error_log('Coveted manual Partner Perk target failed: ' . $e->getMessage());
             }
@@ -679,17 +579,8 @@ function coveted_partner_perk_issue_today(array $actor, string $perkRef, int $li
             error_log('Coveted manual Partner Perk issuance failed: ' . $e->getMessage());
         }
     }
-
-    if (count($targets) >= $limit) {
-        $summary['more_work_possible'] = true;
-    }
-    coveted_audit(
-        'partner_perk.manual_issued',
-        'partner_perk',
-        (string)$perk['public_id'],
-        $summary + ['issue_date' => $date],
-        (int)$actor['id']
-    );
+    if (count($targets) >= $limit) $summary['more_work_possible'] = (bool)coveted_partner_perk_manual_targets($perk,$date,1);
+    coveted_audit('partner_perk.manual_issued','partner_perk',(string)$perk['public_id'],$summary + ['issue_date' => $date],(int)$actor['id']);
     return $summary;
 }
 
@@ -698,9 +589,8 @@ function coveted_partner_perk_agent_context(?PDO $pdo = null): array
 {
     $pdo ??= coveted_db();
     if (!coveted_partner_perks_schema_available($pdo)) {
-        return ['unavailable' => true, 'active' => 0, 'monthly' => 0, 'manual' => 0, 'issued_30d' => 0, 'claimed_30d' => 0];
+        return ['unavailable' => true,'active' => 0,'monthly' => 0,'manual' => 0,'issued_30d' => 0,'claimed_30d' => 0];
     }
-
     $row = $pdo->query(
         "SELECT
             SUM(pp.status='active') AS active,
@@ -715,9 +605,7 @@ function coveted_partner_perk_agent_context(?PDO $pdo = null): array
                AND rc.claimed_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 30 DAY)) AS claimed_30d
          FROM partner_perks pp"
     )->fetch() ?: [];
-    foreach (['active','monthly','manual','issued_30d','claimed_30d'] as $key) {
-        $row[$key] = (int)($row[$key] ?? 0);
-    }
+    foreach (['active','monthly','manual','issued_30d','claimed_30d'] as $key) $row[$key] = (int)($row[$key] ?? 0);
     $row['unavailable'] = false;
     return $row;
 }
