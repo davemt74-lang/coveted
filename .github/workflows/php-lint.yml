@@ -47,6 +47,9 @@ jobs:
       - name: Verify event authority contract
         run: php scripts/verify-event-authority.php
 
+      - name: Verify Business / Location Host workspace contract
+        run: php scripts/verify-business-host-workspace.php
+
       - name: Verify Admin Event Workspace contract
         run: php scripts/verify-admin-event-workspace.php
 
