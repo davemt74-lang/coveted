@@ -37,11 +37,11 @@ $contains($service, 'LIMIT 5', 'city demand must remain bounded');
 $contains($service, 'function coveted_admin_agent_live_business_interest_demand(', 'interest demand report is missing');
 $contains($service, 'coveted_invite_event_interest_options()', 'interest demand must use canonical interest catalog');
 $contains($service, 'JSON_CONTAINS(event_interests_json, ?,', 'interest demand must use exact canonical JSON membership');
-$contains($service, 'array_slice($items, 0, 8)', 'interest demand must remain bounded');
+$contains($service, 'array_slice($items, 0, 6)', 'interest demand must remain context-bounded');
 $contains($service, 'function coveted_admin_agent_live_business_event_attention(', 'event attention report is missing');
 $contains($service, 'FROM events e', 'event attention must read canonical events');
 $contains($service, "e.status IN ('draft','published')", 'event attention must be operationally scoped');
-$contains($service, 'LIMIT 8', 'event/partner detail lists must remain bounded');
+$contains($service, 'LIMIT 6', 'event/partner detail lists must remain context-bounded');
 $contains($service, 'function coveted_admin_agent_live_business_partner_coverage(', 'partner coverage report is missing');
 $contains($service, 'FROM businesses b', 'partner coverage must read canonical businesses');
 $contains($service, "c.owner_type = 'business' AND c.status = 'active'", 'business campaign coverage must use canonical owner/status');
@@ -55,6 +55,7 @@ $contains($service, 'function coveted_admin_agent_live_business_weekly_changes('
 $contains($service, 'INTERVAL 14 DAY', 'weekly comparison must use current and prior seven-day windows');
 $contains($service, "event_type NOT LIKE 'admin.agent_%'", 'Agent self-audit noise must be excluded');
 $contains($service, "'privacy' => 'Person-level names", 'person-level privacy boundary must be explicit');
+$contains($service, "'trust_boundary' => 'Business names", 'stored operational labels must be explicitly treated as data, not instructions');
 $contains($service, 'does not accept model-authored SQL or filters', 'arbitrary/model-authored SQL boundary must be documented');
 $contains($service, 'coveted_admin_agent_live_business_safe(', 'analytics components must fail soft independently');
 
