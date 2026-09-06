@@ -38,17 +38,7 @@ function coveted_benefit_sponsorship_convert_proposal_to_draft(array $admin, str
 
     $pdo = coveted_db();
     coveted_benefit_sponsorship_ensure_schema($pdo);
-    $proposalRef = trim($proposalRef);
-    if ($proposalRef === '' || strlen($proposalRef) > 64) {
-        throw new InvalidArgumentException('Choose a valid sponsorship proposal.');
-    }
-
-    $lockKey = 'coveted:sponsor:' . substr(hash('sha256', $proposalRef), 0, 40);
-    $lock = $pdo->prepare('SELECT GET_LOCK(?, 5)');
-    $lock->execute([$lockKey]);
-    if ((int)$lock->fetchColumn() !== 1) {
-        throw new RuntimeException('That sponsorship proposal is currently being reviewed.');
-    }
+    $lockKey = coveted_benefit_sponsorship_acquire_lock($proposalRef, $pdo);
 
     try {
         $proposal = coveted_benefit_sponsorship_by_ref($proposalRef, $pdo);
@@ -158,11 +148,6 @@ function coveted_benefit_sponsorship_convert_proposal_to_draft(array $admin, str
             'already_converted' => false,
         ];
     } finally {
-        try {
-            $release = $pdo->prepare('SELECT RELEASE_LOCK(?)');
-            $release->execute([$lockKey]);
-        } catch (Throwable $e) {
-            error_log('Benefit sponsorship conversion lock release failed: ' . $e->getMessage());
-        }
+        coveted_benefit_sponsorship_release_lock($lockKey, $pdo);
     }
 }
