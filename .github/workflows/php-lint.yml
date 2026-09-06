@@ -62,6 +62,12 @@ jobs:
       - name: Verify Group Perk Wallet contract
         run: php scripts/verify-group-perk-wallet.php
 
+      - name: Verify Benefit Program Builder contract
+        run: php scripts/verify-benefit-program-builder.php
+
+      - name: Verify Benefit Program Builder JavaScript syntax
+        run: node --check assets/js/benefit-program-builder-v1.js
+
       - name: Verify Admin Event Workspace contract
         run: php scripts/verify-admin-event-workspace.php
 
