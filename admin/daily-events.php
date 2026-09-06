@@ -60,7 +60,7 @@ coveted_admin_ui_start($admin, 'daily-events', 'Daily Events');
 <section class="cv-page-heading">
     <span class="cv-eyebrow">PARTNERED DAILY OPPORTUNITIES</span>
     <h1>Turn partner locations into optional member experiences.</h1>
-    <p>System Admin creates the event, assigns the exact Business Partner location, chooses a dedicated group reward, and sets the verified-attendance threshold. Partners never gain event-creation authority.</p>
+    <p>System Admin creates the event, assigns the exact Business Partner location, chooses a dedicated group reward, defines the private Loyalty point value, and sets the verified-attendance threshold. Partners never gain event-creation authority.</p>
 </section>
 
 <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
@@ -75,7 +75,7 @@ coveted_admin_ui_start($admin, 'daily-events', 'Daily Events');
 
 <section class="cv-card cv-copy-card cv-admin-section-gap">
     <div class="cv-section-head">
-        <div><span class="cv-kicker">CREATE DAILY EVENT</span><h2>Event + partner + threshold reward.</h2></div>
+        <div><span class="cv-kicker">CREATE DAILY EVENT</span><h2>Event + partner + points + threshold reward.</h2></div>
         <a class="cv-button cv-button-soft" href="/admin/benefit-programs.php">Create reward campaign</a>
     </div>
     <p>Only benefit-enabled venue relationships are available. The selected Business campaign must be active, location-code redeemable, manual-triggered, dedicated to this event, and large enough to reward every possible attendee.</p>
@@ -127,9 +127,13 @@ coveted_admin_ui_start($admin, 'daily-events', 'Daily Events');
             <label>Capacity<input type="number" name="capacity" min="1" step="1" placeholder="Uses location capacity when blank"></label>
             <label>Verified attendance needed to unlock reward<input type="number" name="attendance_threshold" min="1" step="1" required value="10"></label>
         </div>
+        <label>Private Loyalty points per verified attendee
+            <input type="number" name="loyalty_points" min="0" max="10000" step="1" required value="100">
+            <small>0–10,000 points. This is the final total value of verified attendance at this Daily Event for both group status and lifetime Coveted Points.</small>
+        </label>
 
         <div class="cv-alert">
-            Members opt in themselves. At the event they enter the Business Partner’s existing location/employee claim code. Only that verified attendance counts toward the threshold. The same completed-event attendance later earns normal private Coveted Loyalty points.
+            Members opt in themselves. At the event they enter the Business Partner’s existing location/employee claim code. Only that verified attendance counts toward the threshold. After the event is completed, the Loyalty ledger applies exactly the point value defined above; the group reward remains a separate shared unlock.
         </div>
         <button class="cv-button cv-button-primary" type="submit">Create Daily Event</button>
     </form>
@@ -157,13 +161,14 @@ coveted_admin_ui_start($admin, 'daily-events', 'Daily Events');
             <div class="cv-stat-grid">
                 <div class="cv-card cv-stat"><strong><?= (int)$row['attending_rsvps'] ?></strong><span>Attending RSVP</span></div>
                 <div class="cv-card cv-stat"><strong><?= $verified ?></strong><span>Verified</span></div>
-                <div class="cv-card cv-stat"><strong><?= $threshold ?></strong><span>Unlock threshold</span></div>
+                <div class="cv-card cv-stat"><strong><?= (int)$row['loyalty_points'] ?></strong><span>Loyalty points each</span></div>
                 <div class="cv-card cv-stat"><strong><?= (int)$row['rewards_issued'] ?></strong><span>Rewards issued</span></div>
             </div>
             <div class="cv-admin-section-gap">
                 <div class="cv-section-head"><strong>Group reward progress</strong><span><?= $progress ?>%</span></div>
                 <div class="cv-progress"><span style="width:<?= $progress ?>%"></span></div>
-                <p class="cv-muted"><?= coveted_e((string)$row['reward_title']) ?> · <?= !empty($row['reward_unlocked_at']) ? 'Unlocked' : max(0,$threshold-$verified) . ' more verified attendee' . (max(0,$threshold-$verified) === 1 ? '' : 's') . ' needed' ?></p>
+                <p class="cv-muted"><?= coveted_e((string)$row['reward_title']) ?> · threshold <?= $threshold ?> · <?= !empty($row['reward_unlocked_at']) ? 'Unlocked' : max(0,$threshold-$verified) . ' more verified attendee' . (max(0,$threshold-$verified) === 1 ? '' : 's') . ' needed' ?></p>
+                <p class="cv-muted">Verified attendee value: <?= (int)$row['loyalty_points'] ?> private Loyalty points after event completion.</p>
             </div>
             <div class="cv-event-card-actions">
                 <a class="cv-member-text-link" href="/admin/event.php?event=<?= coveted_e(rawurlencode((string)$row['event_ref'])) ?>">Manage event →</a>
