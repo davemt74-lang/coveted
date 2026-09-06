@@ -37,7 +37,7 @@ $agentJs = $read('assets/js/admin-agent-live-business-v1.js');
 $workflow = $read('.github/workflows/php-lint.yml');
 $events = $read('app/events.php');
 
-// Durable proposal schema for both existing and new installs.
+// Durable private points + milestones for existing and fresh installations.
 $contains($migration, 'CREATE TABLE IF NOT EXISTS loyalty_point_ledger', 'private point ledger migration is required');
 $contains($schemaFragment, 'CREATE TABLE IF NOT EXISTS loyalty_point_ledger', 'new installs need the loyalty schema fragment');
 $contains($installer, "database/schema-loyalty.sql", 'installer must apply loyalty schema fragment');
@@ -47,6 +47,8 @@ $contains($migration, 'UNIQUE KEY uq_loyalty_milestone (user_id,group_id,milesto
 $missing($migration, 'points_balance', 'schema must not introduce a mutable points balance');
 $missing($service, 'UPDATE loyalty_point_ledger', 'ledger entries must remain append-only');
 $missing($service, 'DELETE FROM loyalty_point_ledger', 'ledger entries must remain append-only');
+$contains($service, 'function coveted_loyalty_is_duplicate(PDOException $e): bool', 'duplicate handling must distinguish true duplicate-key errors');
+$contains($service, "(int)(\$e->errorInfo[1] ?? 0) === 1062", 'integrity errors other than MySQL duplicate key must not be swallowed');
 
 // V1 earning rules are canonical verified behavior only. Redemption itself is
 // intentionally zero points to avoid reward-consumption farming.
@@ -68,17 +70,27 @@ $contains($service, "'activity_state' => \$activity", 'reconnect must be an acti
 $contains($service, 'COUNT(DISTINCT group_id) AS groups_with_points', 'member view must expose cross-group lifetime foundation');
 $contains($service, 'Lifetime Coveted Points are group-independent', 'travel-ready lifetime point policy must be explicit');
 
-// Milestones are canonical, durable relationship moments.
+// Milestones are canonical, durable relationship moments. Candidate queries
+// must select missing work only so large installs cannot starve later members,
+// and historical event milestones must use the actual Nth attendance date.
 foreach (['first_event','event_3','event_5','event_10','event_25','first_return','first_host','membership_year_1'] as $milestone) {
     $contains($service, "'{$milestone}'", "{$milestone} milestone must exist");
 }
+$contains($service, 'function coveted_loyalty_nth_attendance(', 'event milestone backfill must resolve the exact Nth verified attendance');
+$contains($service, 'LIMIT 1 OFFSET {$offset}', 'event milestone date must come from the Nth attendance row');
+$contains($service, "lm.milestone_key='event_25'", 'event milestone candidate query must exclude completed 25-event milestones');
+$contains($service, 'AND lm.milestone_key=?', 'first-return/host candidates must exclude already achieved milestones');
 
-// Reuse the one lifecycle worker. Do not create a second cron architecture.
+// Reuse the one lifecycle worker. Do not create a second cron architecture or
+// flood the audit log when a five-minute pass has no Loyalty changes.
 $contains($service, "const COVETED_LOYALTY_LOCK = 'coveted:group-loyalty:v1';", 'loyalty reconciliation must use a nonblocking lock');
 $contains($service, 'SELECT GET_LOCK(?,0)', 'loyalty reconciliation must skip overlapping runs');
-$contains($worker, "require_once __DIR__ . '/../app/loyalty.php';", 'existing lifecycle worker must load loyalty engine');
-$contains($worker, 'coveted_loyalty_reconcile($batch)', 'existing lifecycle worker must reconcile loyalty');
-$contains($worker, "'loyalty' => \$loyalty", 'worker output must expose loyalty result');
+$contains($service, 'if ($changed > 0 || $failures > 0)', 'no-op loyalty passes must not write repetitive audit rows');
+$contains($worker, "require_once dirname(__DIR__) . '/app/loyalty.php';", 'existing lifecycle worker must load loyalty engine');
+$contains($worker, '$loyalty = coveted_loyalty_reconcile($limit);', 'existing lifecycle worker must reconcile loyalty');
+$contains($worker, 'Coveted loyalty:', 'worker output must expose loyalty result');
+$contains($worker, "!empty(\$loyalty['more_work_possible'])", 'loyalty backlog must affect worker exit');
+$contains($worker, "(int)\$loyalty['failures'] > 0", 'loyalty failures must affect worker exit');
 
 // Member/admin surfaces keep points private and avoid peer comparison.
 $contains($memberPage, "coveted_page_start('Loyalty', 'Loyalty')", 'member Loyalty page must use canonical shell');
@@ -86,6 +98,7 @@ $contains($memberPage, 'Lifetime Coveted Points', 'member must see private lifet
 $contains($memberPage, 'Your point balance is private', 'member privacy language is required');
 $missing($memberPage, 'leaderboard.php', 'member page must not link a leaderboard');
 $contains($bootstrap, "'Loyalty' => '/loyalty.php'", 'member primary navigation must expose Loyalty');
+$contains($bootstrap, '<strong>Loyalty</strong><small>Private points, status and milestones</small>', 'account menu must expose private Loyalty');
 $contains($adminPage, 'Group Loyalty + Membership Status', 'Admin loyalty workspace must exist');
 $contains($adminPage, 'There is no Admin control that directly overwrites a balance.', 'Admin UI must preserve append-only balance model');
 $contains($adminUi, "'/admin/loyalty.php'", 'Admin VALUE navigation must expose Loyalty');
@@ -97,6 +110,7 @@ $contains($service, 'No member names, emails, phones, individual point balances'
 $contains($service, 'Loyalty insights are analysis-only.', 'Agent loyalty recommendations must not self-authorize action');
 $contains($branding, "require_once __DIR__ . '/loyalty.php';", 'Agent snapshot must load loyalty context');
 $contains($branding, "\$operations['loyalty']", 'Agent operations context must include loyalty');
+$contains($branding, "'kind' => 'loyalty_intelligence'", 'Agent opportunities must identify Loyalty intelligence');
 $contains($branding, "'task_sync' => false", 'loyalty insights must remain analysis-only tasks');
 $contains($branding, "'execution_ready' => false", 'loyalty insights must remain non-executable');
 $contains($agentJs, "label: 'Loyalty health'", 'Admin Agent must expose Loyalty starter');
