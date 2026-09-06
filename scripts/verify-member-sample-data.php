@@ -162,12 +162,12 @@ foreach ([
 
 foreach ([
     'coveted_require_system_admin()',
-    "($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET'",
+    '(\$_SERVER[\'REQUEST_METHOD\'] ?? \'GET\') !== \'GET\'',
     'coveted_system_sample_data()',
     'coveted_system_sample_inventory($sample)',
     "'read_only' => true",
     "'sample' => true",
-    "'section' => $section",
+    "'section' => \$section",
     "'partner_relationships'",
     "'benefit_programs'",
     "'artist_media'",
