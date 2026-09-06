@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/businesses.php';
 require_once __DIR__ . '/events.php';
+require_once __DIR__ . '/notifications.php';
 
 /** @return array<int,array<string,mixed>> */
 function coveted_business_host_businesses(array $actor): array
@@ -203,6 +204,100 @@ function coveted_business_host_record_attendance(
     }
 
     coveted_event_record_attendance($actor, (string)$event['public_id'], $userId, $status);
+}
+
+function coveted_business_host_report_issue(
+    array $actor,
+    int $businessId,
+    string $eventRef,
+    string $category,
+    string $message
+): string {
+    $event = coveted_business_host_event($actor, $businessId, $eventRef);
+    if (!$event) {
+        throw new InvalidArgumentException('Event not found for this business.');
+    }
+
+    $category = strtolower(trim($category));
+    $allowedCategories = ['guest','venue','timing','reward','artist','safety','other'];
+    if (!in_array($category, $allowedCategories, true)) {
+        throw new InvalidArgumentException('Choose a valid issue category.');
+    }
+
+    $message = trim($message);
+    if ($message === '' || mb_strlen($message) > 1500) {
+        throw new InvalidArgumentException('Enter an issue summary up to 1,500 characters.');
+    }
+
+    $business = coveted_business_by_ref((string)$businessId);
+    if (!$business || !coveted_business_actor_can_view($actor, (int)$business['id'])) {
+        throw new InvalidArgumentException('Business not found or unavailable to this account.');
+    }
+
+    $admins = coveted_db()->query(
+        "SELECT DISTINCT u.id
+         FROM users u
+         JOIN user_roles ur ON ur.user_id = u.id
+         WHERE u.status = 'active' AND ur.role_key = 'system_admin'
+         ORDER BY u.id"
+    )->fetchAll();
+    if (!$admins) {
+        throw new RuntimeException('No active Coveted System Admin is available to receive this issue.');
+    }
+
+    $reportRef = coveted_uuid('venueissue');
+    $categoryLabel = ucwords(str_replace('_', ' ', $category));
+    $title = 'Venue issue: ' . (string)$business['name'] . ' · ' . (string)$event['title'];
+    $body = $categoryLabel . "\n" . $message;
+    $actionUrl = '/business-host.php?business=' . rawurlencode((string)$business['public_id'])
+        . '&event=' . rawurlencode((string)$event['public_id']) . '#admin-coordination';
+    $delivered = 0;
+    $lastError = null;
+
+    foreach ($admins as $admin) {
+        try {
+            coveted_notification_create(
+                (int)$admin['id'],
+                'business_host.issue',
+                $title,
+                $body,
+                $actionUrl,
+                [
+                    'report_ref' => $reportRef,
+                    'business_ref' => (string)$business['public_id'],
+                    'event_ref' => (string)$event['public_id'],
+                    'category' => $category,
+                    'reporter_user_id' => (int)$actor['id'],
+                ],
+                $category === 'safety' ? 'high' : 'normal',
+                $reportRef . ':' . (int)$admin['id'],
+                (int)$actor['id']
+            );
+            $delivered++;
+        } catch (Throwable $e) {
+            $lastError = $e;
+            error_log('Coveted Business Host issue notification error: ' . $e->getMessage());
+        }
+    }
+
+    if ($delivered < 1) {
+        throw new RuntimeException('Unable to notify Coveted Admin right now.', 0, $lastError);
+    }
+
+    coveted_audit(
+        'business_host.issue_reported',
+        'event',
+        (string)$event['public_id'],
+        [
+            'report_ref' => $reportRef,
+            'business_ref' => (string)$business['public_id'],
+            'category' => $category,
+            'admin_recipients' => $delivered,
+        ],
+        (int)$actor['id']
+    );
+
+    return $reportRef;
 }
 
 function coveted_business_host_expected_count(array $event): int
