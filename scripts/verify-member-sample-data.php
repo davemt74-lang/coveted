@@ -119,7 +119,7 @@ $assertContains($files['admin'], [
 $assertContains($files['admin_preview'], [
     'coveted_require_system_admin()',
     'coveted_system_sample_mode($admin, $pdo)',
-    "Full System Sample Mode is read-only.",
+    'Full System Sample Mode is read-only.',
     "'dashboard' => '/admin/?view=dashboard'",
     "'crm' => '/admin/crm.php'",
     "'partner' => '/venue-relationships.php'",
@@ -141,15 +141,15 @@ $assertNoMutationSql($files['admin_preview'], 'Sample-aware Admin preview');
 
 $assertContains($files['admin_ui'], [
     '$sampleRoute = static fn',
-    "$sampleRoute('dashboard'",
-    "$sampleRoute('crm'",
-    "$sampleRoute('people'",
-    "$sampleRoute('businesses'",
-    "$sampleRoute('groups'",
-    "$sampleRoute('events'",
-    "$sampleRoute('artists'",
-    "$sampleRoute('loyalty'",
-    "$sampleRoute('benefits'",
+    "\$sampleRoute('dashboard'",
+    "\$sampleRoute('crm'",
+    "\$sampleRoute('people'",
+    "\$sampleRoute('businesses'",
+    "\$sampleRoute('groups'",
+    "\$sampleRoute('events'",
+    "\$sampleRoute('artists'",
+    "\$sampleRoute('loyalty'",
+    "\$sampleRoute('benefits'",
     'Sample data · read only',
     'Core Admin navigation and Agent context use synthetic read-only data.',
 ], 'Sample-aware Admin navigation contract');
