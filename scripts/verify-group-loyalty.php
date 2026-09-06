@@ -59,7 +59,12 @@ $contains($service, "e.status='completed'", 'attendance/host points require comp
 $contains($service, "ea.status IN ('checked_in','attended','left_early')", 'attendance points require canonical verified attendance');
 $contains($service, "eh.host_role IN ('lead','cohost')", 'host points exclude check-in-only assignment');
 $contains($service, "c.trigger_key IN ('return_visit','guest_return')", 'return points require canonical return engine trigger');
-$contains($service, "'$.source_reward_issuance_id'", 'return points require exact source reward linkage');
+$contains($service, 'JOIN reward_claims source_claim', 'return points must resolve the canonical return claim');
+$contains($service, "'$.source_claim_id'", 'return points require exact source claim linkage');
+$contains($service, 'source_claim.claimed_at AS occurred_at', 'return point timing must come from the canonical claim time');
+$contains($service, 'AND lp.source_ref=source_claim.public_id', 'one physical return claim must map to one Loyalty point source');
+$contains($service, "(string)\$row['source_claim_ref']", 'return point insertion must key idempotency to the return claim rather than each reward issuance');
+$contains($service, "'return_reward_issuance_id'", 'return reward issuance should remain provenance metadata without becoming the point source');
 $contains($service, "'benefit_claim' => 0", 'benefit claim alone must not earn points');
 
 // Status is derived from local group history while lifetime points remain
@@ -69,6 +74,7 @@ $contains($service, 'COVETED_LOYALTY_RECONNECT_DAYS = 90', 'reconnect state must
 $contains($service, "'activity_state' => \$activity", 'reconnect must be an activity overlay, not a tier reset');
 $contains($service, 'COUNT(DISTINCT group_id) AS groups_with_points', 'member view must expose cross-group lifetime foundation');
 $contains($service, 'Lifetime Coveted Points are group-independent', 'travel-ready lifetime point policy must be explicit');
+$missing($service, 'LIMIT 10000', 'aggregate Loyalty analytics must not silently truncate active membership status');
 
 // Milestones are canonical, durable relationship moments. Candidate queries
 // must select missing work only so large installs cannot starve later members,
