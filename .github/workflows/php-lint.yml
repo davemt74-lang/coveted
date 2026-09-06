@@ -71,6 +71,9 @@ jobs:
       - name: Verify proactive Admin Agent Benefit opportunities contract
         run: php scripts/verify-admin-agent-benefit-opportunities.php
 
+      - name: Verify Benefit Program performance and learning contract
+        run: php scripts/verify-benefit-performance-learning.php
+
       - name: Verify Admin Event Workspace contract
         run: php scripts/verify-admin-event-workspace.php
 
