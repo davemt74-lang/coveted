@@ -104,17 +104,19 @@ $contains($service, 'Review pool economics and inventory before changing anythin
 $contains($service, 'Start with a draft; do not launch automatically.', 'portfolio gap must preserve draft-first behavior');
 
 // Agent snapshot integration must attach the detailed intelligence and also
-// surface its recommendations through the existing opportunity/task pipeline.
+// surface recommendations through the canonical opportunity UI.
 $contains($branding, "require_once __DIR__ . '/admin_agent_benefit_opportunities.php';", 'Agent enrichment must load proactive benefit intelligence');
 $contains($branding, 'coveted_admin_agent_benefit_opportunities_snapshot(', 'Agent enrichment must generate proactive benefit context');
 $contains($branding, "\$operations['benefit_opportunities'] = \$benefitOpportunities;", 'Agent operations context must include benefit opportunities');
 $contains($branding, "\$snapshot['benefit_opportunities'] = \$benefitOpportunities;", 'top-level Agent context must include benefit opportunities');
 $contains($branding, "'category' => 'Value'", 'recommendations must enter the canonical opportunity list');
+$contains($branding, "'task_sync' => \$executionReady", 'only execution-ready Benefit opportunities may be task-synced');
 $contains($branding, "'suggested_draft' => \$recommendation['suggested_draft'] ?? null", 'Agent opportunity must retain grounded draft refs');
 
-// Existing task queue remains the approval boundary. Suggested opportunities
-// are never self-approved, and completed/dismissed tasks stay closed.
-$contains($tasks, "VALUES (?, ?, ?, ?, ?, 'suggested', 'opportunity'", 'deterministic opportunities must enter the queue as Suggested');
+// Existing task queue remains the approval boundary. Analysis-only signals opt
+// out; grounded draft opportunities enter as Suggested, never Approved.
+$contains($tasks, "array_key_exists('task_sync', \$item) && \$item['task_sync'] === false", 'analysis-only opportunities must be excluded from task synchronization');
+$contains($tasks, "VALUES (?, ?, ?, ?, ?, 'suggested', 'opportunity'", 'task-syncable deterministic opportunities must enter the queue as Suggested');
 $contains($tasks, "'suggested' => ['approved','dismissed']", 'Suggested tasks must still require explicit approval or dismissal');
 $contains($tasks, "in_array((string)\$existing['status'], ['completed','dismissed'], true)", 'closed opportunity tasks must not reopen silently');
 
