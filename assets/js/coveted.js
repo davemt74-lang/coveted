@@ -22,6 +22,7 @@
         await loadScript('/assets/js/admin-agent-v1.js?v=admin-agent-persistent-threads-v1-20260905');
         await loadScript('/assets/js/admin-agent-live-business-v1.js?v=admin-agent-live-business-v1-20260905');
         await loadScript('/assets/js/admin-agent-task-queue-v1.js?v=admin-agent-task-queue-v1-20260905');
+        await loadScript('/assets/js/admin-agent-task-execution-v1.js?v=admin-agent-task-execution-v1-20260905');
         await loadScript('/assets/js/landing-event-images.js?v=landing-event-images-20260905');
         await loadScript('/assets/js/landing-network-v2.js?v=landing-network-v2-layout-20260905');
         await loadScript('/assets/js/public-mobile-header-v2.js?v=public-mobile-header-v2-20260905');
