@@ -35,6 +35,14 @@ function coveted_event_automation_unlock(PDO $pdo): void
     }
 }
 
+function coveted_event_automation_expected_reward_skip(string $message): bool
+{
+    return in_array($message, [
+        'Campaign distribution limit has been reached.',
+        'Member campaign limit has been reached.',
+    ], true);
+}
+
 function coveted_event_automation_notify(
     int $userId,
     string $type,
@@ -112,6 +120,12 @@ function coveted_event_automation_pending_rsvp_reminders(int $limit): array
                WHERE n.user_id = ei.user_id
                  AND n.dedupe_key = CONCAT('event-rsvp-24h:', e.id, ':', ei.user_id)
            )
+           AND NOT EXISTS (
+               SELECT 1 FROM notifications recent
+               WHERE recent.user_id = ei.user_id
+                 AND recent.dedupe_key = CONCAT('event-published:', e.id, ':', ei.user_id)
+                 AND recent.created_at >= DATE_SUB(NOW(), INTERVAL 6 HOUR)
+           )
          ORDER BY e.starts_at ASC, ei.id ASC
          LIMIT {$limit}"
     )->fetchAll();
@@ -177,8 +191,8 @@ function coveted_event_automation_reward_targets(string $triggerKey, int $limit)
     }
 
     $eventStatus = $triggerKey === 'completion'
-        ? "e.status = 'completed'"
-        : "e.status IN ('published','closed','completed')";
+        ? "e.status = 'completed' AND e.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)"
+        : "e.status IN ('published','closed','completed') AND ea.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)";
     $triggerSql = $triggerKey === 'completion' ? "'completion'" : "'attendance'";
 
     return coveted_db()->query(
@@ -235,15 +249,40 @@ function coveted_event_automation_completed_attendees(int $limit): array
          JOIN social_groups g ON g.id = e.group_id
          JOIN users u ON u.id = ea.user_id AND u.status = 'active'
          WHERE e.status = 'completed'
+           AND e.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR)
            AND ea.status IN ('checked_in','attended','left_early')
            AND NOT EXISTS (
                SELECT 1 FROM notifications n
                WHERE n.user_id = ea.user_id
                  AND n.dedupe_key = CONCAT('event-post:', e.id, ':', ea.user_id)
            )
-         ORDER BY COALESCE(e.ends_at, e.starts_at) DESC, ea.id ASC
+         ORDER BY e.updated_at DESC, ea.id ASC
          LIMIT {$limit}"
     )->fetchAll();
+}
+
+function coveted_event_automation_has_backlog(): bool
+{
+    if (coveted_event_automation_published_invites(1)) {
+        return true;
+    }
+    if (coveted_event_automation_pending_rsvp_reminders(1)) {
+        return true;
+    }
+    if (coveted_event_automation_attendee_reminders(1)) {
+        return true;
+    }
+    if (coveted_event_automation_due_reveals(1)) {
+        return true;
+    }
+    if (coveted_event_automation_reward_targets('attendance', 1)) {
+        return true;
+    }
+    if (coveted_event_automation_reward_targets('completion', 1)) {
+        return true;
+    }
+
+    return (bool)coveted_event_automation_completed_attendees(1);
 }
 
 /**
@@ -265,6 +304,7 @@ function coveted_event_lifecycle_automation_reconcile(int $limit = 250): array
         'mystery_reveal_notifications' => 0,
         'attendance_rewards' => 0,
         'completion_rewards' => 0,
+        'reward_limit_skips' => 0,
         'post_event_notifications' => 0,
         'failures' => 0,
         'more_work_possible' => false,
@@ -387,8 +427,12 @@ function coveted_event_lifecycle_automation_reconcile(int $limit = 250): array
                     );
                     $summary[$summaryKey]++;
                 } catch (InvalidArgumentException $e) {
+                    if (coveted_event_automation_expected_reward_skip($e->getMessage())) {
+                        $summary['reward_limit_skips']++;
+                        continue;
+                    }
                     $summary['failures']++;
-                    error_log('Coveted automated reward skipped: ' . $e->getMessage());
+                    error_log('Coveted automated reward skipped unexpectedly: ' . $e->getMessage());
                 } catch (Throwable $e) {
                     $summary['failures']++;
                     error_log('Coveted automated reward failed: ' . $e->getMessage());
@@ -417,7 +461,8 @@ function coveted_event_lifecycle_automation_reconcile(int $limit = 250): array
             }
         }
 
-        $summary['more_work_possible'] = max($buckets ?: [0]) >= $limit;
+        $summary['more_work_possible'] = max($buckets ?: [0]) >= $limit
+            && coveted_event_automation_has_backlog();
 
         $changed = array_sum([
             $summary['publish_notifications'],
@@ -429,7 +474,7 @@ function coveted_event_lifecycle_automation_reconcile(int $limit = 250): array
             $summary['completion_rewards'],
             $summary['post_event_notifications'],
         ]);
-        if ($changed > 0 || $summary['failures'] > 0) {
+        if ($changed > 0 || $summary['failures'] > 0 || $summary['reward_limit_skips'] > 0) {
             coveted_audit(
                 'event_lifecycle.automated',
                 'platform',
@@ -442,6 +487,7 @@ function coveted_event_lifecycle_automation_reconcile(int $limit = 250): array
                     'mystery_reveal_notifications' => $summary['mystery_reveal_notifications'],
                     'attendance_rewards' => $summary['attendance_rewards'],
                     'completion_rewards' => $summary['completion_rewards'],
+                    'reward_limit_skips' => $summary['reward_limit_skips'],
                     'post_event_notifications' => $summary['post_event_notifications'],
                     'failures' => $summary['failures'],
                 ],
@@ -509,7 +555,11 @@ function coveted_event_lifecycle_automation_exceptions(int $limit = 50): array
          WHERE c.status = 'active'
            AND rt.status = 'active'
            AND c.trigger_key IN ('attendance','completion')
-           AND (c.trigger_key <> 'completion' OR e.status = 'completed')
+           AND (
+               (c.trigger_key = 'attendance' AND ea.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR))
+               OR
+               (c.trigger_key = 'completion' AND e.status = 'completed' AND e.updated_at >= DATE_SUB(NOW(), INTERVAL 48 HOUR))
+           )
            AND (c.starts_at IS NULL OR c.starts_at <= NOW())
            AND (c.ends_at IS NULL OR c.ends_at > NOW())
            AND (rt.starts_at IS NULL OR rt.starts_at <= NOW())
