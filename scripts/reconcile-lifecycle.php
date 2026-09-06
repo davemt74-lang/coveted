@@ -9,6 +9,7 @@ if (PHP_SAPI !== 'cli') {
 require_once dirname(__DIR__) . '/app/lifecycle.php';
 require_once dirname(__DIR__) . '/app/event_lifecycle_automation.php';
 require_once dirname(__DIR__) . '/app/benefit_economy.php';
+require_once dirname(__DIR__) . '/app/loyalty.php';
 
 $limit = isset($argv[1]) && ctype_digit((string)$argv[1]) ? (int)$argv[1] : 250;
 $maxBatches = isset($argv[2]) && ctype_digit((string)$argv[2]) ? (int)$argv[2] : 10;
@@ -66,15 +67,33 @@ try {
         );
     }
 
+    $loyalty = coveted_loyalty_reconcile($limit);
+    if (!empty($loyalty['skipped_locked'])) {
+        fwrite(STDOUT, "Coveted loyalty: another worker already holds the loyalty lock; this pass was skipped.\n");
+    } else {
+        fwrite(
+            STDOUT,
+            sprintf(
+                "Coveted loyalty: %d attendance entries, %d host entries, %d return entries, %d milestones, %d failures.\n",
+                (int)$loyalty['attendance_points'],
+                (int)$loyalty['host_points'],
+                (int)$loyalty['return_points'],
+                (int)$loyalty['milestones'],
+                (int)$loyalty['failures']
+            )
+        );
+    }
+
     if (
         !empty($summary['more_work_possible'])
         || !empty($events['more_work_possible'])
         || !empty($membership['more_work_possible'])
+        || !empty($loyalty['more_work_possible'])
     ) {
         fwrite(STDERR, "Coveted lifecycle backlog remains after the configured worker limit.\n");
         exit(2);
     }
-    if ((int)$events['failures'] > 0 || (int)$membership['failures'] > 0) {
+    if ((int)$events['failures'] > 0 || (int)$membership['failures'] > 0 || (int)$loyalty['failures'] > 0) {
         fwrite(STDERR, "Coveted automation completed with one or more bounded item failures; review Admin operations and server logs.\n");
         exit(3);
     }

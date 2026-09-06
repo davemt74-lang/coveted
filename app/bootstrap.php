@@ -725,7 +725,7 @@ function coveted_page_start(string $title, string $active = '', bool $adminMode 
     <a class="cv-brand" href="/">Coveted</a>
     <nav class="cv-nav" aria-label="Primary">
         <?php if ($user): ?>
-            <?php foreach (['Home' => '/', 'Invitations' => '/invitations.php', 'Events' => '/events.php', 'Benefits' => '/benefits.php', 'Profile' => '/profile.php'] as $label => $url): ?>
+            <?php foreach (['Home' => '/', 'Invitations' => '/invitations.php', 'Events' => '/events.php', 'Benefits' => '/benefits.php', 'Loyalty' => '/loyalty.php', 'Profile' => '/profile.php'] as $label => $url): ?>
                 <a class="<?= $active === $label ? 'is-active' : '' ?>" href="<?= coveted_e($url) ?>"><?= coveted_e($label) ?></a>
             <?php endforeach; ?>
             <?php if ($isSystemAdmin): ?>
@@ -794,6 +794,7 @@ function coveted_page_start(string $title, string $active = '', bool $adminMode 
                     <a href="/admin/?view=groups#create-group"><strong>Add Group</strong><small>Create a private community</small></a>
                     <a href="/admin/?view=events#create-event"><strong>Add Event</strong><small>Plan a gathering</small></a>
                 <?php endif; ?>
+                <a href="/loyalty.php"><strong>Loyalty</strong><small>Private points, status and milestones</small></a>
                 <a href="/profile.php"><strong>Profile</strong><small>Photo, identity and account details</small></a>
                 <form method="post" action="/auth.php?action=logout">
                     <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">

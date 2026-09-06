@@ -232,6 +232,7 @@ function coveted_installer_run(string $root, array $input): array
     $data = coveted_installer_validate_input($input);
     $pdo = coveted_installer_connect($data);
     $schemaFile = $root . '/database/schema.sql';
+    $loyaltySchemaFile = $root . '/database/schema-loyalty.sql';
     $state = coveted_installer_schema_state($pdo, $schemaFile);
 
     if ($state['state'] === 'partial') {
@@ -244,6 +245,12 @@ function coveted_installer_run(string $root, array $input): array
     if ($state['state'] !== 'installed') {
         throw new RuntimeException('Coveted could not verify the installed database schema.');
     }
+    if (!is_file($loyaltySchemaFile)) {
+        throw new RuntimeException('Coveted Loyalty schema fragment is missing.');
+    }
+    // Supplementary product schema is CREATE IF NOT EXISTS and therefore safe
+    // for both a fresh install and a preloaded but not-yet-configured database.
+    coveted_installer_apply_schema($pdo, $loyaltySchemaFile);
 
     $config = coveted_installer_config_array($data);
     $configIssues = coveted_deployment_config_issues($config, true);
