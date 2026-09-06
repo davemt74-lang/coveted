@@ -297,12 +297,15 @@ function coveted_loyalty_reconcile_returns(PDO $pdo, int $limit): array
 {
     $stmt = $pdo->query(
         "SELECT followup.user_id, followup.public_id AS issuance_ref, followup.event_id,
+                source_claim.public_id AS source_claim_ref,
                 CAST(JSON_UNQUOTE(JSON_EXTRACT(followup.metadata_json,'$.origin_group_id')) AS UNSIGNED) AS group_id,
-                followup.created_at AS occurred_at, c.trigger_key,
+                source_claim.claimed_at AS occurred_at, c.trigger_key,
                 JSON_UNQUOTE(JSON_EXTRACT(followup.metadata_json,'$.source_reward_issuance_id')) AS source_reward_ref
          FROM reward_issuances followup
          JOIN campaigns c ON c.id=followup.campaign_id
          JOIN users u ON u.id=followup.user_id AND u.status='active'
+         JOIN reward_claims source_claim
+           ON source_claim.public_id=JSON_UNQUOTE(JSON_EXTRACT(followup.metadata_json,'$.source_claim_id'))
          JOIN social_groups g
            ON g.id=CAST(JSON_UNQUOTE(JSON_EXTRACT(followup.metadata_json,'$.origin_group_id')) AS UNSIGNED)
          WHERE followup.status<>'cancelled'
@@ -312,9 +315,9 @@ function coveted_loyalty_reconcile_returns(PDO $pdo, int $limit): array
                SELECT 1 FROM loyalty_point_ledger lp
                WHERE lp.user_id=followup.user_id
                  AND lp.source_type='verified_return_visit'
-                 AND lp.source_ref=followup.public_id
+                 AND lp.source_ref=source_claim.public_id
            )
-         ORDER BY followup.created_at, followup.id
+         ORDER BY source_claim.claimed_at, followup.id
          LIMIT " . ($limit + 1)
     );
     $rows = $stmt->fetchAll();
@@ -330,14 +333,16 @@ function coveted_loyalty_reconcile_returns(PDO $pdo, int $limit): array
                 (int)$row['group_id'],
                 $row['event_id'] !== null ? (int)$row['event_id'] : null,
                 'verified_return_visit',
-                (string)$row['issuance_ref'],
+                (string)$row['source_claim_ref'],
                 COVETED_LOYALTY_RETURN_POINTS,
                 COVETED_LOYALTY_RETURN_POINTS,
                 'Verified partner return visit',
                 (string)$row['occurred_at'],
                 [
                     'return_kind' => (string)$row['trigger_key'],
+                    'source_claim_id' => (string)$row['source_claim_ref'],
                     'source_reward_issuance_id' => (string)$row['source_reward_ref'],
+                    'return_reward_issuance_id' => (string)$row['issuance_ref'],
                 ]
             )) {
                 $inserted++;
@@ -654,8 +659,7 @@ function coveted_loyalty_admin_snapshot(): array
          LEFT JOIN loyalty_point_ledger lp ON lp.user_id=gm.user_id AND lp.group_id=gm.group_id
          WHERE gm.membership_status='active'
          GROUP BY gm.user_id,gm.group_id,g.public_id,g.name
-         ORDER BY gm.group_id,gm.user_id
-         LIMIT 10000"
+         ORDER BY gm.group_id,gm.user_id"
     )->fetchAll();
 
     $tierDistribution = [];
