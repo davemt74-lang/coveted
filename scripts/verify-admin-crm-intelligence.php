@@ -41,10 +41,11 @@ $contains($service, '$score = max(0, min(100, $score));', 'score must remain bou
 $contains($service, "'High priority'", 'high-priority band is missing');
 $contains($service, "'Review for conversion'", 'qualified conversion recommendation is missing');
 $contains($service, 'Sensitive fields', 'sensitive-field exclusion rationale is missing');
-$contains($service, 'free-text sentiment are excluded from scoring', 'free-text sentiment exclusion is missing');
+$contains($service, 'social-profile presence and all free-text', 'social-profile/free-text scoring exclusion is missing');
 $contains($service, 'never returns names, emails, raw phone numbers, notes, messages, gender', 'aggregate PII boundary is missing');
 $contains($service, "WHERE ir.status IN ('new','contacted','qualified')", 'aggregate intelligence must stay on active CRM workflow states');
 $contains($service, 'CASE WHEN NULLIF(TRIM(ir.phone)', 'aggregate scorer may use phone completeness only');
+$missing($service, 'ip.social_links_json', 'social-link presence must not influence CRM priority');
 $contains($service, 'coveted_invite_crm_intelligence_for_ids', 'per-visible-record scorer is missing');
 
 // Read-only System Admin API with no AI provider or PII payload.
@@ -77,12 +78,13 @@ $contains($branding, "!== 'crm-pipeline'", 'generic CRM opportunity must be repl
 $contains($js, "const endpoint = '/api/admin-crm-intelligence.php';", 'CRM intelligence endpoint wiring is missing');
 $contains($js, 'credentials: \'same-origin\'', 'CRM intelligence request must remain same-origin');
 $contains($js, "cache: 'no-store'", 'CRM intelligence browser request must bypass caches');
-$contains($js, 'data-crm-priority-filter', 'priority filter control is missing');
-$contains($js, 'data-crm-priority-sort', 'priority sort control is missing');
+$contains($js, "priorityFilter.dataset.crmPriorityFilter = '1';", 'priority filter control is missing');
+$contains($js, "sortSelect.dataset.crmPrioritySort = '1';", 'priority sort control is missing');
 $contains($js, 'High priority', 'high-priority UI signal is missing');
 $contains($js, 'Follow-up due', 'follow-up UI signal is missing');
 $contains($js, 'Conversion ready', 'conversion-ready UI signal is missing');
 $contains($js, 'textContent = intel.next_action', 'record intelligence rendering must use DOM text');
+$contains($js, 'if (!intel) return false;', 'filtered views must fail closed when intelligence is unavailable');
 $contains($js, 'record.hidden = !show', 'client-side priority filtering is missing');
 $contains($jsEntry, 'invite-crm-intelligence-v1-20260905', 'CRM intelligence JS cache key is stale');
 $contains($cssEntry, 'invite-crm-intelligence-v1.css?v=invite-crm-intelligence-v1-20260905', 'CRM intelligence stylesheet is not loaded');
