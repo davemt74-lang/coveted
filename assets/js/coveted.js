@@ -23,7 +23,7 @@
         await loadScript('/assets/js/landing-event-images.js?v=landing-event-images-20260905');
         await loadScript('/assets/js/landing-network-v2.js?v=landing-network-v2-layout-20260905');
         await loadScript('/assets/js/public-mobile-header-v2.js?v=public-mobile-header-v2-20260905');
-        await loadScript('/assets/js/invite-crm-v2.js?v=invite-crm-v2-20260905');
+        await loadScript('/assets/js/invite-crm-v2.js?v=invite-crm-intelligence-v1-20260905');
         await loadScript('/assets/js/invite-profile-v2.js?v=invite-profile-v2-20260905');
     })().catch((error) => console.error('Coveted application scripts failed to load:', error));
 })();
