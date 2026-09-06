@@ -513,6 +513,43 @@ function coveted_site_branding_enrich_agent_snapshot(array $snapshot): array
         error_log('Admin Agent Benefit Program performance intelligence unavailable: ' . $e->getMessage());
     }
 
+    try {
+        require_once __DIR__ . '/partner_opportunities.php';
+        $admin = coveted_current_user();
+        if ($admin && coveted_is_system_admin($admin)) {
+            $partnerOpportunities = coveted_partner_opportunities_agent_context($admin);
+            $operations = (array)($snapshot['operations'] ?? []);
+            $operations['partner_opportunities'] = $partnerOpportunities;
+            $snapshot['operations'] = $operations;
+            $snapshot['partner_opportunities'] = $partnerOpportunities;
+
+            foreach ((array)($partnerOpportunities['recommendations'] ?? []) as $recommendation) {
+                if (!is_array($recommendation)) continue;
+                $key = trim((string)($recommendation['key'] ?? ''));
+                $title = trim((string)($recommendation['title'] ?? ''));
+                if ($key === '' || $title === '') continue;
+                $opportunities[] = [
+                    'priority' => max(1, min(3, (int)($recommendation['priority'] ?? 2))),
+                    'key' => $key,
+                    'category' => 'Partners',
+                    'title' => $title,
+                    'detail' => (string)($recommendation['detail'] ?? ''),
+                    'href' => (string)($recommendation['href'] ?? '/venue-relationships.php'),
+                    'evidence' => (string)($recommendation['evidence'] ?? ''),
+                    'kind' => (string)($recommendation['kind'] ?? 'partner_opportunity'),
+                    'execution_ready' => false,
+                    'task_sync' => false,
+                    'suggested_draft' => null,
+                ];
+            }
+        }
+    } catch (Throwable $e) {
+        $issues = array_values((array)($snapshot['issues'] ?? []));
+        $issues[] = 'partner_opportunities';
+        $snapshot['issues'] = array_values(array_unique($issues));
+        error_log('Admin Agent Partner opportunity intelligence unavailable: ' . $e->getMessage());
+    }
+
     usort($opportunities, static function (array $a, array $b): int {
         $priority = ((int)$a['priority']) <=> ((int)$b['priority']);
         return $priority !== 0 ? $priority : strcmp((string)$a['key'], (string)$b['key']);
