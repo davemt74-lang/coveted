@@ -8,6 +8,7 @@ if (PHP_SAPI !== 'cli') {
 
 require_once dirname(__DIR__) . '/app/lifecycle.php';
 require_once dirname(__DIR__) . '/app/event_lifecycle_automation.php';
+require_once dirname(__DIR__) . '/app/daily_events.php';
 require_once dirname(__DIR__) . '/app/benefit_economy.php';
 require_once dirname(__DIR__) . '/app/loyalty.php';
 
@@ -51,6 +52,22 @@ try {
         );
     }
 
+    $daily = coveted_daily_event_reconcile($limit);
+    if (!empty($daily['skipped_locked'])) {
+        fwrite(STDOUT, "Coveted Daily Events: another worker already holds the Daily Event lock; this pass was skipped.\n");
+    } else {
+        fwrite(
+            STDOUT,
+            sprintf(
+                "Coveted Daily Events: %d thresholds unlocked, %d group rewards issued, %d reward-limit skips, %d failures.\n",
+                (int)$daily['thresholds_unlocked'],
+                (int)$daily['rewards_issued'],
+                (int)$daily['reward_limit_skips'],
+                (int)$daily['failures']
+            )
+        );
+    }
+
     $membership = coveted_membership_benefit_reconcile($limit);
     if (!empty($membership['skipped_locked'])) {
         fwrite(STDOUT, "Coveted membership benefits: another worker already holds the benefit lock; this pass was skipped.\n");
@@ -84,16 +101,34 @@ try {
         );
     }
 
+    $dailyLoyalty = coveted_daily_event_loyalty_reconcile($limit);
+    fwrite(
+        STDOUT,
+        sprintf(
+            "Coveted Daily Event loyalty: %d point adjustments, %d failures.\n",
+            (int)$dailyLoyalty['adjustments'],
+            (int)$dailyLoyalty['failures']
+        )
+    );
+
     if (
         !empty($summary['more_work_possible'])
         || !empty($events['more_work_possible'])
+        || !empty($daily['more_work_possible'])
         || !empty($membership['more_work_possible'])
         || !empty($loyalty['more_work_possible'])
+        || !empty($dailyLoyalty['more'])
     ) {
         fwrite(STDERR, "Coveted lifecycle backlog remains after the configured worker limit.\n");
         exit(2);
     }
-    if ((int)$events['failures'] > 0 || (int)$membership['failures'] > 0 || (int)$loyalty['failures'] > 0) {
+    if (
+        (int)$events['failures'] > 0
+        || (int)$daily['failures'] > 0
+        || (int)$membership['failures'] > 0
+        || (int)$loyalty['failures'] > 0
+        || (int)$dailyLoyalty['failures'] > 0
+    ) {
         fwrite(STDERR, "Coveted automation completed with one or more bounded item failures; review Admin operations and server logs.\n");
         exit(3);
     }

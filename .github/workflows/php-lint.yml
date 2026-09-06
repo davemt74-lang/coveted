@@ -59,6 +59,12 @@ jobs:
       - name: Verify Event Lifecycle Automation contract
         run: php scripts/verify-event-lifecycle-automation.php
 
+      - name: Verify Daily Events / partnered opportunity contract
+        run: php scripts/verify-daily-events.php
+
+      - name: Verify Daily Events navigation JavaScript syntax
+        run: node --check assets/js/daily-events-nav-v1.js
+
       - name: Verify Group Perk Wallet contract
         run: php scripts/verify-group-perk-wallet.php
 
