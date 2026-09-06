@@ -36,13 +36,21 @@ $events = $read('app/events.php');
 $workflow = $read('.github/workflows/php-lint.yml');
 
 // Durable Daily Event relationship. The event remains canonical; this table
-// adds partner location, threshold reward and unlock state.
+// adds partner location, threshold reward, Admin-defined Loyalty value and unlock state.
 $contains($migration, 'CREATE TABLE IF NOT EXISTS daily_event_opportunities', 'Daily Event migration must exist');
 $contains($schema, 'CREATE TABLE IF NOT EXISTS daily_event_opportunities', 'fresh installs need Daily Event schema');
-foreach (['event_id BIGINT UNSIGNED NOT NULL UNIQUE','business_id BIGINT UNSIGNED NOT NULL','location_id BIGINT UNSIGNED NOT NULL','reward_campaign_id BIGINT UNSIGNED NOT NULL','attendance_threshold INT UNSIGNED NOT NULL'] as $needle) {
-    $contains($migration, $needle, 'Daily Event partner/reward scope must be durable and mandatory');
+foreach ([
+    'event_id BIGINT UNSIGNED NOT NULL UNIQUE',
+    'business_id BIGINT UNSIGNED NOT NULL',
+    'location_id BIGINT UNSIGNED NOT NULL',
+    'reward_campaign_id BIGINT UNSIGNED NOT NULL',
+    'attendance_threshold INT UNSIGNED NOT NULL',
+    'loyalty_points INT UNSIGNED NOT NULL DEFAULT 100',
+] as $needle) {
+    $contains($migration, $needle, 'Daily Event partner/reward/points scope must be durable and mandatory');
 }
 $contains($migration, 'CONSTRAINT chk_daily_event_threshold CHECK (attendance_threshold > 0)', 'attendance threshold must be positive');
+$contains($migration, 'CONSTRAINT chk_daily_event_loyalty_points CHECK (loyalty_points <= 10000)', 'Daily Event point value must be bounded');
 $contains($installer, "database/schema-daily-events.sql", 'installer must apply Daily Event schema fragment');
 
 // System Admin remains the only event creator/configurator. Business Partners
@@ -57,6 +65,17 @@ $contains($service, "'regular', 'group'", 'Daily Event must use canonical group-
 $contains($service, "0, 'immediate'", 'Daily Event v1 disables plus-one and reveals partner location immediately');
 $missing($partner, 'coveted_event_create(', 'Business Partner workspace must not create events');
 $missing($partner, 'coveted_event_set_status(', 'Business Partner workspace must not configure event status');
+
+// Admin explicitly defines the private point value per Daily Event. The value
+// affects the same private group + lifetime ledger used for long-term/travel use.
+$contains($admin, 'name="loyalty_points"', 'Admin Daily Event form must define a point value');
+$contains($admin, 'min="0" max="10000"', 'Admin point input must stay within the service bound');
+$contains($service, 'COVETED_DAILY_EVENT_MAX_LOYALTY_POINTS = 10000', 'service must bound Admin-defined Daily Event points');
+$contains($service, "\$loyaltyPoints = (int)(\$data['loyalty_points']", 'creation must read Admin-defined point value');
+$contains($service, 'attendance_threshold,loyalty_points,status,created_by', 'Daily Event creation must persist the point value atomically');
+$contains($service, "'loyalty_points' => \$loyaltyPoints", 'Daily Event audit must preserve configured point value');
+$contains($member, "'loyalty_points'", 'member Daily Event feed must expose the event value');
+$contains($partner, "['loyalty_points']", 'Business Partner can see the event point value without seeing member balances');
 
 // Group reward uses a dedicated manual Business campaign. Generic attendance
 // automation must not issue it before the group threshold is reached.
@@ -83,27 +102,43 @@ $contains($service, "'verification_method' => 'partner_location_code'", 'audit m
 $contains($service, "'daily-checkin-member-event|'", 'check-in code attempts must be throttled by member/event');
 $contains($service, "'daily-checkin-member-ip|'", 'check-in code attempts must be throttled by member/IP');
 
-// One attendance record feeds all systems. Daily Events do not create a second
-// points currency or a boosted Daily Event attendance score.
+// One attendance record feeds all systems. The canonical Loyalty reconciler
+// records the verified attendance base; a single append-only adjustment makes
+// the event's net award equal exactly the Admin-configured total.
 $contains($loyalty, 'FROM event_attendance ea', 'Loyalty must continue deriving attendance from canonical event_attendance');
 $contains($loyalty, "e.status='completed'", 'Loyalty attendance remains completion-gated');
-$contains($loyalty, 'const COVETED_LOYALTY_ATTENDANCE_POINTS = 100;', 'Daily Event attendance must use normal verified attendance points');
-$missing($service, 'loyalty_point_ledger', 'Daily Event service must not write a second/direct Loyalty ledger path');
-$missing($service, 'COVETED_LOYALTY_ATTENDANCE_POINTS +', 'Daily Event service must not boost attendance points');
+$contains($loyalty, 'const COVETED_LOYALTY_ATTENDANCE_POINTS = 100;', 'canonical verified attendance baseline must remain intact');
+$contains($service, 'function coveted_daily_event_loyalty_reconcile', 'Daily Event point adjustment reconciler must exist');
+$contains($service, "source_type='verified_attendance'", 'Daily Event adjustment must wait for canonical attendance ledger entry');
+$contains($service, "source_type='daily_event_points'", 'Daily Event point adjustment must be idempotent');
+$contains($service, '$adjustment = $configured - $basePoints;', 'Daily Event adjustment must produce the exact configured total');
+$contains($service, 'coveted_loyalty_insert_points(', 'Daily Event points must use the canonical append-only Loyalty writer');
+$contains($service, "'configured_total_points' => \$configured", 'Daily Event point ledger metadata must preserve the configured total');
+$missing($service, 'INSERT INTO loyalty_point_ledger', 'Daily Event service must not bypass the canonical Loyalty writer');
 
-// Existing worker remains the only scheduler.
+// Existing worker remains the only scheduler, and point adjustment runs after
+// the canonical Loyalty pass so the base attendance entry exists first.
 $contains($worker, "require_once dirname(__DIR__) . '/app/daily_events.php';", 'existing lifecycle worker must load Daily Events');
 $contains($worker, '$daily = coveted_daily_event_reconcile($limit);', 'existing lifecycle worker must reconcile Daily Event rewards');
+$contains($worker, '$loyalty = coveted_loyalty_reconcile($limit);', 'canonical Loyalty pass must remain in worker');
+$contains($worker, '$dailyLoyalty = coveted_daily_event_loyalty_reconcile($limit);', 'Daily Event configured points must reconcile after canonical Loyalty');
+if (strpos($worker, '$dailyLoyalty = coveted_daily_event_loyalty_reconcile($limit);') < strpos($worker, '$loyalty = coveted_loyalty_reconcile($limit);')) {
+    fwrite(STDERR, "Daily Events contract failed: configured point reconciliation must run after canonical Loyalty.\n");
+    exit(1);
+}
 $contains($worker, 'Coveted Daily Events:', 'worker output must expose Daily Events');
-$contains($worker, "!empty(\$daily['more_work_possible'])", 'Daily Event backlog must affect worker exit');
-$contains($worker, "(int)\$daily['failures'] > 0", 'Daily Event failures must affect worker exit');
+$contains($worker, 'Coveted Daily Event loyalty:', 'worker output must expose point adjustments');
+$contains($worker, "!empty(\$daily['more_work_possible'])", 'Daily Event reward backlog must affect worker exit');
+$contains($worker, "!empty(\$dailyLoyalty['more'])", 'Daily Event point backlog must affect worker exit');
+$contains($worker, "(int)\$daily['failures'] > 0", 'Daily Event reward failures must affect worker exit');
+$contains($worker, "(int)\$dailyLoyalty['failures'] > 0", 'Daily Event point failures must affect worker exit');
 
-// Partner reporting stays aggregate and member points remain private.
-$contains($partner, 'Partner reporting is aggregate.', 'Business Partner privacy boundary must be explicit');
+// Partner reporting stays aggregate and member balances remain private.
+$contains($partner, 'Partner reporting is aggregate', 'Business Partner privacy boundary must be explicit');
 $missing($partner, 'display_name', 'Business Partner dashboard must not expose member names');
 $missing($partner, 'email', 'Business Partner dashboard must not expose member emails');
 $missing($partner, 'loyalty_point_ledger', 'Business Partner dashboard must not expose private point ledger');
-$contains($member, 'same canonical attendance record flows into your private Coveted Loyalty points', 'member UI must explain Loyalty integration');
+$contains($member, 'private Coveted Loyalty point', 'member UI must explain configured private Loyalty value');
 $contains($admin, 'Partners never gain event-creation authority.', 'Admin UI must explain partner authority boundary');
 
 $contains($workflow, 'php scripts/verify-daily-events.php', 'Daily Events contract must run in CI');
