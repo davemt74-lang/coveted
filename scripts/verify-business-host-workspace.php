@@ -22,6 +22,14 @@ $missing = static function (string $content, string $needle, string $label): voi
         exit(1);
     }
 };
+$before = static function (string $content, string $first, string $second, string $label): void {
+    $firstPos = strpos($content, $first);
+    $secondPos = strpos($content, $second);
+    if ($firstPos === false || $secondPos === false || $firstPos >= $secondPos) {
+        fwrite(STDERR, "Business Host workspace contract failed: {$label}\n");
+        exit(1);
+    }
+};
 
 $service = $read('app/business_host_workspace.php');
 $page = $read('business-host.php');
@@ -49,13 +57,23 @@ $contains($service, 'coveted_event_record_attendance($actor, (string)$event[\'pu
 $missing($service, 'INSERT INTO event_attendance', 'workspace service must not write attendance directly');
 $missing($service, 'UPDATE event_attendance', 'workspace service must not update attendance directly');
 
-// Issue reporting must be durable without inventing a parallel issue/message table.
+// Issue reporting must be durable, bounded and schema-safe without inventing a parallel issue/message table.
 $contains($service, 'function coveted_business_host_report_issue(', 'venue issue reporting service is missing');
+$contains($service, 'function coveted_business_host_issue_notification_title(', 'bounded issue notification title helper is missing');
+$contains($service, 'if (mb_strlen($title) <= 190)', 'issue notification title must honor notification schema length');
+$contains($service, "mb_substr($title, 0, 189) . '…'", 'long issue notification titles must be safely clipped');
+$contains($service, 'function coveted_business_host_assert_issue_rate_limit(', 'issue reporting rate-limit service is missing');
+$contains($service, "event_type = 'business_host.issue_reported'", 'issue rate limit must use durable successful-report audits');
+$contains($service, "entity_type = 'event'", 'issue rate limit must remain event scoped');
+$contains($service, 'created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)', 'issue rate-limit window must be ten minutes');
+$contains($service, 'if ((int)$stmt->fetchColumn() >= 5)', 'issue reporting must be capped to five reports per event/window');
+$contains($service, 'coveted_business_host_assert_issue_rate_limit($actor, $event);', 'issue reporting must enforce the rate limit');
 $contains($service, "ur.role_key = 'system_admin'", 'issue reports must target active System Admins');
 $contains($service, 'coveted_notification_create(', 'issue reports must use canonical notifications');
 $contains($service, "'business_host.issue'", 'venue issue notification type is missing');
 $contains($service, "$category === 'safety' ? 'high' : 'normal'", 'safety issues must be high priority');
 $contains($service, "'business_host.issue_reported'", 'issue reporting audit event is missing');
+$before($service, 'coveted_business_host_assert_issue_rate_limit($actor, $event);', '$admins = coveted_db()->query(', 'rate limit must run before Admin notifications are discovered/emitted');
 $missing($service, 'CREATE TABLE business_host', 'issue reporting must not create a parallel issue table');
 $missing($service, 'INSERT INTO notifications', 'workspace must not bypass the canonical notification service');
 
