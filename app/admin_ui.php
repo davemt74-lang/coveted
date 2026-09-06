@@ -143,6 +143,7 @@ function coveted_admin_ui_start(
                     <span class="cv-admin-nav-chevron" aria-hidden="true">⌄</span>
                 </summary>
                 <div class="cv-admin-nav-body">
+                    <?php coveted_admin_nav_link($active, 'loyalty', '/admin/loyalty.php', 'Group Loyalty'); ?>
                     <?php coveted_admin_nav_link($active, 'benefit-programs', '/admin/benefit-programs.php', 'Benefit Programs'); ?>
                     <?php coveted_admin_nav_link($active, 'benefit-sponsorships', '/admin/benefit-sponsorships.php', 'Benefit Sponsorships'); ?>
                     <?php coveted_admin_nav_link($active, 'benefits', '/admin/?view=benefits', 'Rewards & Campaigns'); ?>
