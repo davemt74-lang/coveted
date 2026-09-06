@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS daily_event_opportunities (
   location_id BIGINT UNSIGNED NOT NULL,
   reward_campaign_id BIGINT UNSIGNED NOT NULL,
   attendance_threshold INT UNSIGNED NOT NULL,
+  loyalty_points INT UNSIGNED NOT NULL DEFAULT 100,
   status ENUM('active','paused','archived') NOT NULL DEFAULT 'active',
   reward_unlocked_at DATETIME NULL,
   attendance_count_at_unlock INT UNSIGNED NULL,
@@ -24,5 +25,6 @@ CREATE TABLE IF NOT EXISTS daily_event_opportunities (
   CONSTRAINT fk_daily_event_location FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE RESTRICT,
   CONSTRAINT fk_daily_event_campaign FOREIGN KEY (reward_campaign_id) REFERENCES campaigns(id) ON DELETE RESTRICT,
   CONSTRAINT fk_daily_event_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
-  CONSTRAINT chk_daily_event_threshold CHECK (attendance_threshold > 0)
+  CONSTRAINT chk_daily_event_threshold CHECK (attendance_threshold > 0),
+  CONSTRAINT chk_daily_event_loyalty_points CHECK (loyalty_points <= 10000)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
