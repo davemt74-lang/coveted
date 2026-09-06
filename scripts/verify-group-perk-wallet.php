@@ -36,7 +36,7 @@ $schema = $read('database/schema.sql');
 // Member wallet is read-only until an explicit CSRF-protected redemption POST.
 $contains($benefits, "require __DIR__ . '/wallet.php';", 'Benefits route must open the new wallet');
 $contains($wallet, 'coveted_member_wallet_snapshot($userId)', 'wallet must use canonical snapshot service');
-$contains($wallet, "if ($_SERVER['REQUEST_METHOD'] === 'POST')", 'redemption must remain an explicit POST');
+$contains($wallet, 'if ($_SERVER[\'REQUEST_METHOD\'] === \'POST\')', 'redemption must remain an explicit POST');
 $contains($wallet, 'coveted_require_csrf()', 'redemption must require CSRF');
 $contains($wallet, 'coveted_reward_claim_with_code(', 'wallet redemption must use canonical claim service');
 $contains($wallet, 'coveted_return_process_claim(', 'return-visit trigger must remain canonical after claim');
@@ -76,6 +76,8 @@ $contains($worker, "(int)$membership['failures'] > 0", 'membership failures must
 // Admin analytics are aggregate/read-only and do not expose member PII.
 $contains($economy, 'function coveted_benefit_economy_snapshot(array $actor', 'Admin economy snapshot is required');
 $contains($economy, 'coveted_is_system_admin($actor)', 'economy analytics require System Admin');
+$contains($economy, 'COUNT(DISTINCT ri.id)', 'claim-rate cohort and attribution must deduplicate issuances');
+$contains($economy, 'COALESCE(c.business_id, rt.business_id, vl.business_id)', 'business attribution must include event venue ownership');
 $contains($admin, 'coveted_require_system_admin()', 'Admin economy page requires System Admin');
 $contains($admin, 'coveted_benefit_economy_snapshot($admin, 15)', 'Admin page must use bounded aggregate snapshot');
 $contains($admin, 'GROUP REWARD POOLS', 'Admin page must expose group reward pools');
