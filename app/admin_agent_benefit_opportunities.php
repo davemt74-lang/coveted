@@ -23,6 +23,12 @@ function coveted_admin_agent_benefit_opportunity_safe(
     }
 }
 
+function coveted_admin_agent_benefit_opportunity_key(string $prefix, string ...$refs): string
+{
+    $material = implode('|', array_map('trim', $refs));
+    return $prefix . '-' . substr(hash('sha256', $material), 0, 24);
+}
+
 /** @return array<int,array<string,mixed>> */
 function coveted_admin_agent_benefit_upcoming_event_gaps(PDO $pdo, int $limit = 5): array
 {
@@ -59,7 +65,7 @@ function coveted_admin_agent_benefit_upcoming_event_gaps(PDO $pdo, int $limit = 
         $attending = (int)$row['attending'];
         $invited = (int)$row['invited'];
         return [
-            'key' => 'benefit-event-gap-' . (string)$row['event_ref'],
+            'key' => coveted_admin_agent_benefit_opportunity_key('benefit-event-gap', (string)$row['event_ref']),
             'priority' => $attending >= 10 ? 1 : 2,
             'kind' => 'upcoming_event_gap',
             'title' => 'Draft an attendance Benefit Program for an upcoming event',
@@ -117,7 +123,7 @@ function coveted_admin_agent_benefit_membership_gaps(PDO $pdo, int $limit = 5): 
     return array_map(static function (array $row): array {
         $members = (int)$row['active_members'];
         return [
-            'key' => 'benefit-membership-gap-' . (string)$row['group_ref'],
+            'key' => coveted_admin_agent_benefit_opportunity_key('benefit-membership-gap', (string)$row['group_ref']),
             'priority' => $members >= 25 ? 1 : 2,
             'kind' => 'membership_gap',
             'title' => 'Draft a membership Benefit Program for an active group',
@@ -135,6 +141,85 @@ function coveted_admin_agent_benefit_membership_gaps(PDO $pdo, int $limit = 5): 
                 'owner_ref' => (string)$row['group_ref'],
                 'trigger_key' => 'membership',
                 'event_ref' => '',
+            ],
+            'execution_ready' => true,
+        ];
+    }, $rows);
+}
+
+/** @return array<int,array<string,mixed>> */
+function coveted_admin_agent_benefit_venue_gaps(PDO $pdo, int $limit = 5): array
+{
+    $limit = max(1, min($limit, 10));
+    $rows = $pdo->query(
+        "SELECT
+            e.public_id AS event_ref,
+            e.title AS event_title,
+            e.starts_at,
+            g.public_id AS group_ref,
+            g.name AS group_name,
+            l.public_id AS location_ref,
+            l.name AS location_name,
+            b.id AS business_id,
+            b.public_id AS business_ref,
+            b.name AS business_name,
+            (SELECT COUNT(*) FROM event_rsvps er
+             WHERE er.event_id = e.id AND er.response = 'attending') AS attending
+         FROM events e
+         JOIN social_groups g ON g.id = e.group_id AND g.status = 'active'
+         JOIN event_locations el ON el.event_id = e.id
+         JOIN locations l ON l.id = el.location_id AND l.status = 'active'
+         JOIN businesses b ON b.id = l.business_id AND b.status = 'active'
+         JOIN venue_relationships vr
+           ON vr.group_id = e.group_id
+          AND vr.location_id = l.id
+          AND COALESCE(vr.benefits_enabled, 0) = 1
+         WHERE e.status = 'published'
+           AND e.starts_at >= UTC_TIMESTAMP()
+           AND e.starts_at <= DATE_ADD(UTC_TIMESTAMP(), INTERVAL 45 DAY)
+           AND NOT EXISTS (
+               SELECT 1 FROM campaigns c
+               WHERE c.owner_type = 'business'
+                 AND c.business_id = b.id
+                 AND (c.location_id IS NULL OR c.location_id = l.id)
+                 AND c.status <> 'archived'
+           )
+         ORDER BY attending DESC, e.starts_at ASC, e.id ASC
+         LIMIT {$limit}"
+    )->fetchAll();
+
+    return array_map(static function (array $row): array {
+        $attending = (int)$row['attending'];
+        return [
+            'key' => coveted_admin_agent_benefit_opportunity_key(
+                'benefit-venue-gap',
+                (string)$row['event_ref'],
+                (string)$row['business_ref'],
+                (string)$row['location_ref']
+            ),
+            'priority' => $attending >= 10 ? 1 : 2,
+            'kind' => 'venue_program_gap',
+            'title' => 'Draft a Business Benefit Program for an upcoming partner venue event',
+            'detail' => 'This benefit-enabled venue relationship has an upcoming published event but no non-archived Business campaign for the business/location. A draft Business attendance reward can give the venue a direct member-value layer; review any Group-owned event rewards before launch to avoid unintended overlap.',
+            'evidence' => $attending . ' attending RSVP' . ($attending === 1 ? '' : 's') . '; benefits enabled at location ' . (string)$row['location_ref'] . '; no Business campaign for business ' . (string)$row['business_ref'] . ' at this location.',
+            'href' => '/admin/benefit-programs.php',
+            'entity' => [
+                'event_ref' => (string)$row['event_ref'],
+                'event_title' => (string)$row['event_title'],
+                'group_ref' => (string)$row['group_ref'],
+                'group_name' => (string)$row['group_name'],
+                'business_ref' => (string)$row['business_ref'],
+                'business_name' => (string)$row['business_name'],
+                'location_ref' => (string)$row['location_ref'],
+                'location_name' => (string)$row['location_name'],
+                'starts_at' => (string)$row['starts_at'],
+            ],
+            'suggested_draft' => [
+                'owner_type' => 'business',
+                'owner_ref' => (string)$row['business_ref'],
+                'trigger_key' => 'attendance',
+                'event_ref' => (string)$row['event_ref'],
+                'location_ref' => (string)$row['location_ref'],
             ],
             'execution_ready' => true,
         ];
@@ -196,7 +281,11 @@ function coveted_admin_agent_benefit_return_visit_gaps(PDO $pdo, int $limit = 5)
     return array_map(static function (array $row): array {
         $attendees = (int)$row['verified_attendees'];
         return [
-            'key' => 'benefit-return-gap-' . (string)$row['event_ref'] . '-' . (string)$row['business_ref'],
+            'key' => coveted_admin_agent_benefit_opportunity_key(
+                'benefit-return-gap',
+                (string)$row['event_ref'],
+                (string)$row['business_ref']
+            ),
             'priority' => $attendees >= 5 ? 1 : 2,
             'kind' => 'return_visit_gap',
             'title' => 'Draft a return-visit Benefit Program for a recent venue event',
@@ -323,7 +412,7 @@ function coveted_admin_agent_benefit_pool_signals(array $programContext): array
         }
         $remaining = max(0, (int)($pool['remaining'] ?? 0));
         $items[] = [
-            'key' => 'benefit-program-pool-' . $ref,
+            'key' => coveted_admin_agent_benefit_opportunity_key('benefit-program-pool', $ref),
             'priority' => $remaining === 0 ? 1 : 2,
             'kind' => 'pool_capacity',
             'title' => $remaining === 0 ? 'Review an exhausted Benefit Program pool' : 'Review a low Benefit Program pool',
@@ -367,6 +456,13 @@ function coveted_admin_agent_benefit_opportunities_snapshot(
     foreach (coveted_admin_agent_benefit_opportunity_safe(
         'membership_gaps',
         fn() => coveted_admin_agent_benefit_membership_gaps($pdo),
+        $issues
+    ) as $item) {
+        if (is_array($item)) $recommendations[] = $item;
+    }
+    foreach (coveted_admin_agent_benefit_opportunity_safe(
+        'venue_gaps',
+        fn() => coveted_admin_agent_benefit_venue_gaps($pdo),
         $issues
     ) as $item) {
         if (is_array($item)) $recommendations[] = $item;
