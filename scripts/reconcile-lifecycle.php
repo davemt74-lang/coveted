@@ -34,7 +34,7 @@ try {
         fwrite(
             STDOUT,
             sprintf(
-                "Coveted event automation: %d publish notices, %d RSVP reminders, %d 24h reminders, %d 3h reminders, %d reveals, %d attendance rewards, %d completion rewards, %d post-event notices, %d failures.\n",
+                "Coveted event automation: %d publish notices, %d RSVP reminders, %d 24h reminders, %d 3h reminders, %d reveals, %d attendance rewards, %d completion rewards, %d campaign-limit skips, %d post-event notices, %d failures.\n",
                 (int)$events['publish_notifications'],
                 (int)$events['rsvp_reminders'],
                 (int)$events['attendee_reminders_24h'],
@@ -42,6 +42,7 @@ try {
                 (int)$events['mystery_reveal_notifications'],
                 (int)$events['attendance_rewards'],
                 (int)$events['completion_rewards'],
+                (int)$events['reward_limit_skips'],
                 (int)$events['post_event_notifications'],
                 (int)$events['failures']
             )
@@ -53,7 +54,7 @@ try {
         exit(2);
     }
     if ((int)$events['failures'] > 0) {
-        fwrite(STDERR, "Coveted event automation completed with one or more bounded item failures; review Admin > Operations and server logs.\n");
+        fwrite(STDERR, "Coveted event automation completed with one or more bounded item failures; review Admin > Event Automation and server logs.\n");
         exit(3);
     }
 
