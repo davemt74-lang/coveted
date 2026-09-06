@@ -87,6 +87,9 @@ function coveted_admin_ui_start(
     $counts ??= coveted_admin_ui_counts($pdo);
     $onboarding = coveted_admin_onboarding_state($admin);
     $sampleMode = coveted_system_sample_mode($admin, $pdo);
+    $sampleRoute = static fn(string $view, string $live): string => $sampleMode
+        ? '/admin/system-preview.php?view=' . rawurlencode($view)
+        : $live;
 
     $avatarUrl = coveted_shell_avatar_url((int)$admin['id']);
     $name = trim((string)($admin['display_name'] ?? 'Admin')) ?: 'Admin';
@@ -109,7 +112,7 @@ function coveted_admin_ui_start(
                 </summary>
                 <div class="cv-admin-nav-body">
                     <?php coveted_admin_nav_link($active, 'agent', '/admin/agent.php', 'Admin Agent'); ?>
-                    <?php coveted_admin_nav_link($active, 'dashboard', '/admin/?view=dashboard', 'Dashboard'); ?>
+                    <?php coveted_admin_nav_link($active, 'dashboard', $sampleRoute('dashboard', '/admin/?view=dashboard'), 'Dashboard'); ?>
                     <a class="<?= $active === 'onboarding' ? 'is-active' : '' ?>" href="/admin/onboarding.php">
                         <span class="cv-admin-nav-text">Setup</span>
                         <?php if (!$onboarding['is_complete']): ?><span class="cv-admin-nav-progress"><?= (int)$onboarding['completed'] ?>/<?= (int)$onboarding['total'] ?></span><?php endif; ?>
@@ -123,9 +126,9 @@ function coveted_admin_ui_start(
                     <span class="cv-admin-nav-chevron" aria-hidden="true">⌄</span>
                 </summary>
                 <div class="cv-admin-nav-body">
-                    <?php coveted_admin_nav_link($active, 'crm', '/admin/crm.php', 'Invite CRM', (int)($counts['invite_requests'] ?? 0)); ?>
-                    <?php coveted_admin_nav_link($active, 'users', '/admin/?view=users', 'Users', (int)$counts['users']); ?>
-                    <?php coveted_admin_nav_link($active, 'requests', '/admin/?view=requests', 'Role Requests', (int)$counts['pending_requests']); ?>
+                    <?php coveted_admin_nav_link($active, 'crm', $sampleRoute('crm', '/admin/crm.php'), 'Invite CRM', (int)($counts['invite_requests'] ?? 0)); ?>
+                    <?php coveted_admin_nav_link($active, 'users', $sampleRoute('people', '/admin/?view=users'), 'Users', (int)$counts['users']); ?>
+                    <?php coveted_admin_nav_link($active, 'requests', $sampleRoute('requests', '/admin/?view=requests'), 'Role Requests', (int)$counts['pending_requests']); ?>
                 </div>
             </details>
 
@@ -135,11 +138,11 @@ function coveted_admin_ui_start(
                     <span class="cv-admin-nav-chevron" aria-hidden="true">⌄</span>
                 </summary>
                 <div class="cv-admin-nav-body">
-                    <?php coveted_admin_nav_link($active, 'cities', '/admin/cities.php', 'Cities', (int)($counts['cities'] ?? 0)); ?>
-                    <?php coveted_admin_nav_link($active, 'businesses', '/admin/?view=businesses', 'Businesses', (int)$counts['businesses']); ?>
-                    <?php coveted_admin_nav_link($active, 'groups', '/admin/?view=groups', 'Groups', (int)$counts['groups']); ?>
-                    <?php coveted_admin_nav_link($active, 'events', '/admin/?view=events', 'Events', (int)$counts['events']); ?>
-                    <?php coveted_admin_nav_link($active, 'artists', '/admin/?view=artists', 'Artists', (int)$counts['artists']); ?>
+                    <?php coveted_admin_nav_link($active, 'cities', $sampleRoute('cities', '/admin/cities.php'), 'Cities', (int)($counts['cities'] ?? 0)); ?>
+                    <?php coveted_admin_nav_link($active, 'businesses', $sampleRoute('businesses', '/admin/?view=businesses'), 'Businesses', (int)$counts['businesses']); ?>
+                    <?php coveted_admin_nav_link($active, 'groups', $sampleRoute('groups', '/admin/?view=groups'), 'Groups', (int)$counts['groups']); ?>
+                    <?php coveted_admin_nav_link($active, 'events', $sampleRoute('events', '/admin/?view=events'), 'Events', (int)$counts['events']); ?>
+                    <?php coveted_admin_nav_link($active, 'artists', $sampleRoute('artists', '/admin/?view=artists'), 'Artists', (int)$counts['artists']); ?>
                 </div>
             </details>
 
@@ -149,13 +152,13 @@ function coveted_admin_ui_start(
                     <span class="cv-admin-nav-chevron" aria-hidden="true">⌄</span>
                 </summary>
                 <div class="cv-admin-nav-body">
-                    <?php coveted_admin_nav_link($active, 'loyalty', '/admin/loyalty.php', 'Group Loyalty'); ?>
-                    <?php coveted_admin_nav_link($active, 'benefit-programs', '/admin/benefit-programs.php', 'Benefit Programs'); ?>
-                    <?php coveted_admin_nav_link($active, 'benefit-sponsorships', '/admin/benefit-sponsorships.php', 'Benefit Sponsorships'); ?>
-                    <?php coveted_admin_nav_link($active, 'benefits', '/admin/?view=benefits', 'Rewards & Campaigns'); ?>
-                    <?php coveted_admin_nav_link($active, 'benefit-economy', '/admin/benefit-economy.php', 'Benefit Economy'); ?>
-                    <?php coveted_admin_nav_link($active, 'benefit-performance', '/admin/benefit-performance.php', 'Benefit Performance'); ?>
-                    <?php coveted_admin_nav_link($active, 'distribution', '/admin/?view=distribution', 'Distribution'); ?>
+                    <?php coveted_admin_nav_link($active, 'loyalty', $sampleRoute('loyalty', '/admin/loyalty.php'), 'Group Loyalty'); ?>
+                    <?php coveted_admin_nav_link($active, 'benefit-programs', $sampleRoute('benefits', '/admin/benefit-programs.php'), 'Benefit Programs'); ?>
+                    <?php coveted_admin_nav_link($active, 'benefit-sponsorships', $sampleRoute('benefits', '/admin/benefit-sponsorships.php'), 'Benefit Sponsorships'); ?>
+                    <?php coveted_admin_nav_link($active, 'benefits', $sampleRoute('benefits', '/admin/?view=benefits'), 'Rewards & Campaigns'); ?>
+                    <?php coveted_admin_nav_link($active, 'benefit-economy', $sampleRoute('benefits', '/admin/benefit-economy.php'), 'Benefit Economy'); ?>
+                    <?php coveted_admin_nav_link($active, 'benefit-performance', $sampleRoute('benefits', '/admin/benefit-performance.php'), 'Benefit Performance'); ?>
+                    <?php coveted_admin_nav_link($active, 'distribution', $sampleRoute('benefits', '/admin/?view=distribution'), 'Distribution'); ?>
                 </div>
             </details>
 
@@ -201,18 +204,22 @@ function coveted_admin_ui_start(
             </div>
 
             <div class="cv-admin-header-actions">
-                <details class="cv-admin-dropdown cv-admin-create-menu">
-                    <summary class="cv-button cv-button-primary"><span aria-hidden="true">＋</span> Create</summary>
-                    <div class="cv-admin-menu cv-admin-create-panel">
-                        <span class="cv-admin-menu-label">CREATE</span>
-                        <a href="/admin/?view=users#create-user"><strong>User</strong><small>Create an account and assign access</small></a>
-                        <a href="/admin/?view=businesses#create-business"><strong>Business</strong><small>Add a venue or partner</small></a>
-                        <a href="/admin/?view=groups#create-group"><strong>Group</strong><small>Start a private community</small></a>
-                        <a href="/admin/?view=events#create-event"><strong>Event</strong><small>Plan a new gathering</small></a>
-                        <a href="/admin/?view=artists#create-artist"><strong>Artist</strong><small>Create an artist identity</small></a>
-                        <a href="/admin/benefit-programs.php"><strong>Benefit Program</strong><small>Build a trigger, reward, pool and redemption path</small></a>
-                    </div>
-                </details>
+                <?php if ($sampleMode): ?>
+                    <a class="cv-button cv-button-soft" href="/admin/sample-data.php">Sample data · read only</a>
+                <?php else: ?>
+                    <details class="cv-admin-dropdown cv-admin-create-menu">
+                        <summary class="cv-button cv-button-primary"><span aria-hidden="true">＋</span> Create</summary>
+                        <div class="cv-admin-menu cv-admin-create-panel">
+                            <span class="cv-admin-menu-label">CREATE</span>
+                            <a href="/admin/?view=users#create-user"><strong>User</strong><small>Create an account and assign access</small></a>
+                            <a href="/admin/?view=businesses#create-business"><strong>Business</strong><small>Add a venue or partner</small></a>
+                            <a href="/admin/?view=groups#create-group"><strong>Group</strong><small>Start a private community</small></a>
+                            <a href="/admin/?view=events#create-event"><strong>Event</strong><small>Plan a new gathering</small></a>
+                            <a href="/admin/?view=artists#create-artist"><strong>Artist</strong><small>Create an artist identity</small></a>
+                            <a href="/admin/benefit-programs.php"><strong>Benefit Program</strong><small>Build a trigger, reward, pool and redemption path</small></a>
+                        </div>
+                    </details>
+                <?php endif; ?>
 
                 <details class="cv-admin-dropdown cv-admin-account-menu">
                     <summary class="cv-admin-avatar-button" aria-label="Open account menu">
@@ -243,7 +250,7 @@ function coveted_admin_ui_start(
         <main class="cv-admin-content">
             <?php if ($sampleMode): ?>
                 <div class="cv-alert" role="status">
-                    <strong>Full System Sample Mode</strong> · Navigation counts and sample-aware views use synthetic read-only data. Agent autonomous actions are disabled. <a href="/admin/sample-data.php">Open Sample Data</a>
+                    <strong>Full System Sample Mode</strong> · Core Admin navigation and Agent context use synthetic read-only data. Agent autonomous actions and sample mutations are disabled. <a href="/admin/sample-data.php">Open Sample Data</a>
                 </div>
             <?php endif; ?>
             <?php if ($integrityNotice !== ''): ?>
