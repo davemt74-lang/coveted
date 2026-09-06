@@ -74,6 +74,12 @@ jobs:
       - name: Verify Admin Agent task queue JavaScript syntax
         run: node --check assets/js/admin-agent-task-queue-v1.js
 
+      - name: Verify Admin Agent approved task execution contract
+        run: php scripts/verify-admin-agent-task-execution.php
+
+      - name: Verify Admin Agent approved task execution JavaScript syntax
+        run: node --check assets/js/admin-agent-task-execution-v1.js
+
       - name: Verify member sample-data contract
         run: php scripts/verify-member-sample-data.php
 
