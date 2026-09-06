@@ -65,6 +65,12 @@ jobs:
       - name: Verify Daily Events navigation JavaScript syntax
         run: node --check assets/js/daily-events-nav-v1.js
 
+      - name: Verify Partner Relationship opportunities contract
+        run: php scripts/verify-partner-opportunities.php
+
+      - name: Verify Partner Relationship opportunities JavaScript syntax
+        run: node --check assets/js/partner-opportunities-v1.js
+
       - name: Verify Group Perk Wallet contract
         run: php scripts/verify-group-perk-wallet.php
 
