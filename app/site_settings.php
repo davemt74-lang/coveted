@@ -71,8 +71,20 @@ function coveted_site_setting_get(string $key, ?string $default = null, ?PDO $pd
 
 function coveted_site_setting_bool(string $key, bool $default = false, ?PDO $pdo = null): bool
 {
-    $raw = coveted_site_setting_get($key, $default ? '1' : '0', $pdo);
+    $pdo ??= coveted_db();
+    $key = coveted_site_setting_key($key);
 
+    // Full-system sample mode is strictly observational. Even if the stored
+    // autonomy preference is on, the Agent cannot execute mutations while the
+    // System Admin is reasoning over synthetic sample references.
+    if ($key === COVETED_SETTING_ADMIN_AGENT_AUTONOMOUS_ACTIONS) {
+        $sampleRaw = coveted_site_setting_get(COVETED_SETTING_SYSTEM_SAMPLE_DATA, '0', $pdo);
+        if (in_array(strtolower(trim((string)$sampleRaw)), ['1','true','yes','on'], true)) {
+            return false;
+        }
+    }
+
+    $raw = coveted_site_setting_get($key, $default ? '1' : '0', $pdo);
     return in_array(strtolower(trim((string)$raw)), ['1', 'true', 'yes', 'on'], true);
 }
 
