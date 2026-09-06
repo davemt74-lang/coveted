@@ -62,6 +62,12 @@ jobs:
       - name: Verify CRM intelligence JavaScript syntax
         run: node --check assets/js/invite-crm-v2.js
 
+      - name: Verify Admin Agent live business analytics contract
+        run: php scripts/verify-admin-agent-live-business.php
+
+      - name: Verify Admin Agent live business JavaScript syntax
+        run: node --check assets/js/admin-agent-live-business-v1.js
+
       - name: Verify member sample-data contract
         run: php scripts/verify-member-sample-data.php
 
