@@ -30,6 +30,7 @@ $service = $read('app/daily_events.php');
 $member = $read('daily.php');
 $admin = $read('admin/daily-events.php');
 $partner = $read('business-daily-events.php');
+$relationships = $read('venue-relationships.php');
 $worker = $read('scripts/reconcile-lifecycle.php');
 $loyalty = $read('app/loyalty.php');
 $events = $read('app/events.php');
@@ -149,6 +150,20 @@ $contains($dailyNav, '/admin/daily-events.php', 'Admin Community navigation must
 $contains($dailyNav, '/business-daily-events.php?business=', 'Business workspace must expose scoped Daily Events');
 $contains($dailyNav, 'encodeURIComponent(businessRef)', 'Business resource ref must be safely encoded');
 $contains($workflow, 'node --check assets/js/daily-events-nav-v1.js', 'Daily navigation JavaScript must be syntax-checked in CI');
+
+// Existing Partner Relationship Management must absorb Daily Events instead of creating a parallel relationship model.
+$contains($relationships, "require_once __DIR__ . '/app/daily_events.php';", 'venue relationship workspace must load Daily Event service');
+$contains($relationships, 'coveted_daily_event_business_rows(', 'venue relationship workspace must use canonical scoped Daily Event reporting');
+$contains($relationships, '$dailyEventsByEventRef', 'relationship event history must map Daily Events by canonical event ref');
+$contains($relationships, 'Daily Event partner', 'relationship detail must identify Daily Event relationships');
+$contains($relationships, 'Partnered event performance', 'relationship detail must surface Daily Event performance');
+$contains($relationships, 'Daily Event group rewards issued', 'relationship portfolio must surface Daily Event reward outcomes');
+$contains($relationships, 'Threshold', 'relationship event history must surface Daily Event attendance threshold');
+$contains($relationships, "['loyalty_points']", 'relationship event history may show event policy value without exposing private member balances');
+$contains($relationships, "['active_checkin_codes']", 'relationship event history must surface location check-in readiness');
+$contains($relationships, '/business-daily-events.php?business=', 'relationship workspace must link to the scoped Daily Events view');
+$missing($relationships, 'display_name', 'relationship Daily Event integration must not expose member names');
+$missing($relationships, 'loyalty_point_ledger', 'relationship Daily Event integration must not expose private point ledger');
 
 // Business Partner reporting stays aggregate; member identity/points remain private.
 $contains($partner, 'Partner reporting is aggregate', 'Business Partner privacy boundary must be explicit');
