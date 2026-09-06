@@ -146,6 +146,7 @@ function coveted_admin_ui_start(
                     <?php coveted_admin_nav_link($active, 'benefit-programs', '/admin/benefit-programs.php', 'Benefit Programs'); ?>
                     <?php coveted_admin_nav_link($active, 'benefits', '/admin/?view=benefits', 'Rewards & Campaigns'); ?>
                     <?php coveted_admin_nav_link($active, 'benefit-economy', '/admin/benefit-economy.php', 'Benefit Economy'); ?>
+                    <?php coveted_admin_nav_link($active, 'benefit-performance', '/admin/benefit-performance.php', 'Benefit Performance'); ?>
                     <?php coveted_admin_nav_link($active, 'distribution', '/admin/?view=distribution', 'Distribution'); ?>
                 </div>
             </details>
