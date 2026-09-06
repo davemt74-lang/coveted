@@ -71,7 +71,6 @@ function coveted_membership_benefit_targets(int $limit = 250): array
                SELECT 1 FROM reward_issuances ri
                WHERE ri.campaign_id = c.id
                  AND ri.user_id = gm.user_id
-                 AND ri.status <> 'cancelled'
            )
          ORDER BY c.created_at ASC, c.id ASC, gm.created_at ASC, gm.id ASC
          LIMIT {$limit}"
