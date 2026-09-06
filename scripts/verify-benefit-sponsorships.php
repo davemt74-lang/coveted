@@ -47,6 +47,8 @@ $contains($migration, "status ENUM('submitted','declined','cancelled','converted
 $contains($migration, 'benefit_program_ref VARCHAR(64) NULL', 'proposal must retain converted program reference');
 $contains($migration, 'UNIQUE KEY uq_benefit_sponsorship_program (benefit_program_ref)', 'one program cannot be attached to multiple sponsorship proposals');
 $contains($service, 'function coveted_benefit_sponsorship_ensure_schema(', 'defensive schema creation is required for the new table');
+$contains($service, '$pdo->beginTransaction();', 'proposal creation and audit must commit atomically');
+$contains($service, '$pdo->rollBack();', 'proposal creation must roll back on failure');
 
 // Partner scope is resource-scoped and relationship-scoped. Business proposals
 // cannot self-attach to arbitrary Coveted groups, venues, or non-partner-visible
@@ -65,6 +67,18 @@ $missing($businessPage, 'coveted_benefit_program_create_draft(', 'Business works
 $missing($businessPage, 'coveted_event_create(', 'Business workspace must not create events');
 $missing($businessPage, 'coveted_event_update', 'Business workspace must not configure events');
 
+// Every terminal proposal transition shares one advisory-lock protocol so a
+// cancel/decline cannot race conversion and leave an orphan Benefit Program.
+$contains($service, 'function coveted_benefit_sponsorship_acquire_lock(', 'proposal state transitions need one canonical lock helper');
+$contains($service, 'function coveted_benefit_sponsorship_release_lock(', 'proposal state transitions need one canonical unlock helper');
+$countAtLeast($service, 'coveted_benefit_sponsorship_acquire_lock($proposalRef, $pdo)', 2, 'cancel and decline must both acquire the canonical proposal lock');
+$countAtLeast($service, 'coveted_benefit_sponsorship_release_lock($lockKey, $pdo)', 2, 'cancel and decline must both release the canonical proposal lock');
+$countAtLeast($service, '$stmt->rowCount() !== 1', 2, 'cancel and decline must verify conditional state transitions');
+$contains($conversion, 'coveted_benefit_sponsorship_acquire_lock($proposalRef, $pdo)', 'conversion must share the canonical proposal lock');
+$contains($conversion, 'coveted_benefit_sponsorship_release_lock($lockKey, $pdo)', 'conversion must release the canonical proposal lock');
+$missing($conversion, 'SELECT GET_LOCK(?, 5)', 'conversion must not carry a second lock implementation');
+$missing($conversion, 'SELECT RELEASE_LOCK(?)', 'conversion must not carry a second unlock implementation');
+
 // Conversion stays System Admin-only and uses one canonical replay-safe path.
 // Acceptance is draft-only and replay-safe through a proposal-specific Builder marker.
 $missing($service, 'function coveted_benefit_sponsorship_convert_to_program_draft(', 'legacy duplicate sponsorship conversion path must stay removed');
@@ -73,7 +87,6 @@ $contains($conversion, 'coveted_is_system_admin($admin)', 'proposal conversion m
 $contains($conversion, 'coveted_benefit_program_create_draft($admin', 'accepted proposal must use canonical Benefit Program Builder');
 $contains($conversion, "'created_surface' => 'merchant_sponsorship:' . (string)\$proposal['public_id']", 'proposal conversion must carry a deterministic Builder marker');
 $contains($conversion, "JSON_UNQUOTE(JSON_EXTRACT(c.metadata_json, '$.created_surface')) = ?", 'conversion replay must recover by exact Builder marker');
-$contains($conversion, 'SELECT GET_LOCK(?, 5)', 'proposal conversion must serialize concurrent acceptance');
 $contains($conversion, "'status' => 'draft'", 'new conversion result must be draft');
 $missing($conversion, 'coveted_benefit_program_set_status(', 'proposal conversion must never launch the program');
 $missing($conversion, 'UPDATE events', 'proposal conversion must not alter events');
