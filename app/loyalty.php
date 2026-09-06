@@ -93,6 +93,11 @@ function coveted_loyalty_status(int $attendanceCount, int $groupPoints, int $hos
     ];
 }
 
+function coveted_loyalty_is_duplicate(PDOException $e): bool
+{
+    return (int)($e->errorInfo[1] ?? 0) === 1062;
+}
+
 function coveted_loyalty_insert_points(
     PDO $pdo,
     int $userId,
@@ -139,7 +144,7 @@ function coveted_loyalty_insert_points(
         ]);
         return true;
     } catch (PDOException $e) {
-        if ((string)$e->getCode() === '23000') {
+        if (coveted_loyalty_is_duplicate($e)) {
             return false;
         }
         throw $e;
@@ -180,7 +185,7 @@ function coveted_loyalty_insert_milestone(
         ]);
         return true;
     } catch (PDOException $e) {
-        if ((string)$e->getCode() === '23000') {
+        if (coveted_loyalty_is_duplicate($e)) {
             return false;
         }
         throw $e;
@@ -345,6 +350,22 @@ function coveted_loyalty_reconcile_returns(PDO $pdo, int $limit): array
     return ['inserted' => $inserted, 'more' => $more, 'failures' => $failures];
 }
 
+/** @return array{occurred_at:string,source_ref:string}|null */
+function coveted_loyalty_nth_attendance(PDO $pdo, int $userId, int $groupId, int $ordinal): ?array
+{
+    $offset = max(0, $ordinal - 1);
+    $stmt = $pdo->prepare(
+        "SELECT occurred_at,source_ref
+         FROM loyalty_point_ledger
+         WHERE user_id=? AND group_id=? AND source_type='verified_attendance'
+         ORDER BY occurred_at ASC,id ASC
+         LIMIT 1 OFFSET {$offset}"
+    );
+    $stmt->execute([$userId, $groupId]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
 /** @return array{inserted:int,more:bool,failures:int} */
 function coveted_loyalty_reconcile_milestones(PDO $pdo, int $limit): array
 {
@@ -352,33 +373,52 @@ function coveted_loyalty_reconcile_milestones(PDO $pdo, int $limit): array
     $inserted = 0;
     $failures = 0;
     $more = false;
+    $eventMilestones = [1 => 'first_event', 3 => 'event_3', 5 => 'event_5', 10 => 'event_10', 25 => 'event_25'];
 
     $attendance = $pdo->query(
-        "SELECT user_id, group_id, COUNT(*) AS event_count, MIN(occurred_at) AS first_at, MAX(occurred_at) AS last_at
-         FROM loyalty_point_ledger
-         WHERE source_type='verified_attendance' AND group_id IS NOT NULL
-         GROUP BY user_id,group_id
-         ORDER BY last_at,user_id,group_id
+        "SELECT a.user_id,a.group_id,a.event_count,a.last_at
+         FROM (
+             SELECT user_id,group_id,COUNT(*) AS event_count,MAX(occurred_at) AS last_at
+             FROM loyalty_point_ledger
+             WHERE source_type='verified_attendance' AND group_id IS NOT NULL
+             GROUP BY user_id,group_id
+         ) a
+         WHERE (a.event_count>=1 AND NOT EXISTS (
+                    SELECT 1 FROM loyalty_milestones lm
+                    WHERE lm.user_id=a.user_id AND lm.group_id=a.group_id AND lm.milestone_key='first_event'))
+            OR (a.event_count>=3 AND NOT EXISTS (
+                    SELECT 1 FROM loyalty_milestones lm
+                    WHERE lm.user_id=a.user_id AND lm.group_id=a.group_id AND lm.milestone_key='event_3'))
+            OR (a.event_count>=5 AND NOT EXISTS (
+                    SELECT 1 FROM loyalty_milestones lm
+                    WHERE lm.user_id=a.user_id AND lm.group_id=a.group_id AND lm.milestone_key='event_5'))
+            OR (a.event_count>=10 AND NOT EXISTS (
+                    SELECT 1 FROM loyalty_milestones lm
+                    WHERE lm.user_id=a.user_id AND lm.group_id=a.group_id AND lm.milestone_key='event_10'))
+            OR (a.event_count>=25 AND NOT EXISTS (
+                    SELECT 1 FROM loyalty_milestones lm
+                    WHERE lm.user_id=a.user_id AND lm.group_id=a.group_id AND lm.milestone_key='event_25'))
+         ORDER BY a.last_at,a.user_id,a.group_id
          LIMIT " . ($limit + 1)
     )->fetchAll();
     if (count($attendance) > $limit) $more = true;
-    $attendance = array_slice($attendance, 0, $limit);
-    $eventMilestones = [1 => 'first_event', 3 => 'event_3', 5 => 'event_5', 10 => 'event_10', 25 => 'event_25'];
-    foreach ($attendance as $row) {
+    foreach (array_slice($attendance, 0, $limit) as $row) {
         $count = (int)$row['event_count'];
         foreach ($eventMilestones as $threshold => $key) {
             if ($count < $threshold) continue;
             try {
+                $nth = coveted_loyalty_nth_attendance($pdo, (int)$row['user_id'], (int)$row['group_id'], $threshold);
+                if ($nth === null) continue;
                 if (coveted_loyalty_insert_milestone(
                     $pdo,
                     (int)$row['user_id'],
                     (int)$row['group_id'],
                     $key,
                     $threshold,
-                    $threshold === 1 ? (string)$row['first_at'] : (string)$row['last_at'],
+                    (string)$nth['occurred_at'],
                     'verified_attendance',
-                    'event-count:' . $threshold,
-                    ['verified_event_count_at_reconcile' => $count]
+                    (string)$nth['source_ref'],
+                    ['verified_event_count_at_reconcile' => $count, 'threshold' => $threshold]
                 )) $inserted++;
             } catch (Throwable $e) {
                 $failures++;
@@ -392,14 +432,18 @@ function coveted_loyalty_reconcile_milestones(PDO $pdo, int $limit): array
         ['source' => 'host_contribution', 'key' => 'first_host', 'value' => 1],
     ] as $definition) {
         $stmt = $pdo->prepare(
-            "SELECT user_id,group_id,MIN(occurred_at) AS achieved_at
-             FROM loyalty_point_ledger
-             WHERE source_type=? AND group_id IS NOT NULL
-             GROUP BY user_id,group_id
-             ORDER BY achieved_at,user_id,group_id
+            "SELECT lp.user_id,lp.group_id,MIN(lp.occurred_at) AS achieved_at
+             FROM loyalty_point_ledger lp
+             WHERE lp.source_type=? AND lp.group_id IS NOT NULL
+               AND NOT EXISTS (
+                   SELECT 1 FROM loyalty_milestones lm
+                   WHERE lm.user_id=lp.user_id AND lm.group_id=lp.group_id AND lm.milestone_key=?
+               )
+             GROUP BY lp.user_id,lp.group_id
+             ORDER BY achieved_at,lp.user_id,lp.group_id
              LIMIT " . ($limit + 1)
         );
-        $stmt->execute([$definition['source']]);
+        $stmt->execute([(string)$definition['source'], (string)$definition['key']]);
         $rows = $stmt->fetchAll();
         if (count($rows) > $limit) $more = true;
         foreach (array_slice($rows, 0, $limit) as $row) {
@@ -492,7 +536,10 @@ function coveted_loyalty_reconcile(int $limit = 250): array
             'more_work_possible' => $more,
             'skipped_locked' => false,
         ];
-        coveted_audit('loyalty.reconciled', 'loyalty', 'v1', $summary, null);
+        $changed = (int)$summary['attendance_points'] + (int)$summary['host_points'] + (int)$summary['return_points'] + (int)$summary['milestones'];
+        if ($changed > 0 || $failures > 0) {
+            coveted_audit('loyalty.reconciled', 'loyalty', 'v1', $summary, null);
+        }
         return $summary;
     } finally {
         try {
