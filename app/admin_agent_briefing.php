@@ -110,7 +110,7 @@ function coveted_admin_agent_briefing_is_meaningful_event(string $eventType): bo
 function coveted_admin_agent_briefing_recent_activity(PDO $pdo): array
 {
     $meaningfulWhere = "ae.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
-        AND ae.event_type NOT LIKE 'admin.agent.%'
+        AND ae.event_type NOT LIKE 'admin.agent_%'
         AND ae.event_type NOT LIKE 'site_setting.%'
         AND ae.event_type NOT LIKE 'admin.ai_provider%'
         AND ae.event_type NOT LIKE 'auth.%'
@@ -211,7 +211,7 @@ function coveted_admin_agent_briefing(array $admin, array $snapshot, ?PDO $pdo =
         $headline = $attention . ' operational item' . ($attention === 1 ? '' : 's') . ' need review';
         $summary = 'The platform has no P1 Agent opportunity, but the canonical Operations snapshot still has work to reconcile.';
     } elseif ($crmReady > 0) {
-        $headline = $crmReady . ' CRM opportunity' . ($crmReady === 1 ? ' is' : 'ies are') . ' ready';
+        $headline = $crmReady . ' CRM ' . ($crmReady === 1 ? 'opportunity is' : 'opportunities are') . ' ready';
         $summary = 'Core operations are clear enough to focus on invite conversion and relationship growth.';
     } elseif ($opportunities) {
         $headline = 'Coveted is ready for the next build-out move';
@@ -227,7 +227,9 @@ function coveted_admin_agent_briefing(array $admin, array $snapshot, ?PDO $pdo =
             ->setTimezone(coveted_timezone())
             ->format('M j, g:i A');
     } catch (Throwable) {
-        $generatedAt = date('M j, g:i A');
+        $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
+            ->setTimezone(coveted_timezone())
+            ->format('M j, g:i A');
     }
 
     return [
