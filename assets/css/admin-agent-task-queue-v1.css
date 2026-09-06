@@ -1,0 +1,197 @@
+.cv-agent-task-page-head {
+    align-items: flex-start;
+}
+
+.cv-agent-task-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cv-agent-task-head-actions form {
+    margin: 0;
+}
+
+.cv-agent-task-metrics {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.cv-agent-task-metrics a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 68px;
+    padding: 15px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.cv-agent-task-metrics a:hover,
+.cv-agent-task-metrics a.is-active {
+    border-color: #171714;
+}
+
+.cv-agent-task-metrics span {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.cv-agent-task-metrics strong {
+    font-size: 22px;
+    letter-spacing: -.04em;
+}
+
+.cv-agent-task-create {
+    margin-bottom: 18px;
+    padding: 20px;
+}
+
+.cv-agent-task-create-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 180px;
+    gap: 12px;
+}
+
+.cv-agent-task-create-form label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted-strong);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.cv-agent-task-create-form input,
+.cv-agent-task-create-form select,
+.cv-agent-task-create-form textarea {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    padding: 11px 12px;
+    font: inherit;
+    font-size: 12px;
+    text-transform: none;
+}
+
+.cv-agent-task-detail {
+    grid-column: 1 / -1;
+}
+
+.cv-agent-task-create-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.cv-agent-task-list {
+    display: grid;
+    gap: 10px;
+}
+
+.cv-agent-task-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, .42fr);
+    gap: 24px;
+    padding: 22px;
+}
+
+.cv-agent-task-card.is-in-progress {
+    border-color: #171714;
+}
+
+.cv-agent-task-copy h2 {
+    margin: 10px 0 7px;
+    font-size: 22px;
+    letter-spacing: -.035em;
+}
+
+.cv-agent-task-copy > p {
+    max-width: 760px;
+    margin: 0;
+    color: var(--muted-strong);
+    font-size: 11px;
+    line-height: 1.55;
+}
+
+.cv-agent-task-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 9px;
+}
+
+.cv-agent-task-meta a {
+    color: var(--ink);
+    font-weight: 760;
+    text-decoration: none;
+}
+
+.cv-agent-task-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 7px;
+    padding-left: 20px;
+    border-left: 1px solid var(--line);
+}
+
+.cv-agent-task-controls form,
+.cv-agent-task-controls button {
+    width: 100%;
+    margin: 0;
+}
+
+@media (max-width: 1050px) {
+    .cv-agent-task-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .cv-agent-task-page-head,
+    .cv-agent-task-head-actions {
+        display: grid;
+        width: 100%;
+    }
+
+    .cv-agent-task-head-actions .cv-button,
+    .cv-agent-task-head-actions form,
+    .cv-agent-task-head-actions button {
+        width: 100%;
+    }
+
+    .cv-agent-task-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cv-agent-task-create-form,
+    .cv-agent-task-card {
+        grid-template-columns: 1fr;
+    }
+
+    .cv-agent-task-controls {
+        grid-template-columns: 1fr;
+        padding-top: 18px;
+        padding-left: 0;
+        border-top: 1px solid var(--line);
+        border-left: 0;
+    }
+}
