@@ -33,11 +33,23 @@ try {
         if (strlen($groupRef) > 64 || strlen($locationRef) > 64) {
             throw new InvalidArgumentException('Relationship filter is invalid.');
         }
+
+        // The relationship page accepts either public refs or numeric IDs.
+        // Canonicalize both forms before filtering the recommendation snapshot.
+        $relationship = coveted_venue_relationship_resolve(
+            $user,
+            (int)$business['id'],
+            $groupRef,
+            $locationRef
+        );
+        $canonicalGroupRef = (string)$relationship['group_public_id'];
+        $canonicalLocationRef = (string)$relationship['location_public_id'];
+
         $recommendations = array_values(array_filter(
             $recommendations,
             static fn(array $item): bool =>
-                hash_equals((string)($item['group_ref'] ?? ''), $groupRef)
-                && hash_equals((string)($item['location_ref'] ?? ''), $locationRef)
+                hash_equals((string)($item['group_ref'] ?? ''), $canonicalGroupRef)
+                && hash_equals((string)($item['location_ref'] ?? ''), $canonicalLocationRef)
         ));
     }
 
