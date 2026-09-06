@@ -7,21 +7,77 @@ require_once __DIR__ . '/system_sample_data.php';
 
 coveted_admin_integrity_guard_request();
 
-// Admin Agent is the canonical Admin landing surface. This routing guard runs
-// while the shared Admin bootstrap is being required, before coveted_page_start
-// or any other HTML output. Only a bare GET is redirected; explicit views and
-// every POST action continue through their existing controllers unchanged.
 $covetedAdminRequestPath = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
+$covetedAdminRequestMethod = (string)($_SERVER['REQUEST_METHOD'] ?? 'GET');
+$covetedAdminCurrentUser = coveted_current_user();
+
+// Full System Sample Mode is a read-only alternate read layer. Keep direct
+// bookmarks consistent with the sample-aware navigation and stop live Admin
+// mutators before a synthetic-view session can accidentally change real data.
 if (
     PHP_SAPI !== 'cli'
-    && ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET'
+    && $covetedAdminCurrentUser
+    && coveted_is_system_admin($covetedAdminCurrentUser)
+) {
+    try {
+        $covetedAdminSampleMode = coveted_system_sample_mode($covetedAdminCurrentUser, coveted_db());
+    } catch (Throwable) {
+        $covetedAdminSampleMode = false;
+    }
+
+    if ($covetedAdminSampleMode) {
+        $covetedAdminSampleView = null;
+        if (in_array($covetedAdminRequestPath, ['/admin', '/admin/', '/admin/index.php'], true)) {
+            $covetedAdminSampleView = match (strtolower(trim((string)($_GET['view'] ?? '')))) {
+                'dashboard' => 'dashboard',
+                'users' => 'people',
+                'requests' => 'requests',
+                'businesses' => 'businesses',
+                'groups' => 'groups',
+                'events' => 'events',
+                'artists' => 'artists',
+                'benefits', 'distribution' => 'benefits',
+                default => null,
+            };
+        } else {
+            $covetedAdminSampleView = match ($covetedAdminRequestPath) {
+                '/admin/crm.php' => 'crm',
+                '/admin/cities.php' => 'cities',
+                '/admin/loyalty.php' => 'loyalty',
+                '/admin/daily-events.php' => 'events',
+                '/admin/benefit-programs.php',
+                '/admin/benefit-sponsorships.php',
+                '/admin/benefit-economy.php',
+                '/admin/benefit-performance.php' => 'benefits',
+                '/admin/operations.php',
+                '/admin/event-automation.php' => 'operations',
+                default => null,
+            };
+        }
+
+        if ($covetedAdminSampleView !== null && $covetedAdminRequestPath !== '/admin/system-preview.php') {
+            if ($covetedAdminRequestMethod !== 'GET') {
+                http_response_code(405);
+                header('Allow: GET');
+                exit('Full System Sample Mode is read-only. Turn it off before changing live Admin data.');
+            }
+            coveted_redirect('/admin/system-preview.php?view=' . rawurlencode($covetedAdminSampleView));
+        }
+    }
+}
+
+// Admin Agent is the canonical Admin landing surface. Only a bare Admin GET is
+// redirected; explicit views use their normal live or sample-aware controller.
+if (
+    PHP_SAPI !== 'cli'
+    && $covetedAdminRequestMethod === 'GET'
     && !array_key_exists('view', $_GET)
     && in_array($covetedAdminRequestPath, ['/admin', '/admin/', '/admin/index.php'], true)
 ) {
     coveted_require_system_admin();
     coveted_redirect('/admin/agent.php');
 }
-unset($covetedAdminRequestPath);
+unset($covetedAdminRequestPath, $covetedAdminRequestMethod, $covetedAdminCurrentUser, $covetedAdminSampleMode, $covetedAdminSampleView);
 
 /**
  * Read-only counts for the System Admin shell.
@@ -65,6 +121,39 @@ function coveted_admin_ui_initials(string $name): string
 
 function coveted_admin_nav_link(string $active, string $key, string $href, string $label, ?int $count = null): void
 {
+    $sampleViews = [
+        'dashboard' => 'dashboard',
+        'crm' => 'crm',
+        'users' => 'people',
+        'requests' => 'requests',
+        'cities' => 'cities',
+        'businesses' => 'businesses',
+        'groups' => 'groups',
+        'events' => 'events',
+        'artists' => 'artists',
+        'loyalty' => 'loyalty',
+        'benefit-programs' => 'benefits',
+        'benefit-sponsorships' => 'benefits',
+        'benefits' => 'benefits',
+        'benefit-economy' => 'benefits',
+        'benefit-performance' => 'benefits',
+        'distribution' => 'benefits',
+        'operations' => 'operations',
+        'event-automation' => 'operations',
+    ];
+
+    if (isset($sampleViews[$key])) {
+        $user = coveted_current_user();
+        if ($user && coveted_is_system_admin($user)) {
+            try {
+                if (coveted_system_sample_mode($user, coveted_db())) {
+                    $href = '/admin/system-preview.php?view=' . rawurlencode($sampleViews[$key]);
+                }
+            } catch (Throwable) {
+                // Keep canonical live href if sample-mode resolution is unavailable.
+            }
+        }
+    }
     ?>
     <a class="<?= $active === $key ? 'is-active' : '' ?>" href="<?= coveted_e($href) ?>">
         <span class="cv-admin-nav-text"><?= coveted_e($label) ?></span>
@@ -201,18 +290,22 @@ function coveted_admin_ui_start(
             </div>
 
             <div class="cv-admin-header-actions">
-                <details class="cv-admin-dropdown cv-admin-create-menu">
-                    <summary class="cv-button cv-button-primary"><span aria-hidden="true">＋</span> Create</summary>
-                    <div class="cv-admin-menu cv-admin-create-panel">
-                        <span class="cv-admin-menu-label">CREATE</span>
-                        <a href="/admin/?view=users#create-user"><strong>User</strong><small>Create an account and assign access</small></a>
-                        <a href="/admin/?view=businesses#create-business"><strong>Business</strong><small>Add a venue or partner</small></a>
-                        <a href="/admin/?view=groups#create-group"><strong>Group</strong><small>Start a private community</small></a>
-                        <a href="/admin/?view=events#create-event"><strong>Event</strong><small>Plan a new gathering</small></a>
-                        <a href="/admin/?view=artists#create-artist"><strong>Artist</strong><small>Create an artist identity</small></a>
-                        <a href="/admin/benefit-programs.php"><strong>Benefit Program</strong><small>Build a trigger, reward, pool and redemption path</small></a>
-                    </div>
-                </details>
+                <?php if ($sampleMode): ?>
+                    <a class="cv-button cv-button-soft" href="/admin/sample-data.php">Sample data · read only</a>
+                <?php else: ?>
+                    <details class="cv-admin-dropdown cv-admin-create-menu">
+                        <summary class="cv-button cv-button-primary"><span aria-hidden="true">＋</span> Create</summary>
+                        <div class="cv-admin-menu cv-admin-create-panel">
+                            <span class="cv-admin-menu-label">CREATE</span>
+                            <a href="/admin/?view=users#create-user"><strong>User</strong><small>Create an account and assign access</small></a>
+                            <a href="/admin/?view=businesses#create-business"><strong>Business</strong><small>Add a venue or partner</small></a>
+                            <a href="/admin/?view=groups#create-group"><strong>Group</strong><small>Start a private community</small></a>
+                            <a href="/admin/?view=events#create-event"><strong>Event</strong><small>Plan a new gathering</small></a>
+                            <a href="/admin/?view=artists#create-artist"><strong>Artist</strong><small>Create an artist identity</small></a>
+                            <a href="/admin/benefit-programs.php"><strong>Benefit Program</strong><small>Build a trigger, reward, pool and redemption path</small></a>
+                        </div>
+                    </details>
+                <?php endif; ?>
 
                 <details class="cv-admin-dropdown cv-admin-account-menu">
                     <summary class="cv-admin-avatar-button" aria-label="Open account menu">
@@ -243,7 +336,7 @@ function coveted_admin_ui_start(
         <main class="cv-admin-content">
             <?php if ($sampleMode): ?>
                 <div class="cv-alert" role="status">
-                    <strong>Full System Sample Mode</strong> · Navigation counts and sample-aware views use synthetic read-only data. Agent autonomous actions are disabled. <a href="/admin/sample-data.php">Open Sample Data</a>
+                    <strong>Full System Sample Mode</strong> · Core Admin navigation and Agent context use synthetic read-only data. Agent autonomous actions and sample mutations are disabled. <a href="/admin/sample-data.php">Open Sample Data</a>
                 </div>
             <?php endif; ?>
             <?php if ($integrityNotice !== ''): ?>

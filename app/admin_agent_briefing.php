@@ -25,7 +25,8 @@ function coveted_admin_agent_briefing_event_label(string $eventType, string $ent
         str_starts_with($eventType, 'business.'),
         str_starts_with($eventType, 'location.'),
         str_starts_with($eventType, 'venue.'),
-        in_array($entityType, ['business', 'location', 'venue_relationship'], true) => 'Partners',
+        str_starts_with($eventType, 'partner_crm.'),
+        in_array($entityType, ['business', 'location', 'venue_relationship', 'partner_interaction', 'partner_followup'], true) => 'Partners',
 
         str_starts_with($eventType, 'artist.'),
         $entityType === 'artist' => 'Artists',
@@ -33,9 +34,11 @@ function coveted_admin_agent_briefing_event_label(string $eventType, string $ent
         str_starts_with($eventType, 'campaign.'),
         str_starts_with($eventType, 'reward.'),
         str_starts_with($eventType, 'claim.'),
-        in_array($entityType, ['campaign', 'reward_template', 'reward_claim'], true) => 'Value',
+        str_starts_with($eventType, 'benefit_'),
+        in_array($entityType, ['campaign', 'reward_template', 'reward_claim', 'benefit_sponsorship'], true) => 'Value',
 
         str_starts_with($eventType, 'admin.invite_request_'),
+        str_starts_with($eventType, 'invite_crm.'),
         $entityType === 'invite_request' => 'CRM',
 
         default => 'Platform',
@@ -68,6 +71,10 @@ function coveted_admin_agent_briefing_event_label(string $eventType, string $ent
         'admin.invite_request_converted' => 'CRM prospect converted',
         'admin.city_created' => 'City added',
         'admin.city_status' => 'City status changed',
+        'partner_crm.interaction_logged' => 'Partner interaction logged',
+        'partner_crm.followup_created' => 'Partner follow-up created',
+        'benefit_sponsorship.submitted' => 'Benefit sponsorship submitted',
+        'invite_crm.qualified' => 'CRM prospect qualified',
     ];
 
     $label = $exact[$eventType] ?? '';
@@ -182,6 +189,53 @@ function coveted_admin_agent_briefing_recent_activity(PDO $pdo): array
     ];
 }
 
+/** @return array{total_24h:int,recent:array<int,array<string,string>>,categories:array<string,int>,issue:bool} */
+function coveted_admin_agent_briefing_sample_activity(array $snapshot): array
+{
+    $memory = array_values((array)($snapshot['memory'] ?? []));
+    $recent = [];
+    $categories = [];
+
+    foreach ($memory as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $eventType = (string)($row['event_type'] ?? '');
+        $definition = coveted_admin_agent_briefing_event_label($eventType, (string)($row['entity_type'] ?? ''));
+        $category = (string)$definition['category'];
+        $categories[$category] = (int)($categories[$category] ?? 0) + 1;
+
+        if (count($recent) >= 6) {
+            continue;
+        }
+
+        $at = '';
+        try {
+            $at = coveted_utc_datetime((string)($row['at'] ?? ''))
+                ->setTimezone(new DateTimeZone('America/Phoenix'))
+                ->format('M j, g:i A');
+        } catch (Throwable) {
+            $at = '';
+        }
+
+        $recent[] = [
+            'category' => $category,
+            'label' => (string)$definition['label'],
+            'actor' => mb_substr(trim((string)($row['actor'] ?? 'Sample System')) ?: 'Sample System', 0, 180),
+            'entity' => mb_substr(trim((string)($row['entity_id'] ?? '')), 0, 190),
+            'at' => $at,
+        ];
+    }
+
+    arsort($categories);
+    return [
+        'total_24h' => count($memory),
+        'recent' => $recent,
+        'categories' => $categories,
+        'issue' => false,
+    ];
+}
+
 /** @return array<string,mixed> */
 function coveted_admin_agent_briefing(array $admin, array $snapshot, ?PDO $pdo = null): array
 {
@@ -197,7 +251,9 @@ function coveted_admin_agent_briefing(array $admin, array $snapshot, ?PDO $pdo =
     ));
     $crm = (array)($snapshot['crm'] ?? []);
     $operations = (array)($snapshot['operations']['summary'] ?? []);
-    $activity = coveted_admin_agent_briefing_recent_activity($pdo);
+    $activity = !empty($snapshot['sample_mode'])
+        ? coveted_admin_agent_briefing_sample_activity($snapshot)
+        : coveted_admin_agent_briefing_recent_activity($pdo);
 
     $crmReady = (int)($crm['new_count'] ?? 0) + (int)($crm['qualified_count'] ?? 0);
     $attention = (int)($operations['attention_count'] ?? 0);
@@ -206,7 +262,9 @@ function coveted_admin_agent_briefing(array $admin, array $snapshot, ?PDO $pdo =
 
     if ($p1Count > 0) {
         $headline = $p1Count . ' priority item' . ($p1Count === 1 ? '' : 's') . ' need attention';
-        $summary = 'Start with the highest-impact operational or access issue, then work the growth pipeline.';
+        $summary = !empty($snapshot['sample_mode'])
+            ? 'These priorities come from the synthetic Full System Sample network and are safe to explore without changing live records.'
+            : 'Start with the highest-impact operational or access issue, then work the growth pipeline.';
     } elseif ($attention > 0) {
         $headline = $attention . ' operational item' . ($attention === 1 ? '' : 's') . ' need review';
         $summary = 'The platform has no P1 Agent opportunity, but the canonical Operations snapshot still has work to reconcile.';

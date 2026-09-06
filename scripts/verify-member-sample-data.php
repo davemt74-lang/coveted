@@ -16,6 +16,11 @@ $required = [
     'reconnect' => 'reconnect.php',
     'profile' => 'profile.php',
     'admin' => 'admin/sample-data.php',
+    'admin_preview' => 'admin/system-preview.php',
+    'admin_ui' => 'app/admin_ui.php',
+    'agent_brain' => 'app/admin_agent_brain.php',
+    'agent_briefing' => 'app/admin_agent_briefing.php',
+    'agent_enrichment' => 'app/site_branding.php',
     'api' => 'api/admin-system-sample.php',
     'settings' => 'app/site_settings.php',
 ];
@@ -112,6 +117,81 @@ $assertContains($files['admin'], [
     'Autonomous Agent execution is disabled',
 ], 'Full-system Sample Data Admin contract');
 
+$assertContains($files['admin_preview'], [
+    'coveted_require_system_admin()',
+    'coveted_system_sample_mode($admin, $pdo)',
+    'Full System Sample Mode is read-only.',
+    "'dashboard' => '/admin/?view=dashboard'",
+    "'crm' => '/admin/crm.php'",
+    "'partner' => '/venue-relationships.php'",
+    "'loyalty' => '/admin/loyalty.php'",
+    "'benefits' => '/admin/?view=benefits'",
+    "'operations' => '/admin/operations.php'",
+    "'partner_relationships'",
+    "'partner_contacts'",
+    "'partner_followups'",
+    "'partner_perks'",
+    "'daily_events'",
+    "'benefit_programs'",
+    "'sponsorships'",
+    "'loyalty'",
+    "'artist_media'",
+    "'artist_appearances'",
+    "'notifications'",
+    "['agent']['tasks']",
+    'SYNTHETIC SYSTEM VIEW',
+    'EVENT AUTOMATION',
+], 'Sample-aware Admin preview contract');
+$assertNoMutationSql($files['admin_preview'], 'Sample-aware Admin preview');
+
+$assertContains($files['admin_ui'], [
+    '$covetedAdminSampleView = match',
+    'Full System Sample Mode is read-only. Turn it off before changing live Admin data.',
+    "'/admin/crm.php' => 'crm'",
+    "'/admin/loyalty.php' => 'loyalty'",
+    "'/admin/operations.php'",
+    '$sampleViews = [',
+    "'dashboard' => 'dashboard'",
+    "'crm' => 'crm'",
+    "'users' => 'people'",
+    "'businesses' => 'businesses'",
+    "'events' => 'events'",
+    "'artists' => 'artists'",
+    "'loyalty' => 'loyalty'",
+    "'benefit-programs' => 'benefits'",
+    "'operations' => 'operations'",
+    "'event-automation' => 'operations'",
+    "'/admin/system-preview.php?view=' . rawurlencode(\$sampleViews[\$key])",
+    'Sample data · read only',
+    'Core Admin navigation and Agent context use synthetic read-only data.',
+    "coveted_admin_nav_link(\$active, 'event-automation', '/admin/event-automation.php', 'Event Automation')",
+], 'Sample-aware Admin navigation / mutation guard contract');
+
+$assertContains($files['agent_brain'], [
+    "require_once __DIR__ . '/system_sample_data.php';",
+    'coveted_system_sample_mode($admin, $pdo)',
+    'coveted_system_sample_agent_snapshot($admin, $providerStatuses)',
+    "'sample_mode' => !empty(\$snapshot['sample_mode'])",
+    "'sample_notice' => (string)(\$snapshot['sample_notice'] ?? '')",
+    'canonical synthetic Full System Sample pack',
+    'Never describe a sample entity as live production state',
+], 'Sample-aware Admin Agent brain contract');
+
+$assertContains($files['agent_briefing'], [
+    'function coveted_admin_agent_briefing_sample_activity',
+    "!empty(\$snapshot['sample_mode'])",
+    'coveted_admin_agent_briefing_sample_activity($snapshot)',
+    'synthetic Full System Sample network',
+    'partner_crm.interaction_logged',
+    'benefit_sponsorship.submitted',
+], 'Sample-aware Admin Agent briefing contract');
+
+$assertContains($files['agent_enrichment'], [
+    "if (!empty(\$snapshot['sample_mode']))",
+    'return $snapshot;',
+    'Never append live CRM/business/value data to it.',
+], 'Sample Agent enrichment isolation contract');
+
 $assertContains($files['api'], [
     'coveted_require_system_admin()',
     'GET required.',
@@ -161,4 +241,4 @@ foreach ($previewAssets as $relative) {
     }
 }
 
-echo "Full system + member sample-data contract OK\n";
+echo "Full system + member + Admin sample-data contract OK\n";
