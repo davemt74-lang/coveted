@@ -50,18 +50,23 @@ $missing($service, 'CREATE TABLE', 'workspace service must not create schema at 
 $missing($service, 'ALTER TABLE', 'workspace service must not alter schema at runtime');
 
 // Business access alone never grants attendance mutation authority.
-$contains($service, "if ($role === 'checkin')", 'explicit check-in assignment must unlock check-in');
-$contains($service, "in_array($role, ['lead','cohost'], true)", 'lead/cohost handling must remain explicit');
+$contains($service, 'if ($role === \'checkin\')', 'explicit check-in assignment must unlock check-in');
+$contains($service, 'in_array($role, [\'lead\',\'cohost\'], true)', 'lead/cohost handling must remain explicit');
 $contains($service, 'coveted_event_actor_has_host_approval($actor)', 'lead/cohost check-in must still require Attendee Host approval');
 $contains($service, 'coveted_event_record_attendance($actor, (string)$event[\'public_id\'], $userId, $status);', 'attendance writes must delegate to the canonical event attendance service');
 $missing($service, 'INSERT INTO event_attendance', 'workspace service must not write attendance directly');
 $missing($service, 'UPDATE event_attendance', 'workspace service must not update attendance directly');
 
+// Room headcount includes +1s, but attendance percentage must use only members with trackable attendance rows.
+$contains($service, '(int)($event[\'attending_count\'] ?? 0) + (int)($event[\'plus_one_count\'] ?? 0)', 'venue expected headcount must include +1s');
+$contains($service, '$trackableMembers = max(0, (int)($event[\'attending_count\'] ?? 0));', 'attendance rate must use trackable RSVP members');
+$contains($service, '/ $trackableMembers) * 100', 'attendance percentage must use the trackable-member denominator');
+
 // Issue reporting must be durable, bounded and schema-safe without inventing a parallel issue/message table.
 $contains($service, 'function coveted_business_host_report_issue(', 'venue issue reporting service is missing');
 $contains($service, 'function coveted_business_host_issue_notification_title(', 'bounded issue notification title helper is missing');
 $contains($service, 'if (mb_strlen($title) <= 190)', 'issue notification title must honor notification schema length');
-$contains($service, "mb_substr($title, 0, 189) . '…'", 'long issue notification titles must be safely clipped');
+$contains($service, 'mb_substr($title, 0, 189) . \'…\'', 'long issue notification titles must be safely clipped');
 $contains($service, 'function coveted_business_host_assert_issue_rate_limit(', 'issue reporting rate-limit service is missing');
 $contains($service, "event_type = 'business_host.issue_reported'", 'issue rate limit must use durable successful-report audits');
 $contains($service, "entity_type = 'event'", 'issue rate limit must remain event scoped');
@@ -71,7 +76,7 @@ $contains($service, 'coveted_business_host_assert_issue_rate_limit($actor, $even
 $contains($service, "ur.role_key = 'system_admin'", 'issue reports must target active System Admins');
 $contains($service, 'coveted_notification_create(', 'issue reports must use canonical notifications');
 $contains($service, "'business_host.issue'", 'venue issue notification type is missing');
-$contains($service, "$category === 'safety' ? 'high' : 'normal'", 'safety issues must be high priority');
+$contains($service, '$category === \'safety\' ? \'high\' : \'normal\'', 'safety issues must be high priority');
 $contains($service, "'business_host.issue_reported'", 'issue reporting audit event is missing');
 $before($service, 'coveted_business_host_assert_issue_rate_limit($actor, $event);', '$admins = coveted_db()->query(', 'rate limit must run before Admin notifications are discovered/emitted');
 $missing($service, 'CREATE TABLE business_host', 'issue reporting must not create a parallel issue table');
@@ -89,7 +94,7 @@ $missing($page, 'coveted_event_set_location(', 'Business Host page must not chan
 $missing($page, 'coveted_event_set_artist(', 'Business Host page must not change event lineup');
 
 // POST surface is narrow, CSRF protected, scoped, and limited to venue operations.
-$contains($page, "($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'", 'workspace POST detection is missing');
+$contains($page, '($_SERVER[\'REQUEST_METHOD\'] ?? \'GET\') === \'POST\'', 'workspace POST detection is missing');
 $contains($page, 'if (!$isPost)', 'invalid GET business refs may recover but POST mutations must not fall back to another business');
 $contains($page, 'coveted_require_csrf();', 'workspace POST must require CSRF');
 $contains($page, "['record_attendance','report_issue']", 'workspace POST action allowlist is missing');
