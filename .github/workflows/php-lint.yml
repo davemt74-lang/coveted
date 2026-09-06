@@ -68,6 +68,9 @@ jobs:
       - name: Verify Benefit Program Builder JavaScript syntax
         run: node --check assets/js/benefit-program-builder-v1.js
 
+      - name: Verify proactive Admin Agent Benefit opportunities contract
+        run: php scripts/verify-admin-agent-benefit-opportunities.php
+
       - name: Verify Admin Event Workspace contract
         run: php scripts/verify-admin-event-workspace.php
 
