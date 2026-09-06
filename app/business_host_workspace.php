@@ -206,6 +206,43 @@ function coveted_business_host_record_attendance(
     coveted_event_record_attendance($actor, (string)$event['public_id'], $userId, $status);
 }
 
+function coveted_business_host_issue_notification_title(array $business, array $event): string
+{
+    $title = 'Venue issue: ' . trim((string)($business['name'] ?? 'Business'))
+        . ' · ' . trim((string)($event['title'] ?? 'Event'));
+
+    if (mb_strlen($title) <= 190) {
+        return $title;
+    }
+
+    return mb_substr($title, 0, 189) . '…';
+}
+
+function coveted_business_host_assert_issue_rate_limit(array $actor, array $event, ?PDO $pdo = null): void
+{
+    $actorId = (int)($actor['id'] ?? 0);
+    $eventRef = trim((string)($event['public_id'] ?? ''));
+    if ($actorId < 1 || $eventRef === '') {
+        throw new InvalidArgumentException('Unable to verify venue issue reporting access.');
+    }
+
+    $pdo ??= coveted_db();
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*)
+         FROM audit_events
+         WHERE actor_user_id = ?
+           AND event_type = 'business_host.issue_reported'
+           AND entity_type = 'event'
+           AND entity_id = ?
+           AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)"
+    );
+    $stmt->execute([$actorId, $eventRef]);
+
+    if ((int)$stmt->fetchColumn() >= 5) {
+        throw new InvalidArgumentException('Too many issue reports were sent for this event. Try again in a few minutes.');
+    }
+}
+
 function coveted_business_host_report_issue(
     array $actor,
     int $businessId,
@@ -234,6 +271,8 @@ function coveted_business_host_report_issue(
         throw new InvalidArgumentException('Business not found or unavailable to this account.');
     }
 
+    coveted_business_host_assert_issue_rate_limit($actor, $event);
+
     $admins = coveted_db()->query(
         "SELECT DISTINCT u.id
          FROM users u
@@ -247,7 +286,7 @@ function coveted_business_host_report_issue(
 
     $reportRef = coveted_uuid('venueissue');
     $categoryLabel = ucwords(str_replace('_', ' ', $category));
-    $title = 'Venue issue: ' . (string)$business['name'] . ' · ' . (string)$event['title'];
+    $title = coveted_business_host_issue_notification_title($business, $event);
     $body = $categoryLabel . "\n" . $message;
     $actionUrl = '/business-host.php?business=' . rawurlencode((string)$business['public_id'])
         . '&event=' . rawurlencode((string)$event['public_id']) . '#admin-coordination';
