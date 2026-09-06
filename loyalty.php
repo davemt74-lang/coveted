@@ -33,6 +33,9 @@ $formatDate = static function (?string $value): string {
     if ($value === '') return '—';
     return coveted_utc_datetime($value)->setTimezone(coveted_timezone())->format('M j, Y');
 };
+$formatPoints = static function (int $points): string {
+    return ($points > 0 ? '+' : '') . number_format($points);
+};
 
 coveted_page_start('Loyalty', 'Loyalty');
 ?>
@@ -138,7 +141,7 @@ coveted_page_start('Loyalty', 'Loyalty');
                         <strong><?= coveted_e($sourceLabels[(string)$entry['source_type']] ?? (string)$entry['description']) ?></strong>
                         <p><?= coveted_e((string)($entry['group_name'] ?? 'Coveted')) ?><?= !empty($entry['event_title']) ? ' · ' . coveted_e((string)$entry['event_title']) : '' ?></p>
                     </div>
-                    <strong>+<?= number_format((int)$entry['global_points']) ?></strong>
+                    <strong><?= coveted_e($formatPoints((int)$entry['global_points'])) ?></strong>
                 </div>
                 <p class="cv-muted"><?= coveted_e($formatDate((string)$entry['occurred_at'])) ?></p>
             </article>
