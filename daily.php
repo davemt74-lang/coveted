@@ -11,7 +11,6 @@ unset($_SESSION['daily_event_notice']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     coveted_require_csrf();
     $dailyRef = trim((string)($_POST['daily_ref'] ?? ''));
-    $eventRef = trim((string)($_POST['event_ref'] ?? ''));
     $action = trim((string)($_POST['action'] ?? ''));
 
     try {
@@ -19,14 +18,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new InvalidArgumentException('Daily Event not found.');
         }
         if ($action === 'rsvp_attending' || $action === 'rsvp_declined') {
-            if ($eventRef === '' || strlen($eventRef) > 64) {
-                throw new InvalidArgumentException('Event not found.');
-            }
-            $response = coveted_event_set_rsvp(
+            $response = coveted_daily_event_set_rsvp(
                 $user,
-                $eventRef,
-                $action === 'rsvp_attending' ? 'attending' : 'declined',
-                0
+                $dailyRef,
+                $action === 'rsvp_attending' ? 'attending' : 'declined'
             );
             $_SESSION['daily_event_notice'] = match ($response) {
                 'attending' => 'You’re in. Your place is reserved.',
@@ -141,7 +136,6 @@ $renderCard = static function (array $event): void {
                 <form method="post">
                     <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
                     <input type="hidden" name="daily_ref" value="<?= coveted_e((string)$event['public_id']) ?>">
-                    <input type="hidden" name="event_ref" value="<?= coveted_e((string)$event['event_ref']) ?>">
                     <input type="hidden" name="action" value="<?= ($event['rsvp_response'] ?? '') === 'attending' ? 'rsvp_declined' : 'rsvp_attending' ?>">
                     <button class="cv-button <?= ($event['rsvp_response'] ?? '') === 'attending' ? 'cv-button-soft' : 'cv-button-primary' ?>" type="submit">
                         <?= ($event['rsvp_response'] ?? '') === 'attending' ? 'Can’t attend' : 'I’ll attend' ?>
@@ -155,7 +149,6 @@ $renderCard = static function (array $event): void {
                 <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
                 <input type="hidden" name="action" value="checkin">
                 <input type="hidden" name="daily_ref" value="<?= coveted_e((string)$event['public_id']) ?>">
-                <input type="hidden" name="event_ref" value="<?= coveted_e((string)$event['event_ref']) ?>">
                 <span class="cv-kicker">AT THE PARTNER LOCATION</span>
                 <h4>Verify your attendance</h4>
                 <p>Enter the location or employee claim code at <?= coveted_e((string)$event['location_name']) ?>. The code verifies this real-world visit; it does not expose your private Loyalty balance.</p>
