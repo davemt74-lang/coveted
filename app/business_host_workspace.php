@@ -88,7 +88,6 @@ function coveted_business_host_event(array $actor, int $businessId, string $even
                 l.id AS location_id, l.public_id AS location_public_id, l.name AS location_name,
                 l.address1, l.address2, l.city, l.region, l.postal_code, l.country,
                 l.timezone AS location_timezone, l.status AS location_status,
-                el.reveal_notes,
                 (SELECT COUNT(*) FROM event_rsvps er WHERE er.event_id = e.id AND er.response = 'attending') AS attending_count,
                 (SELECT COALESCE(SUM(er.guest_count),0) FROM event_rsvps er WHERE er.event_id = e.id AND er.response = 'attending') AS plus_one_count,
                 (SELECT COUNT(*) FROM event_rsvps er WHERE er.event_id = e.id AND er.response = 'waitlist') AS waitlist_count,
@@ -179,7 +178,13 @@ function coveted_business_host_can_checkin(array $actor, array $event): bool
         return true;
     }
 
-    return in_array((string)($event['actor_host_role'] ?? ''), ['lead','cohost','checkin'], true);
+    $role = (string)($event['actor_host_role'] ?? '');
+    if ($role === 'checkin') {
+        return true;
+    }
+
+    return in_array($role, ['lead','cohost'], true)
+        && coveted_event_actor_has_host_approval($actor);
 }
 
 function coveted_business_host_record_attendance(
