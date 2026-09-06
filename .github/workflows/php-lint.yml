@@ -50,6 +50,12 @@ jobs:
       - name: Verify Business / Location Host workspace contract
         run: php scripts/verify-business-host-workspace.php
 
+      - name: Verify Attendee Event Experience contract
+        run: php scripts/verify-attendee-event-workspace.php
+
+      - name: Verify Attendee Event navigation JavaScript syntax
+        run: node --check assets/js/attendee-event-nav-v1.js
+
       - name: Verify Admin Event Workspace contract
         run: php scripts/verify-admin-event-workspace.php
 
