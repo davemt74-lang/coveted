@@ -62,6 +62,9 @@ jobs:
       - name: Verify Group Perk Wallet contract
         run: php scripts/verify-group-perk-wallet.php
 
+      - name: Verify Group Loyalty + Membership Status contract
+        run: php scripts/verify-group-loyalty.php
+
       - name: Verify Benefit Program Builder contract
         run: php scripts/verify-benefit-program-builder.php
 
