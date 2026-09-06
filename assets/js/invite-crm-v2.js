@@ -220,7 +220,8 @@
     };
 
     const matchesFilter = (intel, filter) => {
-        if (!intel || filter === 'all') return true;
+        if (filter === 'all') return true;
+        if (!intel) return false;
         if (filter === 'follow_up') return Boolean(intel.follow_up_due);
         if (filter === 'conversion_ready') return intel.next_action_key === 'convert';
         return intel.band === filter;
