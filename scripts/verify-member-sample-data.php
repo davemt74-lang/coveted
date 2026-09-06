@@ -16,6 +16,10 @@ $required = [
     'reconnect' => 'reconnect.php',
     'profile' => 'profile.php',
     'admin' => 'admin/sample-data.php',
+    'admin_preview' => 'admin/system-preview.php',
+    'admin_ui' => 'app/admin_ui.php',
+    'agent_brain' => 'app/admin_agent_brain.php',
+    'agent_enrichment' => 'app/site_branding.php',
     'api' => 'api/admin-system-sample.php',
     'settings' => 'app/site_settings.php',
 ];
@@ -112,6 +116,60 @@ $assertContains($files['admin'], [
     'Autonomous Agent execution is disabled',
 ], 'Full-system Sample Data Admin contract');
 
+$assertContains($files['admin_preview'], [
+    'coveted_require_system_admin()',
+    'coveted_system_sample_mode($admin, $pdo)',
+    "Full System Sample Mode is read-only.",
+    "'dashboard' => '/admin/?view=dashboard'",
+    "'crm' => '/admin/crm.php'",
+    "'partner' => '/venue-relationships.php'",
+    "'loyalty' => '/admin/loyalty.php'",
+    "'benefits' => '/admin/?view=benefits'",
+    "'partner_relationships'",
+    "'partner_contacts'",
+    "'partner_followups'",
+    "'partner_perks'",
+    "'daily_events'",
+    "'benefit_programs'",
+    "'sponsorships'",
+    "'loyalty'",
+    "'artist_media'",
+    "'artist_appearances'",
+    'SYNTHETIC SYSTEM VIEW',
+], 'Sample-aware Admin preview contract');
+$assertNoMutationSql($files['admin_preview'], 'Sample-aware Admin preview');
+
+$assertContains($files['admin_ui'], [
+    '$sampleRoute = static fn',
+    "$sampleRoute('dashboard'",
+    "$sampleRoute('crm'",
+    "$sampleRoute('people'",
+    "$sampleRoute('businesses'",
+    "$sampleRoute('groups'",
+    "$sampleRoute('events'",
+    "$sampleRoute('artists'",
+    "$sampleRoute('loyalty'",
+    "$sampleRoute('benefits'",
+    'Sample data · read only',
+    'Core Admin navigation and Agent context use synthetic read-only data.',
+], 'Sample-aware Admin navigation contract');
+
+$assertContains($files['agent_brain'], [
+    "require_once __DIR__ . '/system_sample_data.php';",
+    'coveted_system_sample_mode($admin, $pdo)',
+    'coveted_system_sample_agent_snapshot($admin, $providerStatuses)',
+    "'sample_mode' => !empty(\$snapshot['sample_mode'])",
+    "'sample_notice' => (string)(\$snapshot['sample_notice'] ?? '')",
+    'canonical synthetic Full System Sample pack',
+    'Never describe a sample entity as live production state',
+], 'Sample-aware Admin Agent brain contract');
+
+$assertContains($files['agent_enrichment'], [
+    "if (!empty(\$snapshot['sample_mode']))",
+    'return $snapshot;',
+    'Never append live CRM/business/value data to it.',
+], 'Sample Agent enrichment isolation contract');
+
 $assertContains($files['api'], [
     'coveted_require_system_admin()',
     'GET required.',
@@ -161,4 +219,4 @@ foreach ($previewAssets as $relative) {
     }
 }
 
-echo "Full system + member sample-data contract OK\n";
+echo "Full system + member + Admin sample-data contract OK\n";
