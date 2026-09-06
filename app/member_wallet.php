@@ -124,7 +124,6 @@ function coveted_member_wallet_upcoming(int $userId): array
                SELECT 1 FROM reward_issuances ri
                WHERE ri.campaign_id = c.id
                  AND ri.user_id = gm.user_id
-                 AND ri.status <> 'cancelled'
            )
          ORDER BY available_at ASC, c.id ASC
          LIMIT 75"
@@ -141,9 +140,10 @@ function coveted_member_wallet_snapshot(int $userId): array
     $expired = coveted_member_wallet_rewards($userId, 'expired');
     $upcoming = coveted_member_wallet_upcoming($userId);
 
+    $mediaRows = array_merge($ready, $redeemed);
     $mediaByTemplate = coveted_reward_media_for_templates(array_values(array_filter(array_map(
         static fn(array $row): int => (int)($row['reward_template_id'] ?? 0),
-        $ready
+        $mediaRows
     ))));
     $eligibleLocations = coveted_reward_eligible_locations_for_rows($ready);
 
