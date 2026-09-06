@@ -9,7 +9,7 @@ SET @coveted_schema = DATABASE();
 SET @sql = IF(
   EXISTS(SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=@coveted_schema AND TABLE_NAME='admin_agent_tasks' AND COLUMN_NAME='execution_state'),
   'SELECT 1',
-  "ALTER TABLE admin_agent_tasks ADD COLUMN execution_state ENUM('idle','running','completed','failed','blocked') NOT NULL DEFAULT 'idle' AFTER source_href"
+  'ALTER TABLE admin_agent_tasks ADD COLUMN execution_state ENUM(''idle'',''running'',''completed'',''failed'',''blocked'') NOT NULL DEFAULT ''idle'' AFTER source_href'
 );
 PREPARE coveted_stmt FROM @sql; EXECUTE coveted_stmt; DEALLOCATE PREPARE coveted_stmt;
 
