@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/benefit_sponsorships.php';
+require_once dirname(__DIR__) . '/app/benefit_sponsorship_conversion.php';
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 
 $admin = coveted_require_system_admin();
@@ -15,7 +15,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $action = strtolower(trim((string)($_POST['action'] ?? '')));
         $proposalRef = trim((string)($_POST['proposal_ref'] ?? ''));
         if ($action === 'convert_to_draft') {
-            $result = coveted_benefit_sponsorship_convert_to_program_draft($admin, $proposalRef);
+            $result = coveted_benefit_sponsorship_convert_proposal_to_draft($admin, $proposalRef);
             $message = 'Sponsorship proposal converted into Benefit Program draft ' . (string)$result['program_ref'] . '. It is not live.';
             $statusFilter = 'submitted';
         } elseif ($action === 'decline') {
