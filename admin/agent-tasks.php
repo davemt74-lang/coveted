@@ -13,16 +13,22 @@ $notice = trim((string)($_SESSION['agent_task_notice'] ?? ''));
 unset($_SESSION['agent_task_notice']);
 $status = strtolower(trim((string)($_GET['status'] ?? 'active')));
 $allowedStatuses = ['active','suggested','approved','in_progress','completed','dismissed','all'];
-if (!in_array($status, $allowedStatuses, true)) $status = 'active';
-
-try {
-    coveted_admin_agent_tasks_ensure_schema($pdo);
-} catch (Throwable $e) {
-    error_log('Admin Agent task schema unavailable: ' . $e->getMessage());
-    $error = 'Task queue storage is unavailable. Import the current Admin Agent task migration or verify database DDL permissions.';
+if (!in_array($status, $allowedStatuses, true)) {
+    $status = 'active';
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error === '') {
+$storageAvailable = false;
+try {
+    $storageAvailable = coveted_admin_agent_tasks_schema_available($pdo);
+    if (!$storageAvailable) {
+        $error = 'Task queue storage is unavailable. Import database/migrations/20260905_admin_agent_tasks.sql.';
+    }
+} catch (Throwable $e) {
+    error_log('Admin Agent task schema check failed: ' . $e->getMessage());
+    $error = 'Task queue storage is temporarily unavailable.';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $storageAvailable) {
     coveted_require_csrf();
     try {
         $action = trim((string)($_POST['action'] ?? ''));
@@ -37,14 +43,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error === '') {
             $_SESSION['agent_task_notice'] = 'Task added to the approved queue.';
         } elseif ($action === 'sync') {
             $snapshot = coveted_site_branding_enrich_agent_snapshot(coveted_admin_agent_snapshot($admin, $pdo));
-            $result = coveted_admin_agent_tasks_sync_opportunities($admin, (array)($snapshot['opportunities'] ?? []), $pdo);
-            $_SESSION['agent_task_notice'] = 'Suggestions refreshed: ' . (int)$result['created'] . ' created, ' . (int)$result['updated'] . ' updated, ' . (int)$result['skipped'] . ' skipped.';
+            $result = coveted_admin_agent_tasks_sync_opportunities(
+                $admin,
+                (array)($snapshot['opportunities'] ?? []),
+                $pdo
+            );
+            $_SESSION['agent_task_notice'] = 'Suggestions refreshed: '
+                . (int)$result['created'] . ' created, '
+                . (int)$result['updated'] . ' updated, '
+                . (int)$result['skipped'] . ' skipped.';
         } elseif ($action === 'status') {
             coveted_admin_agent_task_set_status(
                 $admin,
                 (string)($_POST['task_ref'] ?? ''),
                 (string)($_POST['status'] ?? ''),
-                $pdo
+                $pdo,
+                (string)($_POST['expected_status'] ?? '')
             );
             $_SESSION['agent_task_notice'] = 'Task status updated.';
         } else {
@@ -59,8 +73,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error === '') {
     }
 }
 
-$counts = coveted_admin_agent_task_counts($admin, $pdo);
-$tasks = coveted_admin_agent_tasks_list($admin, $status, 200, $pdo);
+$counts = ['suggested'=>0,'approved'=>0,'in_progress'=>0,'completed'=>0,'dismissed'=>0];
+$tasks = [];
+if ($storageAvailable) {
+    $counts = coveted_admin_agent_task_counts($admin, $pdo);
+    $tasks = coveted_admin_agent_tasks_list($admin, $status, 200, $pdo);
+}
 $adminCounts = coveted_admin_ui_counts($pdo);
 $activeTotal = $counts['suggested'] + $counts['approved'] + $counts['in_progress'];
 $statusLabels = [
@@ -82,11 +100,13 @@ coveted_admin_ui_start($admin, 'agent', 'Agent Task Queue', $adminCounts);
     </div>
     <div class="cv-agent-task-head-actions">
         <a class="cv-button cv-button-soft" href="/admin/agent.php">Back to Agent</a>
-        <form method="post">
-            <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
-            <input type="hidden" name="action" value="sync">
-            <button class="cv-button cv-button-primary" type="submit">Refresh Agent Suggestions</button>
-        </form>
+        <?php if ($storageAvailable): ?>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+                <input type="hidden" name="action" value="sync">
+                <button class="cv-button cv-button-primary" type="submit">Refresh Agent Suggestions</button>
+            </form>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -100,6 +120,7 @@ coveted_admin_ui_start($admin, 'agent', 'Agent Task Queue', $adminCounts);
     <?php endforeach; ?>
 </div>
 
+<?php if ($storageAvailable): ?>
 <section class="cv-admin-panel cv-agent-task-create">
     <div class="cv-admin-panel-head">
         <div>
@@ -117,9 +138,10 @@ coveted_admin_ui_start($admin, 'agent', 'Agent Task Queue', $adminCounts);
         <div class="cv-agent-task-create-actions"><button class="cv-button cv-button-primary" type="submit">Add Task</button></div>
     </form>
 </section>
+<?php endif; ?>
 
 <section class="cv-agent-task-list" aria-label="Agent tasks">
-    <?php if (!$tasks): ?>
+    <?php if ($storageAvailable && !$tasks): ?>
         <div class="cv-card cv-empty"><h3>No tasks in this view.</h3><p>Refresh Agent Suggestions or create an approved task above.</p></div>
     <?php endif; ?>
 
@@ -127,6 +149,7 @@ coveted_admin_ui_start($admin, 'agent', 'Agent Task Queue', $adminCounts);
         <?php
         $taskStatus = (string)$task['status'];
         $sourceHref = trim((string)($task['source_href'] ?? ''));
+        $allowedTransitions = coveted_admin_agent_task_allowed_transitions($taskStatus);
         ?>
         <article class="cv-admin-panel cv-agent-task-card is-<?= coveted_e(str_replace('_','-',$taskStatus)) ?>">
             <div class="cv-agent-task-copy">
@@ -143,12 +166,13 @@ coveted_admin_ui_start($admin, 'agent', 'Agent Task Queue', $adminCounts);
                 </div>
             </div>
             <div class="cv-agent-task-controls">
-                <?php foreach ($statusLabels as $key => $label): ?>
-                    <?php if ($key === $taskStatus) continue; ?>
+                <?php foreach ($allowedTransitions as $key): ?>
+                    <?php $label = $statusLabels[$key] ?? ucfirst(str_replace('_', ' ', $key)); ?>
                     <form method="post">
                         <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
                         <input type="hidden" name="action" value="status">
                         <input type="hidden" name="task_ref" value="<?= coveted_e((string)$task['public_id']) ?>">
+                        <input type="hidden" name="expected_status" value="<?= coveted_e($taskStatus) ?>">
                         <input type="hidden" name="status" value="<?= coveted_e($key) ?>">
                         <button class="cv-button <?= in_array($key,['completed','in_progress'],true) ? 'cv-button-primary' : 'cv-button-soft' ?>" type="submit"><?= coveted_e($label) ?></button>
                     </form>
