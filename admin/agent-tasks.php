@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/admin_agent_brain.php';
 require_once dirname(__DIR__) . '/app/admin_agent_tasks.php';
 require_once dirname(__DIR__) . '/app/admin_agent_task_execution.php';
+require_once dirname(__DIR__) . '/app/admin_agent_task_execution_reset.php';
 require_once dirname(__DIR__) . '/app/site_branding.php';
 
 $admin = coveted_require_system_admin();
@@ -92,14 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $storageAvailable) {
             );
 
             if ($executionStorageAvailable && in_array($newStatus, ['approved','suggested','dismissed'], true)) {
-                $reset = $pdo->prepare(
-                    "UPDATE admin_agent_tasks
-                     SET execution_state = 'idle', execution_thread_ref = NULL, execution_request_id = NULL,
-                         execution_provider = NULL, execution_goal = NULL, execution_summary = NULL,
-                         execution_error = NULL, execution_started_at = NULL, execution_completed_at = NULL
-                     WHERE public_id = ? AND owner_user_id = ? AND execution_state <> 'running'"
-                );
-                $reset->execute([coveted_admin_agent_task_ref($taskRef), (int)$admin['id']]);
+                coveted_admin_agent_task_execution_reset($admin, $taskRef, $newStatus, $pdo);
             }
             $_SESSION['agent_task_notice'] = 'Task status updated.';
         } else {
@@ -224,8 +218,8 @@ coveted_admin_ui_start($admin, 'agent', 'Agent Task Queue', $adminCounts);
         $canRun = $executionStorageAvailable
             && $autonomousActionsEnabled
             && !empty($executionProviders)
-            && in_array($taskStatus, ['approved','in_progress'], true)
-            && in_array($executionState, ['idle','failed'], true);
+            && $taskStatus === 'approved'
+            && $executionState === 'idle';
         $canCheck = $executionStorageAvailable
             && $executionState === 'running'
             && $executionThreadRef !== ''
@@ -265,11 +259,11 @@ coveted_admin_ui_start($admin, 'agent', 'Agent Task Queue', $adminCounts);
                         <label>Agent
                             <select name="provider" required>
                                 <?php foreach ($executionProviders as $providerKey => $providerRow): ?>
-                                    <option value="<?= coveted_e((string)$providerKey) ?>" <?= $executionProvider === (string)$providerKey ? 'selected' : '' ?>><?= coveted_e((string)($providerRow['chat_label'] ?? $providerRow['label'] ?? $providerKey)) ?></option>
+                                    <option value="<?= coveted_e((string)$providerKey) ?>"><?= coveted_e((string)($providerRow['chat_label'] ?? $providerRow['label'] ?? $providerKey)) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </label>
-                        <button class="cv-button cv-button-primary" type="submit"><?= $executionState === 'failed' ? 'Retry with Agent' : 'Run with Agent' ?></button>
+                        <button class="cv-button cv-button-primary" type="submit">Run with Agent</button>
                         <span class="cv-agent-task-execute-status" data-task-execute-status aria-live="polite"></span>
                     </form>
                 <?php elseif ($canCheck): ?>
@@ -283,11 +277,18 @@ coveted_admin_ui_start($admin, 'agent', 'Agent Task Queue', $adminCounts);
                 <?php elseif ($executionState === 'blocked'): ?>
                     <div class="cv-agent-task-execution-guidance">
                         <strong>Automatic replay is blocked.</strong>
-                        <p>Review the durable Agent thread. If the task still needs work, move it back to Approved to authorize a fresh execution.</p>
+                        <p>Review the durable Agent thread. Move the task back to Approved only if the work still needs to run; that creates a fresh authorization.</p>
+                    </div>
+                <?php elseif ($executionState === 'failed'): ?>
+                    <div class="cv-agent-task-execution-guidance">
+                        <strong>Review before retrying.</strong>
+                        <p>This run did not verify completion. Review the Agent result, then move the task back to Approved to authorize a fresh execution.</p>
                     </div>
                 <?php elseif ($taskStatus === 'suggested'): ?>
                     <div class="cv-agent-task-execution-guidance"><strong>Approval required.</strong><p>The Agent cannot run Suggested work until a System Admin approves it.</p></div>
-                <?php elseif ($executionStorageAvailable && !$autonomousActionsEnabled && in_array($taskStatus, ['approved','in_progress'], true)): ?>
+                <?php elseif ($taskStatus === 'in_progress' && $executionState === 'idle'): ?>
+                    <div class="cv-agent-task-execution-guidance"><strong>Fresh approval required.</strong><p>Move this task back to Approved before starting a new autonomous Agent execution.</p></div>
+                <?php elseif ($executionStorageAvailable && !$autonomousActionsEnabled && $taskStatus === 'approved'): ?>
                     <div class="cv-agent-task-execution-guidance"><strong>Autonomous Actions are OFF.</strong><p>Enable them in AI Settings before running this approved task.</p></div>
                 <?php endif; ?>
 
