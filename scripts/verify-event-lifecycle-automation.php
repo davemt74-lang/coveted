@@ -30,13 +30,14 @@ $adminUi = $read('app/admin_ui.php');
 $events = $read('app/events.php');
 $rewards = $read('app/rewards.php');
 $notifications = $read('app/notifications.php');
+$schema = $read('database/schema.sql');
 
 // Scheduler must remain CLI-only and reuse the existing lifecycle worker.
 $contains($worker, "if (PHP_SAPI !== 'cli')", 'lifecycle worker must remain CLI-only');
 $contains($worker, "require_once dirname(__DIR__) . '/app/event_lifecycle_automation.php';", 'existing lifecycle worker must load event automation');
 $contains($worker, 'coveted_lifecycle_reconcile($limit, $maxBatches)', 'existing invitation/Guest Pass reconciliation must remain canonical');
 $contains($worker, 'coveted_event_lifecycle_automation_reconcile($limit)', 'worker must invoke bounded event automation');
-$contains($worker, "exit(3);", 'bounded item failures must surface a non-zero worker exit');
+$contains($worker, 'exit(3);', 'bounded item failures must surface a non-zero worker exit');
 
 // No new scheduler schema or runtime DDL.
 foreach (['CREATE TABLE', 'ALTER TABLE', 'DROP TABLE', 'TRUNCATE TABLE'] as $ddl) {
@@ -52,10 +53,12 @@ $contains($service, "n.dedupe_key = CONCAT('event-rsvp-24h:'", 'RSVP reminders n
 $contains($service, "'event-attendee-'", 'attendee milestone reminders need durable dedupe');
 $contains($service, "n.dedupe_key = CONCAT('event-reveal:'", 'mystery reveals need durable dedupe');
 $contains($service, "n.dedupe_key = CONCAT('event-post:'", 'post-event opening needs durable dedupe');
-$contains($service, "'event-' . $trigger . ':'", 'reward issuance needs deterministic event idempotency keys');
+$contains($service, '$key = \'event-\' . $trigger', 'reward issuance needs deterministic event idempotency keys');
 $contains($rewards, 'function coveted_reward_issue(', 'canonical reward issuance service is required');
 $contains($rewards, 'coveted_reward_existing_idempotent', 'canonical reward issuance must retain idempotency handling');
-$contains($notifications, 'UNIQUE KEY', 'notification service/schema contract should preserve dedupe-backed writes');
+$contains($notifications, 'function coveted_notification_create(', 'canonical notification service is required');
+$contains($schema, 'UNIQUE KEY uq_notifications_user_dedupe (user_id,dedupe_key)', 'notification dedupe schema contract is required');
+$contains($schema, 'UNIQUE KEY uq_reward_issuance_idempotency (idempotency_key)', 'reward issuance idempotency schema contract is required');
 
 // Campaign bounds and trigger scope.
 $contains($service, "['attendance', 'completion']", 'automation may only issue attendance/completion event rewards');
@@ -73,7 +76,7 @@ foreach (['coveted_event_create(', 'coveted_event_set_status(', 'coveted_event_u
 
 // Mystery and post-event delivery are read from canonical state.
 $contains($service, 'FROM event_mystery_reveals emr', 'automation must read canonical scheduled mystery reveals');
-$contains($service, "emr.reveal_at <= NOW()", 'mystery delivery must wait for the canonical reveal time');
+$contains($service, 'emr.reveal_at <= NOW()', 'mystery delivery must wait for the canonical reveal time');
 $contains($service, "e.status = 'completed'", 'post-event/completion automation must require canonical completed state');
 $contains($service, "ea.status IN ('checked_in','attended','left_early')", 'post-event value must remain attendance-scoped');
 
@@ -86,6 +89,6 @@ $contains($admin, 'No public worker endpoint', 'Admin dashboard must document wo
 $missing($admin, 'method="post"', 'Event Automation dashboard must stay read-only');
 $missing($admin, '<script', 'Event Automation dashboard must not require inline script');
 $missing($admin, '<style', 'Event Automation dashboard must not require inline style');
-$contains($adminUi, "coveted_admin_nav_link($active, 'event-automation', '/admin/event-automation.php', 'Event Automation')", 'Admin navigation must expose Event Automation');
+$contains($adminUi, 'coveted_admin_nav_link($active, \'event-automation\', \'/admin/event-automation.php\', \'Event Automation\')', 'Admin navigation must expose Event Automation');
 
 fwrite(STDOUT, "Event lifecycle automation contract verified.\n");
