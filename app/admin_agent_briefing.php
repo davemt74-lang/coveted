@@ -17,8 +17,10 @@ function coveted_admin_agent_briefing_event_label(string $eventType, string $ent
         $entityType === 'user' => 'People',
 
         str_starts_with($eventType, 'event.'),
+        in_array($entityType, ['event', 'event_invitation'], true) => 'Events',
+
         str_starts_with($eventType, 'group.'),
-        in_array($entityType, ['event', 'event_invitation', 'group'], true) => 'Community',
+        $entityType === 'group' => 'Community',
 
         str_starts_with($eventType, 'business.'),
         str_starts_with($eventType, 'location.'),
@@ -107,22 +109,36 @@ function coveted_admin_agent_briefing_is_meaningful_event(string $eventType): bo
 /** @return array{total_24h:int,recent:array<int,array<string,string>>,categories:array<string,int>,issue:bool} */
 function coveted_admin_agent_briefing_recent_activity(PDO $pdo): array
 {
+    $meaningfulWhere = "ae.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
+        AND ae.event_type NOT LIKE 'admin.agent.%'
+        AND ae.event_type NOT LIKE 'site_setting.%'
+        AND ae.event_type NOT LIKE 'admin.ai_provider%'
+        AND ae.event_type NOT LIKE 'auth.%'
+        AND LOWER(ae.event_type) NOT LIKE '%login%'
+        AND LOWER(ae.event_type) NOT LIKE '%logout%'
+        AND LOWER(ae.event_type) NOT LIKE '%password%'
+        AND LOWER(ae.event_type) NOT LIKE '%session%'
+        AND LOWER(ae.event_type) NOT LIKE '%csrf%'";
+
     try {
+        $total = (int)($pdo->query(
+            "SELECT COUNT(*) FROM audit_events ae WHERE {$meaningfulWhere}"
+        )->fetchColumn() ?: 0);
+
         $rows = $pdo->query(
             "SELECT ae.event_type, ae.entity_type, ae.entity_id, ae.created_at,
                     COALESCE(u.display_name, 'System') AS actor_name
              FROM audit_events ae
              LEFT JOIN users u ON u.id = ae.actor_user_id
-             WHERE ae.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
+             WHERE {$meaningfulWhere}
              ORDER BY ae.id DESC
-             LIMIT 300"
+             LIMIT 60"
         )->fetchAll();
     } catch (Throwable $e) {
         error_log('Admin Agent briefing audit read unavailable: ' . $e->getMessage());
         return ['total_24h' => 0, 'recent' => [], 'categories' => [], 'issue' => true];
     }
 
-    $total = 0;
     $recent = [];
     $categories = [];
     foreach ($rows as $row) {
@@ -131,7 +147,6 @@ function coveted_admin_agent_briefing_recent_activity(PDO $pdo): array
             continue;
         }
 
-        $total++;
         $definition = coveted_admin_agent_briefing_event_label($eventType, (string)($row['entity_type'] ?? ''));
         $category = (string)$definition['category'];
         $categories[$category] = (int)($categories[$category] ?? 0) + 1;
