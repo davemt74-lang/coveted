@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/admin_onboarding.php';
 require_once __DIR__ . '/admin_integrity.php';
+require_once __DIR__ . '/system_sample_data.php';
 
 coveted_admin_integrity_guard_request();
 
@@ -40,6 +41,10 @@ function coveted_admin_ui_safe_count(PDO $pdo, string $sql, string $label): int
 function coveted_admin_ui_counts(?PDO $pdo = null): array
 {
     $pdo ??= coveted_db();
+
+    if (coveted_site_setting_bool(COVETED_SETTING_SYSTEM_SAMPLE_DATA, false, $pdo)) {
+        return coveted_system_sample_admin_counts();
+    }
 
     return [
         'users' => coveted_admin_ui_safe_count($pdo, "SELECT COUNT(*) FROM users WHERE status <> 'deleted'", 'users'),
@@ -81,6 +86,7 @@ function coveted_admin_ui_start(
     $pdo = coveted_db();
     $counts ??= coveted_admin_ui_counts($pdo);
     $onboarding = coveted_admin_onboarding_state($admin);
+    $sampleMode = coveted_system_sample_mode($admin, $pdo);
 
     $avatarUrl = coveted_shell_avatar_url((int)$admin['id']);
     $name = trim((string)($admin['display_name'] ?? 'Admin')) ?: 'Admin';
@@ -88,7 +94,7 @@ function coveted_admin_ui_start(
     $integrityNotice = trim((string)($_SESSION['admin_integrity_notice'] ?? ''));
     unset($_SESSION['admin_integrity_notice']);
     ?>
-<div class="cv-admin-app" data-admin-shell="control-center-v5" data-admin-user="<?= (int)$admin['id'] ?>">
+<div class="cv-admin-app" data-admin-shell="control-center-v5" data-admin-user="<?= (int)$admin['id'] ?>" data-system-sample="<?= $sampleMode ? '1' : '0' ?>">
     <aside class="cv-admin-sidebar" aria-label="System Admin navigation">
         <a class="cv-admin-brand" href="/admin/agent.php">
             <span>COVETED</span>
@@ -235,6 +241,11 @@ function coveted_admin_ui_start(
         </header>
 
         <main class="cv-admin-content">
+            <?php if ($sampleMode): ?>
+                <div class="cv-alert" role="status">
+                    <strong>Full System Sample Mode</strong> · Navigation counts and sample-aware views use synthetic read-only data. Agent autonomous actions are disabled. <a href="/admin/sample-data.php">Open Sample Data</a>
+                </div>
+            <?php endif; ?>
             <?php if ($integrityNotice !== ''): ?>
                 <div class="cv-alert cv-admin-integrity-notice"><?= coveted_e($integrityNotice) ?></div>
             <?php endif; ?>
