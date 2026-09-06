@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/venue_relationships.php';
 require_once __DIR__ . '/daily_events.php';
 require_once __DIR__ . '/partner_crm.php';
+require_once __DIR__ . '/partner_crm_agent.php';
 
 function coveted_partner_opportunity_key(string $kind, int $businessId, int $groupId, int $locationId): string
 {
@@ -360,11 +361,11 @@ function coveted_partner_opportunities_agent_context(array $admin, int $limit = 
         'unavailable' => true,
         'counts' => [],
         'relationships' => [],
-        'recent_interactions' => [],
+        'recent_activity' => [],
         'recommendations' => [],
     ];
     try {
-        $partnerCrm = coveted_partner_crm_agent_context($admin, min(12, $limit), $pdo);
+        $partnerCrm = coveted_partner_crm_agent_context_v2($admin, min(12, $limit), $pdo);
         foreach ((array)($partnerCrm['recommendations'] ?? []) as $item) {
             if (is_array($item)) $recommendations[] = $item;
         }
@@ -390,7 +391,7 @@ function coveted_partner_opportunities_agent_context(array $admin, int $limit = 
 
     return [
         'generated_at' => gmdate('Y-m-d H:i:s'),
-        'privacy' => 'Aggregate partner relationship intelligence plus compact Partner CRM context. Contact names, roles, preferred contact methods and concise interaction summaries may be supplied to the Admin Agent; raw partner email and phone values stay out of broad LLM context. No member identities or private Loyalty balances are exposed.',
+        'privacy' => 'Aggregate partner relationship intelligence plus compact Partner CRM context. Contact names, roles, preferred contact methods and concise CRM activity may be supplied to the Admin Agent; raw partner email and phone values stay out of broad LLM context. No member identities or private Loyalty balances are exposed.',
         'action_policy' => 'Read-only recommendations. The Admin Agent may explain and prioritize partner opportunities and CRM follow-ups but must not treat them as authorization to mutate contacts, notes, follow-ups, relationship, event, reward or campaign state.',
         'counts' => $counts,
         'crm' => $partnerCrm,
