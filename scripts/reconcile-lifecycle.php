@@ -11,6 +11,7 @@ require_once dirname(__DIR__) . '/app/event_lifecycle_automation.php';
 require_once dirname(__DIR__) . '/app/daily_events.php';
 require_once dirname(__DIR__) . '/app/benefit_economy.php';
 require_once dirname(__DIR__) . '/app/loyalty.php';
+require_once dirname(__DIR__) . '/app/partner_perks.php';
 
 $limit = isset($argv[1]) && ctype_digit((string)$argv[1]) ? (int)$argv[1] : 250;
 $maxBatches = isset($argv[2]) && ctype_digit((string)$argv[2]) ? (int)$argv[2] : 10;
@@ -84,6 +85,24 @@ try {
         );
     }
 
+    $partnerPerks = coveted_partner_perk_reconcile($limit);
+    if (!empty($partnerPerks['unavailable'])) {
+        fwrite(STDOUT, "Coveted Partner Perks: migration not installed; this pass was skipped.\n");
+    } elseif (!empty($partnerPerks['skipped_locked'])) {
+        fwrite(STDOUT, "Coveted Partner Perks: another worker already holds the Partner Perk lock; this pass was skipped.\n");
+    } else {
+        fwrite(
+            STDOUT,
+            sprintf(
+                "Coveted Partner Perks: %d issued, %d already issued, %d limit/state skips, %d failures.\n",
+                (int)$partnerPerks['issued'],
+                (int)$partnerPerks['already_issued'],
+                (int)$partnerPerks['limit_skips'],
+                (int)$partnerPerks['failures']
+            )
+        );
+    }
+
     $loyalty = coveted_loyalty_reconcile($limit);
     if (!empty($loyalty['skipped_locked'])) {
         fwrite(STDOUT, "Coveted loyalty: another worker already holds the loyalty lock; this pass was skipped.\n");
@@ -116,6 +135,7 @@ try {
         || !empty($events['more_work_possible'])
         || !empty($daily['more_work_possible'])
         || !empty($membership['more_work_possible'])
+        || !empty($partnerPerks['more_work_possible'])
         || !empty($loyalty['more_work_possible'])
         || !empty($dailyLoyalty['more'])
     ) {
@@ -126,6 +146,7 @@ try {
         (int)$events['failures'] > 0
         || (int)$daily['failures'] > 0
         || (int)$membership['failures'] > 0
+        || (int)$partnerPerks['failures'] > 0
         || (int)$loyalty['failures'] > 0
         || (int)$dailyLoyalty['failures'] > 0
     ) {

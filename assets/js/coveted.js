@@ -17,6 +17,7 @@
         await loadScript('/assets/js/attendee-event-nav-v1.js?v=attendee-event-nav-v1-20260906');
         await loadScript('/assets/js/daily-events-nav-v1.js?v=daily-events-nav-v1-20260906');
         await loadScript('/assets/js/partner-opportunities-v1.js?v=partner-opportunities-v1-20260906');
+        await loadScript('/assets/js/partner-perks-v1.js?v=partner-perks-v1-20260906');
         await loadScript('/assets/js/admin-v2.js?v=admin-v2-people-business-20260905');
         await loadScript('/assets/js/admin-shell-v6.js?v=admin-shell-v6-20260905');
         await loadScript('/assets/js/admin-platform-v2.js?v=admin-platform-v2-20260905');
