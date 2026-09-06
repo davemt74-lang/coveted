@@ -34,12 +34,22 @@ $cssEntry = $read('assets/css/coveted.css');
 
 // RSVP stays on the canonical event service and never gains event-authority powers.
 $contains($service, 'return coveted_event_set_rsvp($actor, $eventRef, $decision', 'attendee RSVP must delegate to canonical event RSVP service');
+$contains($service, 'A member may also hold a host assignment without losing', 'member-host RSVP rights must remain separate from host assignment');
 $missing($service, 'INSERT INTO event_rsvps', 'attendee workspace must not write RSVP rows directly');
 $missing($service, 'UPDATE event_rsvps', 'attendee workspace must not update RSVP rows directly');
 $missing($page, 'INSERT INTO ', 'My Events page must not contain direct database inserts');
 $missing($page, 'UPDATE events ', 'My Events page must never update event configuration');
 $contains($eventsService, 'function coveted_event_require_system_admin(array $actor): void', 'System Admin event authority contract is missing');
 $contains($eventsService, "function coveted_event_create(array \$actor, int \$groupId, array \$data): array\n{\n    coveted_event_require_system_admin(\$actor);", 'event creation must remain System Admin-gated');
+
+// My Events is personal attendee state, not a replacement for operational host assignments.
+$contains($service, 'function coveted_attendee_event_active_group_ids(', 'active member-group scope helper is missing');
+$contains($service, 'function coveted_attendee_event_is_personal(', 'personal attendee event filter is missing');
+$contains($service, 'coveted_attendee_event_is_personal($event, $activeGroupIds)', 'pure host-only assignments must be filtered from My Events');
+$contains($service, "in_array('attendee_host', (array)(\$actor['roles'] ?? []), true)", 'approved host workspace access must remain discoverable');
+$contains($service, "'has_host_workspace_access' => \$hasHostWorkspaceAccess", 'host workspace access flag is missing');
+$contains($page, "if (!empty(\$workspace['has_host_workspace_access']))", 'My Events must preserve conditional Hosting entry');
+$contains($page, '/events.php?view=hosting', 'Hosting entry must return to the existing hosting calendar');
 
 // Event Pass is an identity aid only, never authentication or authorization.
 $contains($service, 'function coveted_attendee_event_pass_id(', 'Event Pass ID helper is missing');
@@ -88,7 +98,7 @@ $contains($eventPage, 'data-play-audio', 'post-event audio benefit experience is
 $contains($eventPage, 'MUTUAL RECONNECT', 'post-event Reconnect is missing');
 $contains($eventPage, 'Benefits from this event', 'post-event benefit memory is missing');
 
-// Primary member navigation promotes My Events without removing the legacy hosting calendar route.
+// Primary member navigation promotes My Events without rewriting unrelated host/event links.
 $contains($nav, '.cv-nav a[href="/events.php"]', 'primary Events nav selector is missing');
 $contains($nav, "memberEventsLink.href = '/my-events.php';", 'primary member navigation must route to My Events');
 $contains($nav, "memberEventsLink.textContent = 'My Events';", 'primary member nav label must say My Events');
