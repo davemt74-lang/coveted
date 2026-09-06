@@ -41,7 +41,7 @@ coveted_admin_ui_start($admin, 'benefit-performance', 'Benefit Performance');
     <div>
         <span class="cv-eyebrow">BENEFIT PERFORMANCE</span>
         <h1>Measure what happened, then improve the next program.</h1>
-        <p>Program-level issuance, claim, verified return, later attendance and follow-on Benefit Program activity from Coveted's canonical records.</p>
+        <p>Program-level issuance, claims, source-event attendance, exact return conversions, repeat attendance and follow-on Benefit Program activity from Coveted's canonical records.</p>
     </div>
     <div class="cv-action-row">
         <a class="cv-button cv-button-soft" href="/admin/benefit-programs.php">Benefit Programs</a>
@@ -62,7 +62,7 @@ coveted_admin_ui_start($admin, 'benefit-performance', 'Benefit Performance');
     <div class="cv-card cv-stat"><strong><?= (int)$summary['unique_members'] ?></strong><span>Unique recipients</span></div>
     <div class="cv-card cv-stat"><strong><?= coveted_e($formatRate((float)$summary['claim_rate'])) ?></strong><span>Claim rate</span></div>
     <div class="cv-card cv-stat"><strong><?= (int)$summary['return_members'] ?></strong><span>Verified return conversions</span></div>
-    <div class="cv-card cv-stat"><strong><?= coveted_e($formatRate((float)$summary['later_attendance_rate'])) ?></strong><span>Later-event participation</span></div>
+    <div class="cv-card cv-stat"><strong><?= coveted_e($formatRate((float)$summary['repeat_attendance_rate'])) ?></strong><span>Repeat attendance</span></div>
 </section>
 
 <section class="cv-card cv-copy-card cv-admin-section-gap">
@@ -113,6 +113,9 @@ coveted_admin_ui_start($admin, 'benefit-performance', 'Benefit Performance');
         $eventCopy = (int)$program['linked_event_count'] > 0
             ? ((string)($program['event_title'] ?? 'Event') . ((int)$program['linked_event_count'] > 1 ? ' +' . ((int)$program['linked_event_count'] - 1) . ' more' : ''))
             : 'No linked event';
+        $eventGroup = trim((string)($program['event_group_name'] ?? ''));
+        $eventBusiness = trim((string)($program['event_business_name'] ?? ''));
+        $eventLocation = trim((string)($program['event_location_name'] ?? ''));
         ?>
         <article class="cv-card cv-copy-card">
             <div class="cv-section-head">
@@ -124,6 +127,13 @@ coveted_admin_ui_start($admin, 'benefit-performance', 'Benefit Performance');
                     </div>
                     <h3><?= coveted_e((string)$program['title']) ?></h3>
                     <p><?= coveted_e((string)$program['owner_label']) ?> · <?= coveted_e((string)$program['reward_title']) ?> · <?= coveted_e($eventCopy) ?></p>
+                    <?php if ($eventGroup !== '' || $eventBusiness !== '' || $eventLocation !== ''): ?>
+                        <p><strong>Source attribution:</strong>
+                            <?php if ($eventGroup !== ''): ?>Group · <?= coveted_e($eventGroup) ?><?php endif; ?>
+                            <?php if ($eventBusiness !== ''): ?><?= $eventGroup !== '' ? ' · ' : '' ?>Venue · <?= coveted_e($eventBusiness) ?><?php endif; ?>
+                            <?php if ($eventLocation !== ''): ?><?= ($eventGroup !== '' || $eventBusiness !== '') ? ' · ' : '' ?><?= coveted_e($eventLocation) ?><?php endif; ?>
+                        </p>
+                    <?php endif; ?>
                 </div>
                 <a class="cv-button cv-button-soft" href="/admin/benefit-programs.php">Manage</a>
             </div>
@@ -134,17 +144,18 @@ coveted_admin_ui_start($admin, 'benefit-performance', 'Benefit Performance');
                 <div class="cv-card cv-stat"><strong><?= coveted_e($formatRate((float)$program['claim_rate'])) ?></strong><span>Claim rate</span></div>
                 <div class="cv-card cv-stat"><strong><?= coveted_e($formatRate((float)$program['matured_claim_rate'])) ?></strong><span>Matured claim rate</span></div>
                 <div class="cv-card cv-stat"><strong><?= (int)$program['return_members'] ?></strong><span>Return conversions</span></div>
-                <div class="cv-card cv-stat"><strong><?= coveted_e($formatRate((float)$program['later_attendance_rate'])) ?></strong><span>Later attendance</span></div>
+                <div class="cv-card cv-stat"><strong><?= coveted_e($formatRate((float)$program['repeat_attendance_rate'])) ?></strong><span>Repeat attendance</span></div>
             </section>
 
             <p>
                 <?= (int)$program['unique_members'] ?> unique recipient<?= (int)$program['unique_members'] === 1 ? '' : 's' ?> ·
-                <?= (int)$program['viewed_count'] ?> viewed ·
-                <?= (int)$program['expired_count'] ?> expired/no-use ·
+                <?= (int)$program['verified_origin_attendees'] ?> verified source-event attendee<?= (int)$program['verified_origin_attendees'] === 1 ? '' : 's' ?> ·
+                <?= (int)$program['repeat_attendee_members'] ?> repeat attendee<?= (int)$program['repeat_attendee_members'] === 1 ? '' : 's' ?> ·
+                <?= (int)$program['later_attendee_members'] ?> recipients with any later event attendance ·
                 <?= (int)$program['later_benefit_members'] ?> later claimed another Benefit Program
                 <?php if ($remaining !== null): ?> · <?= (int)$remaining ?> of <?= (int)$program['quantity_limit'] ?> pool remaining<?php endif; ?>
             </p>
-            <p class="cv-muted">Program <?= coveted_e((string)$program['public_id']) ?> · <?= coveted_e($formatDate((string)$program['starts_at'])) ?> → <?= coveted_e($formatDate((string)$program['ends_at'])) ?></p>
+            <p class="cv-muted"><?= (int)$program['viewed_count'] ?> viewed · <?= (int)$program['expired_count'] ?> expired/no-use · Program <?= coveted_e((string)$program['public_id']) ?> · <?= coveted_e($formatDate((string)$program['starts_at'])) ?> → <?= coveted_e($formatDate((string)$program['ends_at'])) ?></p>
         </article>
     <?php endforeach; ?>
 </section>
