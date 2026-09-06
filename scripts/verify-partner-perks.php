@@ -46,19 +46,23 @@ $contains($migration, 'chk_partner_perks_window', 'perk time window must be boun
 // Relationship/business authority and campaign coherence.
 $contains($service, 'coveted_business_actor_can_manage($actor, $businessId)', 'Business Admin/System Admin management authority is required');
 $contains($service, 'coveted_venue_relationship_resolve(', 'perk creation must resolve an existing venue relationship');
-$contains($service, "(int)\$campaign['location_id'] !== \$locationId", 'campaign must be scoped to the exact partner location');
+$contains($service, "(int)(\$campaign['location_id'] ?? 0) !== \$locationId", 'campaign must be scoped to the exact partner location');
 $contains($service, "(string)\$campaign['trigger_key'] !== 'manual'", 'Partner Perk cadence must own issuance semantics');
 $contains($service, "COALESCE(vr.benefits_enabled,0) AS benefits_enabled", 'relationship benefit status must be canonical');
-$contains($service, "Enable Partner benefits on this venue relationship", 'activation must require benefits-enabled relationship');
+$contains($service, 'Enable Partner benefits on this venue relationship', 'activation must require benefits-enabled relationship');
 $contains($service, 'coveted_partner_perk_assert_activatable', 'activation guard is required');
 
 // Automatic issuance must reuse the existing wallet/campaign economics.
-$contains($service, "const COVETED_PARTNER_PERK_LOCK", 'Partner Perks need an independent worker lock');
+$contains($service, 'const COVETED_PARTNER_PERK_LOCK', 'Partner Perks need an independent worker lock');
 $contains($service, 'SELECT GET_LOCK(?, 0)', 'worker must use a non-blocking named lock');
 $contains($service, 'SELECT RELEASE_LOCK(?)', 'worker must release its named lock');
 $contains($service, "pp.distribution_mode IN ('once','monthly')", 'only once/monthly perks may auto-issue');
 $contains($service, "gm.membership_status='active'", 'automatic perks require active group membership');
 $contains($service, "u.status='active'", 'automatic perks require active member accounts');
+$contains($service, 'c.quantity_limit IS NULL', 'automatic targeting must pre-filter exhausted campaign pools');
+$contains($service, 'qri.campaign_id=c.id', 'automatic targeting must count canonical campaign issuance');
+$contains($service, 'c.per_user_limit IS NULL', 'automatic targeting must pre-filter exhausted member limits');
+$contains($service, 'uri.user_id=gm.user_id', 'automatic targeting must count canonical member issuance');
 $contains($service, "CONCAT('partner-perk:',pp.id,':once:user:'", 'once mode needs durable member idempotency');
 $contains($service, "CONCAT('partner-perk:',pp.id,':month:'", 'monthly mode needs period idempotency');
 $contains($service, 'coveted_reward_issue(', 'Partner Perks must use canonical reward issuance');
@@ -67,11 +71,14 @@ $contains($service, 'Member campaign limit has been reached.', 'campaign per-mem
 $contains($service, "'reward.partner_perk_unlocked'", 'wallet notification is required');
 $contains($service, "'/benefits.php?box=ready&source=business'", 'issued perks must route to the existing Perk Wallet');
 
-// Manual issuance is explicit and replay-safe within the issue day.
+// Manual issuance is explicit, capacity-aware and replay-safe within the issue day.
+$contains($service, 'function coveted_partner_perk_manual_targets', 'manual targeting helper is required');
 $contains($service, 'function coveted_partner_perk_issue_today', 'manual issue action is required');
 $contains($service, "':manual:' . \$date . ':user:'", 'manual issue must use same-day deterministic idempotency');
 $contains($service, "(string)\$perk['distribution_mode'] !== 'manual'", 'manual action must reject automatic modes');
-$contains($page, "value=\"issue_today\"", 'manual issue UI action is required');
+$contains($service, 'qri.campaign_id=?', 'manual targeting must pre-filter campaign capacity');
+$contains($service, 'uri.user_id=gm.user_id', 'manual targeting must pre-filter member capacity');
+$contains($page, 'value="issue_today"', 'manual issue UI action is required');
 $contains($page, '>Issue Today</button>', 'manual issue control is required');
 $contains($page, 'coveted_require_csrf()', 'Partner Perk mutations require CSRF protection');
 
