@@ -74,6 +74,9 @@ jobs:
       - name: Verify Benefit Program performance and learning contract
         run: php scripts/verify-benefit-performance-learning.php
 
+      - name: Verify merchant-sponsored Benefit Programs and Partner ROI contract
+        run: php scripts/verify-benefit-sponsorships.php
+
       - name: Verify Admin Event Workspace contract
         run: php scripts/verify-admin-event-workspace.php
 
