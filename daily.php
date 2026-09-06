@@ -85,6 +85,7 @@ foreach ($dailyEvents as $event) {
 $renderCard = static function (array $event): void {
     $verified = (int)$event['verified_attendance'];
     $threshold = (int)$event['attendance_threshold'];
+    $loyaltyPoints = (int)$event['loyalty_points'];
     $progress = $threshold > 0 ? min(100, (int)round(($verified / $threshold) * 100)) : 0;
     $address = implode(', ', array_values(array_filter([
         trim((string)($event['address1'] ?? '')),
@@ -117,6 +118,7 @@ $renderCard = static function (array $event): void {
             <div><dt>Partner</dt><dd><?= coveted_e((string)$event['business_name']) ?></dd></div>
             <div><dt>Location</dt><dd><?= coveted_e((string)$event['location_name']) ?><?= $address !== '' ? ' · ' . coveted_e($address) : '' ?></dd></div>
             <div><dt>Reward</dt><dd><?= coveted_e((string)$event['reward_title']) ?><?= $rewardValue !== '' ? ' · ' . coveted_e($rewardValue) : '' ?></dd></div>
+            <div><dt>Loyalty</dt><dd><?= $loyaltyPoints > 0 ? '+' . $loyaltyPoints . ' private points after verified attendance + completion' : 'No Loyalty points for this Daily Event' ?></dd></div>
             <div><dt>Going</dt><dd><?= (int)$event['attending_rsvps'] ?> RSVP<?= (int)$event['attending_rsvps'] === 1 ? '' : 's' ?></dd></div>
         </dl>
 
@@ -163,7 +165,7 @@ $renderCard = static function (array $event): void {
                 <button class="cv-button cv-button-primary" type="submit">Check in</button>
             </form>
         <?php elseif (in_array((string)($event['attendance_status'] ?? ''), ['checked_in','attended','left_early'], true)): ?>
-            <div class="cv-alert cv-admin-section-gap">Attendance verified. After the event is completed, this same canonical attendance record flows into your private Coveted Loyalty points and status history.</div>
+            <div class="cv-alert cv-admin-section-gap">Attendance verified. After Admin completes the event, this visit is worth exactly <?= $loyaltyPoints ?> private Coveted Loyalty point<?= $loyaltyPoints === 1 ? '' : 's' ?> and continues to count toward your group status, milestones and lifetime travel-ready points history.</div>
         <?php endif; ?>
     </article>
     <?php
@@ -174,7 +176,7 @@ coveted_page_start('Daily Events', 'Daily');
 <section class="cv-page-heading">
     <span class="cv-eyebrow">DAILY OPPORTUNITIES</span>
     <h1>Show up together. Unlock something together.</h1>
-    <p>Partnered events at real local businesses. Choose what you want to attend, verify your visit at the location, and help your group unlock shared rewards.</p>
+    <p>Partnered events at real local businesses. Choose what you want to attend, verify your visit at the location, earn the event’s private Loyalty value, and help your group unlock shared rewards.</p>
 </section>
 
 <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
