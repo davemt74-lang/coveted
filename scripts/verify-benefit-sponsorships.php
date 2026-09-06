@@ -22,6 +22,12 @@ $missing = static function (string $content, string $needle, string $label): voi
         exit(1);
     }
 };
+$countAtLeast = static function (string $content, string $needle, int $minimum, string $label): void {
+    if (substr_count($content, $needle) < $minimum) {
+        fwrite(STDERR, "Benefit sponsorship contract failed: {$label}\n");
+        exit(1);
+    }
+};
 
 $migration = $read('database/migrations/20260906_benefit_sponsorship_proposals.sql');
 $service = $read('app/benefit_sponsorships.php');
@@ -43,11 +49,15 @@ $contains($migration, 'UNIQUE KEY uq_benefit_sponsorship_program (benefit_progra
 $contains($service, 'function coveted_benefit_sponsorship_ensure_schema(', 'defensive schema creation is required for the new table');
 
 // Partner scope is resource-scoped and relationship-scoped. Business proposals
-// cannot self-attach to arbitrary Coveted groups or venues.
+// cannot self-attach to arbitrary Coveted groups, venues, or non-partner-visible
+// draft events even when a caller manually posts an event reference.
 $contains($service, 'coveted_business_require_mutable($actor, $businessId)', 'proposal creation must require mutable Business access');
 $contains($service, 'coveted_venue_relationship_resolve($actor, $businessId, $groupRef, $locationRef)', 'proposal must use canonical venue relationship scope');
 $contains($service, "COALESCE(vr.benefits_enabled,0) AS benefits_enabled", 'proposal must read benefits-enabled relationship state');
 $contains($service, "(int)(\$stored['benefits_enabled'] ?? 0) !== 1", 'benefit-disabled relationships must be rejected');
+$countAtLeast($service, "e.status IN ('published','closed','completed')", 3, 'Business event resolution, proposal history and ROI must keep event details partner-visible only');
+$contains($service, 'The selected event is not available for this business relationship.', 'invalid or hidden event refs must use a non-enumerating error');
+$missing($service, "AND e.status <> 'cancelled'", 'Business proposal resolver must not accept draft events');
 $contains($businessPage, 'coveted_benefit_sponsorship_create(', 'Business workspace must submit through sponsorship service');
 $contains($businessPage, 'coveted_benefit_sponsorship_cancel(', 'Business workspace may cancel its submitted proposal');
 $missing($businessPage, 'coveted_benefit_program_set_status(', 'Business workspace must not change program status');
@@ -55,8 +65,10 @@ $missing($businessPage, 'coveted_benefit_program_create_draft(', 'Business works
 $missing($businessPage, 'coveted_event_create(', 'Business workspace must not create events');
 $missing($businessPage, 'coveted_event_update', 'Business workspace must not configure events');
 
-// Conversion stays System Admin-only and uses the canonical Builder. Acceptance
-// is draft-only and replay-safe through a proposal-specific created_surface marker.
+// Conversion stays System Admin-only and uses one canonical replay-safe path.
+// Acceptance is draft-only and replay-safe through a proposal-specific Builder marker.
+$missing($service, 'function coveted_benefit_sponsorship_convert_to_program_draft(', 'legacy duplicate sponsorship conversion path must stay removed');
+$missing($service, 'function coveted_benefit_sponsorship_recover_program_ref(', 'legacy duplicate recovery path must stay removed');
 $contains($conversion, 'coveted_is_system_admin($admin)', 'proposal conversion must require System Admin');
 $contains($conversion, 'coveted_benefit_program_create_draft($admin', 'accepted proposal must use canonical Benefit Program Builder');
 $contains($conversion, "'created_surface' => 'merchant_sponsorship:' . (string)\$proposal['public_id']", 'proposal conversion must carry a deterministic Builder marker');
