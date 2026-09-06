@@ -8,6 +8,7 @@ if (PHP_SAPI !== 'cli') {
 
 require_once dirname(__DIR__) . '/app/lifecycle.php';
 require_once dirname(__DIR__) . '/app/event_lifecycle_automation.php';
+require_once dirname(__DIR__) . '/app/benefit_economy.php';
 
 $limit = isset($argv[1]) && ctype_digit((string)$argv[1]) ? (int)$argv[1] : 250;
 $maxBatches = isset($argv[2]) && ctype_digit((string)$argv[2]) ? (int)$argv[2] : 10;
@@ -49,12 +50,32 @@ try {
         );
     }
 
-    if (!empty($summary['more_work_possible']) || !empty($events['more_work_possible'])) {
+    $membership = coveted_membership_benefit_reconcile($limit);
+    if (!empty($membership['skipped_locked'])) {
+        fwrite(STDOUT, "Coveted membership benefits: another worker already holds the benefit lock; this pass was skipped.\n");
+    } else {
+        fwrite(
+            STDOUT,
+            sprintf(
+                "Coveted membership benefits: %d issued, %d already issued, %d limit/state skips, %d failures.\n",
+                (int)$membership['issued'],
+                (int)$membership['already_issued'],
+                (int)$membership['limit_skips'],
+                (int)$membership['failures']
+            )
+        );
+    }
+
+    if (
+        !empty($summary['more_work_possible'])
+        || !empty($events['more_work_possible'])
+        || !empty($membership['more_work_possible'])
+    ) {
         fwrite(STDERR, "Coveted lifecycle backlog remains after the configured worker limit.\n");
         exit(2);
     }
-    if ((int)$events['failures'] > 0) {
-        fwrite(STDERR, "Coveted event automation completed with one or more bounded item failures; review Admin > Event Automation and server logs.\n");
+    if ((int)$events['failures'] > 0 || (int)$membership['failures'] > 0) {
+        fwrite(STDERR, "Coveted automation completed with one or more bounded item failures; review Admin operations and server logs.\n");
         exit(3);
     }
 
