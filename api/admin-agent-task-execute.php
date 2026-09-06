@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/admin_agent_task_execution.php';
+require_once dirname(__DIR__) . '/app/admin_agent_task_execution_authorization.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -21,7 +21,7 @@ try {
         throw new InvalidArgumentException('Choose ChatGPT or Claude for this task.');
     }
 
-    $result = coveted_admin_agent_task_execute($admin, $taskRef, $provider, coveted_db());
+    $result = coveted_admin_agent_execute_approved_task($admin, $taskRef, $provider, coveted_db());
     echo coveted_json($result);
 } catch (InvalidArgumentException $e) {
     http_response_code(422);
