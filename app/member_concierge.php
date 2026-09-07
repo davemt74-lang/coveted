@@ -5,6 +5,7 @@ require_once __DIR__ . '/member_journey.php';
 require_once __DIR__ . '/events.php';
 require_once __DIR__ . '/rewards.php';
 require_once __DIR__ . '/member_people_v2.php';
+require_once __DIR__ . '/membership_lifecycle.php';
 
 /** @return array<string,mixed> */
 function coveted_member_concierge_event_view(array $event): array
@@ -326,6 +327,11 @@ function coveted_member_concierge_snapshot(array $user, ?PDO $pdo = null): array
     $reconnect=coveted_member_concierge_reconnect($user,$pdo);
     $recommendations=coveted_member_concierge_event_recommendations($user,$preferences);
     $nextEvent=coveted_member_concierge_next_event($recommendations);
+    try{
+        $membershipLifecycle=coveted_membership_lifecycle_member_snapshot($user,$pdo);
+    }catch(Throwable){
+        $membershipLifecycle=['available'=>false,'authority'=>'Membership lifecycle context is not available yet.'];
+    }
 
     $journey=[
         'active_groups'=>(int)$metrics['active_groups'],
@@ -341,6 +347,7 @@ function coveted_member_concierge_snapshot(array $user, ?PDO $pdo = null): array
 
     return [
         'journey'=>$journey,
+        'membership_lifecycle'=>$membershipLifecycle,
         'attention'=>coveted_member_concierge_attention($pendingInvitations,$notifications,$benefits),
         'pending_invitations'=>$pendingInvitations,
         'recommended_events'=>$recommendations,
@@ -350,13 +357,14 @@ function coveted_member_concierge_snapshot(array $user, ?PDO $pdo = null): array
         'recent_journey'=>array_slice($timeline,0,12),
         'reconnect'=>$reconnect,
         'starter_prompts'=>[
+            'What is my membership lifecycle status and what does it mean?',
             'What should I attend next?',
             'What invitations or RSVP actions need my attention?',
             'What perks or benefits can I use?',
             'What should I know before my next event?',
             'What reconnect opportunities are available to me?',
         ],
-        'privacy'=>'This Concierge uses only this authenticated member own Member Journey, visible Events, rewards, notifications and permitted relationship context. It does not expose other members restricted timelines, one-sided reconnect choices, contact details or Admin-only intelligence.',
-        'authority'=>'Recommendations are private. The model itself cannot mutate Coveted. RSVP changes run only after an explicit member confirmation through the server-owned Concierge action endpoint and canonical Event services.',
+        'privacy'=>'This Concierge uses only this authenticated member own Member Journey, private lifecycle state, visible Events, rewards, notifications and permitted relationship context. It does not expose other members restricted timelines, lifecycle states, one-sided reconnect choices, contact details or Admin-only intelligence.',
+        'authority'=>'Recommendations are private. The model itself cannot mutate Coveted. Membership lifecycle changes remain System Admin-controlled. RSVP changes run only after an explicit member confirmation through the server-owned Concierge action endpoint and canonical Event services.',
     ];
 }

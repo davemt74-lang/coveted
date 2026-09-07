@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/member_journey.php';
 require_once dirname(__DIR__) . '/app/member_journey_scan.php';
+require_once dirname(__DIR__) . '/app/membership_lifecycle.php';
 
 $admin=coveted_require_system_admin();
 $pdo=coveted_db();
@@ -12,11 +13,19 @@ if(coveted_system_sample_mode($admin,$pdo)){
 }
 
 $memberRef=trim((string)($_GET['member']??''));
-$error='';$snapshot=null;
+$error='';$snapshot=null;$lifecycle=null;$lifecycleHistory=[];
 try{
     $index=coveted_member_journey_admin_index_fast($admin,100,$pdo);
     if($memberRef==='' && $index)$memberRef=(string)$index[0]['member_ref'];
-    if($memberRef!=='')$snapshot=coveted_member_journey_snapshot($admin,$memberRef,$pdo);
+    if($memberRef!==''){
+        $snapshot=coveted_member_journey_snapshot($admin,$memberRef,$pdo);
+        if(coveted_membership_lifecycle_schema_available($pdo)){
+            $lifecycleUser=coveted_membership_lifecycle_user($pdo,$memberRef,false);
+            $lifecycle=coveted_membership_lifecycle_current($lifecycleUser,$pdo);
+            $lifecycle['recommendation']=coveted_membership_lifecycle_recommendation((array)$snapshot['metrics'],$lifecycle);
+            $lifecycleHistory=coveted_membership_lifecycle_history($admin,$memberRef,6,$pdo);
+        }
+    }
 }catch(Throwable $e){
     error_log('Member Journey workspace unavailable: '.$e->getMessage());
     $index=$index??[];
@@ -28,6 +37,7 @@ $stateLabel=static fn(string $state):string=>match($state){
     'post_event'=>'Post-event','momentum'=>'Momentum','value_engaged'=>'Value engaged','decline_pressure'=>'Decline pressure',
     default=>'Steady',
 };
+$lifecycleLabel=static fn(string $state):string=>ucwords(str_replace('_',' ',$state));
 $kindLabel=static fn(string $kind):string=>match($kind){
     'invitation'=>'Invitation','rsvp'=>'RSVP','attendance'=>'Attendance','reward'=>'Reward',default=>ucfirst($kind),
 };
@@ -42,6 +52,7 @@ coveted_admin_ui_start($admin,'member-journeys','Member Journeys');
         <p>Review invitations, RSVPs, verified attendance, reward engagement and communication pressure without creating a public score or automatic outreach.</p>
     </div>
     <div class="cv-action-row">
+        <a class="cv-button cv-button-soft" href="/admin/membership-lifecycle.php<?= $memberRef!==''?'?member='.coveted_e(rawurlencode($memberRef)):'' ?>">Membership Lifecycle</a>
         <a class="cv-button cv-button-soft" href="/admin/member-relationships.php">Relationship Intelligence</a>
         <a class="cv-button cv-button-soft" href="/admin/agent-tasks.php">Agent Tasks</a>
         <a class="cv-button cv-button-soft" href="/admin/?view=users">Users</a>
@@ -97,6 +108,27 @@ coveted_admin_ui_start($admin,'member-journeys','Member Journeys');
         <a class="cv-button cv-button-soft" href="/admin/member-relationships.php">Relationship Intelligence</a>
     </div>
 </section>
+
+<?php if($lifecycle):$lifecycleRec=is_array($lifecycle['recommendation']??null)?(array)$lifecycle['recommendation']:null;?>
+<section class="cv-admin-panel cv-admin-section-gap">
+    <div class="cv-admin-panel-head">
+        <div><span class="cv-eyebrow">MEMBERSHIP LIFECYCLE</span><h2>Lifecycle outcome</h2></div>
+        <span class="cv-status"><?=coveted_e($lifecycleLabel((string)$lifecycle['state']))?></span>
+    </div>
+    <p>Member Journey evidence feeds the private lifecycle recommendation layer. Lifecycle state remains separate from account and group access.</p>
+    <?php if($lifecycleRec):?><div class="cv-alert"><strong><?=coveted_e((string)$lifecycleRec['title'])?></strong><br><?=coveted_e((string)$lifecycleRec['detail'])?><br><small><?=coveted_e((string)$lifecycleRec['evidence'])?></small></div><?php endif;?>
+    <div class="cv-action-row"><a class="cv-button cv-button-primary" href="/admin/membership-lifecycle.php?member=<?=coveted_e(rawurlencode((string)$member['public_id']))?>">Review Lifecycle CRM</a></div>
+    <?php if($lifecycleHistory):?>
+    <div class="cv-admin-list cv-admin-section-gap">
+        <?php foreach(array_slice($lifecycleHistory,0,3) as $row):?>
+        <div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong><?=coveted_e($lifecycleLabel((string)$row['from_state']).' → '.$lifecycleLabel((string)$row['to_state']))?></strong><small><?=coveted_e((string)($row['reason']?:'No private Admin reason recorded.'))?></small></span><small><?=coveted_e((string)$row['created_at'])?></small></div>
+        <?php endforeach;?>
+    </div>
+    <?php endif;?>
+</section>
+<?php else:?>
+<div class="cv-alert cv-admin-section-gap"><strong>Membership Lifecycle CRM is not installed.</strong> Import <code>database/migrations/20260907_membership_lifecycle_crm.sql</code> to add private lifecycle state and history to Member Journey.</div>
+<?php endif;?>
 
 <div class="cv-admin-metric-grid cv-admin-section-gap">
     <div><span>Verified attendance</span><strong><?= (int)$metrics['verified_365d'] ?></strong><small><?= (int)$metrics['verified_90d'] ?> in 90d · <?= (int)$metrics['verified_30d'] ?> in 30d</small></div>
