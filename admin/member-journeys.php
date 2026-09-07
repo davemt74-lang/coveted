@@ -32,7 +32,7 @@ $kindLabel=static fn(string $kind):string=>match($kind){
 };
 
 coveted_page_start('Member Journeys','',true);
-coveted_admin_ui_start($admin,'users','Member Journeys');
+coveted_admin_ui_start($admin,'member-journeys','Member Journeys');
 ?>
 <div class="cv-admin-page-head">
     <div>
