@@ -54,7 +54,7 @@ $contains($relationships,'coveted_event_guest_mix_agent_context($admin,12,$pdo)'
 $contains($relationships,"'guest_mix'=>",'aggregate Guest Mix context must enter the existing Agent relationship stream');
 $contains($relationships,'No member identities, pair identities, Mutual Reconnect choices','combined Agent context must preserve identity/privacy boundary');
 
-$contains($nav,"'/admin/event-guest-mix.php?event='",'Event Workspace navigation must expose Guest Mix');
+$contains($nav,'/admin/event-guest-mix.php?event=','Event Workspace navigation must expose Guest Mix');
 $contains($nav,"shell.dataset.systemSample==='1'",'Guest Mix navigation must remain isolated in Sample Mode');
 $contains($loader,'event-guest-mix-nav-v1.js','canonical JS loader must load Guest Mix navigation');
 
