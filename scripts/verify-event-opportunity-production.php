@@ -75,7 +75,7 @@ $contains($productionPage, 'coveted_require_system_admin()', 'Event Production w
 $contains($productionPage, 'coveted_require_csrf()', 'production mutations must require CSRF');
 $contains($productionPage, 'Admin plans. Hosts operate.', 'production workspace must preserve host/event authority boundary');
 $contains($productionPage, 'Load Baseline Production Plan', 'production workspace must expose baseline checklist');
-$contains($productionPage, 'Production History', 'production workspace must expose notes/run-of-show history');
+$contains($productionPage, 'PRODUCTION HISTORY', 'production workspace must expose notes/run-of-show history');
 
 $contains($operations, "require_once __DIR__ . '/event_opportunities.php';", 'Operations must load Event Opportunity intelligence');
 $contains($operations, "require_once __DIR__ . '/event_production.php';", 'Operations must load Event Production intelligence');
