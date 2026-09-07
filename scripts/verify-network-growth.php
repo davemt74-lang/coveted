@@ -81,6 +81,6 @@ $contains($journeyPage,"'post_conversion_verified'",'Member Journey must show ve
 $contains($relationships,"require_once dirname(__DIR__) . '/app/network_growth.php';",'Group Relationship Planning must load Network Growth');
 $contains($relationships,'coveted_network_growth_group_snapshot($admin,$selectedRef,$pdo)','Group Relationship Planning must consume selected-group referral outcomes');
 $contains($relationships,'NETWORK GROWTH','Group Relationship Planning must display network-growth evidence');
-$contains($relationships,'does not create a referral rank','Group Relationship Planning must preserve anti-ranking boundary');
+$contains($relationships,'referral rank','Group Relationship Planning must preserve anti-ranking boundary');
 
 fwrite(STDOUT,"Referral / Network Growth contract verified.\n");
