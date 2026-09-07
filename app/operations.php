@@ -116,12 +116,13 @@ function coveted_operations_snapshot(array $actor): array
     try {
         $hostCommand = coveted_host_command_agent_context($actor, $pdo);
     } catch (Throwable $e) {
-        $hostCommand = ['available'=>false,'events'=>[],'attention'=>0,'unavailable'=>true];
+        $hostCommand = ['available'=>false,'events'=>[],'recommendations'=>[],'attention'=>0,'unavailable'=>true];
         error_log('Operations Host Command context unavailable: ' . $e->getMessage());
     }
 
     $planningPipeline=(array)($eventPlanning['pipeline'] ?? []);
     $planningRecommendations=array_slice((array)($eventPlanning['recommendations'] ?? []),0,12);
+    $hostRecommendations=array_slice((array)($hostCommand['recommendations'] ?? []),0,12);
     $summary['event_opportunity_count'] = (int)($eventOpportunities['total'] ?? 0);
     $summary['event_opportunity_high_priority'] = (int)($eventOpportunities['high_priority'] ?? 0);
     $summary['event_proposal_active']=(int)($planningPipeline['active'] ?? 0);
@@ -148,6 +149,7 @@ function coveted_operations_snapshot(array $actor): array
         'available' => !empty($hostCommand['available']),
         'attention' => (int)($hostCommand['attention'] ?? 0),
         'events' => array_slice((array)($hostCommand['events'] ?? []), 0, 12),
+        'recommendations' => $hostRecommendations,
         'authority' => (string)($hostCommand['authority'] ?? ''),
     ];
 
