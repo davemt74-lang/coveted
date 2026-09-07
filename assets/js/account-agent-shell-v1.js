@@ -294,7 +294,7 @@
         body.set('provider', provider);
         body.set('request_id', currentRequest);
         body.set('thread_ref', state.threadRef);
-        body.set('surface', `${window.location.pathname}${window.location.search}`);
+        body.set('surface', window.location.pathname);
 
         try {
             const data = await requestJson('/api/account-agent-chat.php', {
