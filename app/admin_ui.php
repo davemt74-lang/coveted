@@ -42,6 +42,7 @@ if (
         } else {
             $covetedAdminSampleView = match ($covetedAdminRequestPath) {
                 '/admin/crm.php' => 'crm',
+                '/admin/member-journeys.php' => 'people',
                 '/admin/cities.php' => 'cities',
                 '/admin/loyalty.php' => 'loyalty',
                 '/admin/daily-events.php',
@@ -128,6 +129,7 @@ function coveted_admin_nav_link(string $active, string $key, string $href, strin
         'dashboard' => 'dashboard',
         'crm' => 'crm',
         'users' => 'people',
+        'member-journeys' => 'people',
         'requests' => 'requests',
         'cities' => 'cities',
         'businesses' => 'businesses',
@@ -217,6 +219,7 @@ function coveted_admin_ui_start(
                 <div class="cv-admin-nav-body">
                     <?php coveted_admin_nav_link($active, 'crm', '/admin/crm.php', 'Invite CRM', (int)($counts['invite_requests'] ?? 0)); ?>
                     <?php coveted_admin_nav_link($active, 'users', '/admin/?view=users', 'Users', (int)$counts['users']); ?>
+                    <?php coveted_admin_nav_link($active, 'member-journeys', '/admin/member-journeys.php', 'Member Journeys'); ?>
                     <?php coveted_admin_nav_link($active, 'requests', '/admin/?view=requests', 'Role Requests', (int)$counts['pending_requests']); ?>
                 </div>
             </details>
