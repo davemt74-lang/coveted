@@ -18,6 +18,7 @@
         await loadScript('/assets/js/host-command-nav-v1.js?v=host-command-v1-20260907');
         await loadScript('/assets/js/event-results-nav-v1.js?v=event-results-v1-20260907');
         await loadScript('/assets/js/member-relationships-nav-v1.js?v=member-relationships-v1-20260907');
+        await loadScript('/assets/js/member-journeys-nav-v1.js?v=member-journeys-v1-20260907');
         await loadScript('/assets/js/event-guest-mix-nav-v1.js?v=event-guest-mix-v1-20260907');
         await loadScript('/assets/js/event-invitation-waves-nav-v1.js?v=event-invitation-waves-v1-20260907');
         await loadScript('/assets/js/daily-events-nav-v1.js?v=daily-events-nav-v1-20260906');
