@@ -1,0 +1,55 @@
+name: Referral Network Growth
+
+on:
+  push:
+    paths:
+      - 'app/network_growth.php'
+      - 'admin/network-growth.php'
+      - 'app/operations.php'
+      - 'app/admin_ui.php'
+      - 'app/member_journey.php'
+      - 'admin/member-journeys.php'
+      - 'admin/member-relationships.php'
+      - 'scripts/verify-network-growth.php'
+      - '.github/workflows/network-growth.yml'
+  pull_request:
+    paths:
+      - 'app/network_growth.php'
+      - 'admin/network-growth.php'
+      - 'app/operations.php'
+      - 'app/admin_ui.php'
+      - 'app/member_journey.php'
+      - 'admin/member-journeys.php'
+      - 'admin/member-relationships.php'
+      - 'scripts/verify-network-growth.php'
+      - '.github/workflows/network-growth.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify (${{ matrix.php }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Lint Network Growth surfaces
+        run: |
+          php -l app/network_growth.php
+          php -l admin/network-growth.php
+          php -l app/operations.php
+          php -l app/admin_ui.php
+          php -l app/member_journey.php
+          php -l admin/member-journeys.php
+          php -l admin/member-relationships.php
+          php -l scripts/verify-network-growth.php
+      - name: Verify Network Growth contract
+        run: php scripts/verify-network-growth.php
