@@ -41,6 +41,10 @@
         tabs.appendChild(link);
     }
 
+    // Event Communications renders its own reviewed workflow actions. Do not
+    // prepend the shared shortcut set a second time on that page.
+    if (location.pathname === '/admin/event-communications.php') return;
+
     const actions = document.querySelector('.cv-admin-event-top-actions,.cv-admin-page-head .cv-action-row');
     if (actions && !actions.querySelector('[data-event-invitation-waves-action]')) {
         const link = document.createElement('a');
