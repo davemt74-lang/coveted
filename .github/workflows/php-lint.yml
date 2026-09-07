@@ -62,6 +62,9 @@ jobs:
       - name: Verify Event Opportunity Engine + Event Production Workspace contract
         run: php scripts/verify-event-opportunity-production.php
 
+      - name: Verify Event Proposals + Playbooks contract
+        run: php scripts/verify-event-proposals-playbooks.php
+
       - name: Verify Event Opportunity / Production navigation JavaScript syntax
         run: node --check assets/js/event-opportunity-production-nav-v1.js
 
