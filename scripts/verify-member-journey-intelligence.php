@@ -48,7 +48,7 @@ $contains($scan,'Broad Agent context contains no member names, member refs','Age
 $contains($scan,'The Agent may recommend and track work, but System Admin explicitly performs','System Admin action authority must be explicit');
 $contains($scan,'coveted_system_sample_mode($admin,$pdo)','live journey Agent context must be isolated in Sample Mode');
 $missing($scan,"'?member='",'broad Agent context must not route by exact member identity');
-$missing($scan,"'member-journey-'.(string)$metrics['public_id']",'broad Agent context must not create per-member task keys');
+$missing($scan,"'member-journey-'.(string)\$metrics['public_id']",'broad Agent context must not create per-member task keys');
 
 foreach(['INSERT INTO','UPDATE event_invitations','UPDATE event_rsvps','UPDATE reward_issuances','coveted_notification_create(','coveted_event_invite_user(','CREATE TABLE','ALTER TABLE'] as $needle){
     $missing($journey,$needle,'journey detail service must remain read-only: '.$needle);
