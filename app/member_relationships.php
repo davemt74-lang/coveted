@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/groups.php';
 require_once __DIR__ . '/system_sample_data.php';
+require_once __DIR__ . '/event_guest_mix.php';
 
 /**
  * Member Relationship Intelligence is a read-only view over canonical group,
@@ -225,8 +226,22 @@ function coveted_member_relationship_agent_context(array $admin, int $limit = 20
             'recurring_connections'=>(int)$m['recurring_connections'],'reconnect_pairs'=>(int)$m['reconnect_pairs'],'no_verified_overlap_pairs'=>(int)$m['no_verified_overlap_pairs'],'small_format_evidence'=>(int)$m['small_format_evidence'],
             'href'=>'/admin/member-relationships.php?group='.rawurlencode((string)$snapshot['group']['public_id']),
         ];
-        foreach(array_slice((array)$snapshot['recommendations'],0,3) as $rec) if(count($recommendations)<15) $recommendations[]=$rec;
+        foreach(array_slice((array)$snapshot['recommendations'],0,3) as $rec) if(count($recommendations)<12) $recommendations[]=$rec;
     }
+
+    $guestMix=['available'=>false,'events'=>[],'recommendations'=>[],'attention'=>0];
+    try{
+        $guestMix=coveted_event_guest_mix_agent_context($admin,12,$pdo);
+        $attention+=(int)($guestMix['attention']??0);
+        foreach(array_slice((array)($guestMix['recommendations']??[]),0,8) as $rec) $recommendations[]=$rec;
+    }catch(Throwable $e){
+        error_log('Member Relationship Guest Mix Agent bridge unavailable: '.$e->getMessage());
+    }
+
     usort($recommendations,static fn(array $a,array $b):int=>((int)$a['priority']<=> (int)$b['priority']) ?: strcmp((string)$a['key'],(string)$b['key']));
-    return ['available'=>true,'groups'=>$groups,'recommendations'=>array_slice($recommendations,0,15),'attention'=>$attention,'privacy'=>'Aggregate group-level relationship signals only. No member identities, pair identities, Mutual Reconnect choices, contact details, or private messages are included.'];
+    return [
+        'available'=>true,'groups'=>$groups,'recommendations'=>array_slice($recommendations,0,15),'attention'=>$attention,
+        'guest_mix'=>['available'=>!empty($guestMix['available']),'events'=>array_slice((array)($guestMix['events']??[]),0,12),'privacy'=>(string)($guestMix['privacy']??''),'authority'=>(string)($guestMix['authority']??'')],
+        'privacy'=>'Aggregate group/event-level relationship and Guest Mix signals only. No member identities, pair identities, Mutual Reconnect choices, contact details, or private messages are included.'
+    ];
 }
