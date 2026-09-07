@@ -83,6 +83,12 @@ jobs:
       - name: Verify Member Relationship navigation JavaScript syntax
         run: node --check assets/js/member-relationships-nav-v1.js
 
+      - name: Verify Event Guest Mix + Invitation Intelligence contract
+        run: php scripts/verify-event-guest-mix-intelligence.php
+
+      - name: Verify Event Guest Mix navigation JavaScript syntax
+        run: node --check assets/js/event-guest-mix-nav-v1.js
+
       - name: Verify Event Results navigation JavaScript syntax
         run: node --check assets/js/event-results-nav-v1.js
 
