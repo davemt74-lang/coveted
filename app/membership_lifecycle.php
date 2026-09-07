@@ -24,6 +24,13 @@ function coveted_membership_lifecycle_transition_map(): array
     ];
 }
 
+/** @return array<int,string> */
+function coveted_membership_lifecycle_allowed_targets(string $state): array
+{
+    $state=strtolower(trim($state));
+    return coveted_membership_lifecycle_transition_map()[$state]??[];
+}
+
 function coveted_membership_lifecycle_schema_available(?PDO $pdo=null): bool
 {
     $pdo ??= coveted_db();
@@ -129,11 +136,13 @@ function coveted_membership_lifecycle_member_snapshot(array $user,?PDO $pdo=null
     $pdo ??= coveted_db();
     $current=coveted_membership_lifecycle_current($user,$pdo);
     $metrics=[];
-    try{$metrics=coveted_member_journey_metrics_row($pdo,(string)$user['public_id']);}catch(Throwable){}
+    if((string)($user['status']??'active')==='active'){
+        try{$metrics=coveted_member_journey_metrics_row($pdo,(string)$user['public_id']);}catch(Throwable){}
+    }
     $recommendation=$metrics?coveted_membership_lifecycle_recommendation($metrics,$current):null;
     return [
         'state'=>$current['state'],'state_since'=>$current['state_since'],'renewal_due_at'=>$current['renewal_due_at'],'paused_until'=>$current['paused_until'],
-        'guidance'=>$recommendation?['title'=>$recommendation['title'],'detail'=>$recommendation['detail']]:null,
+        'guidance'=>$recommendation?['title'=>$recommendation['title'],'detail'=>$recommendation['detail'],'evidence'=>$recommendation['evidence']]:null,
         'actions'=>match((string)$current['state']){
             'paused'=>[['label'=>'Review membership status','url'=>'/groups.php']],
             'drifting'=>[['label'=>'Find a next event','url'=>'/events.php'],['label'=>'Review reconnect','url'=>'/reconnect.php']],
@@ -146,23 +155,60 @@ function coveted_membership_lifecycle_member_snapshot(array $user,?PDO $pdo=null
 }
 
 /** @return array<int,array<string,mixed>> */
+function coveted_membership_lifecycle_admin_candidates(PDO $pdo,int $limit=120): array
+{
+    coveted_membership_lifecycle_require_schema($pdo);
+    $limit=max(1,min(200,$limit));
+    $sql="SELECT u.id,u.public_id,u.display_name,u.status,u.created_at,
+                 (SELECT COUNT(*) FROM group_memberships gm
+                  WHERE gm.user_id=u.id AND gm.membership_status='active' AND gm.group_role<>'guest') AS active_groups
+          FROM users u
+          LEFT JOIN membership_lifecycle ml ON ml.user_id=u.id
+          WHERE u.status IN ('active','invited')
+            AND (
+                u.status='invited'
+                OR ml.id IS NOT NULL
+                OR EXISTS (
+                    SELECT 1 FROM group_memberships gm2
+                    WHERE gm2.user_id=u.id AND gm2.membership_status='active' AND gm2.group_role<>'guest'
+                )
+            )
+          ORDER BY u.display_name,u.id
+          LIMIT {$limit}";
+    $rows=$pdo->query($sql)->fetchAll();
+    foreach($rows as &$row){$row['id']=(int)$row['id'];$row['active_groups']=(int)$row['active_groups'];}
+    unset($row);
+    return $rows;
+}
+
+/** @return array<int,array<string,mixed>> */
 function coveted_membership_lifecycle_admin_index(array $admin,int $limit=100,?PDO $pdo=null): array
 {
     if(!coveted_is_system_admin($admin))throw new InvalidArgumentException('System Admin access is required.');
     $pdo ??= coveted_db();
+    if(!coveted_membership_lifecycle_schema_available($pdo))return [];
+
+    $scanMap=[];
+    foreach(coveted_member_journey_scan_rows($pdo,200) as $metrics)$scanMap[(int)$metrics['id']]=$metrics;
+
     $rows=[];
-    foreach(coveted_member_journey_scan_rows($pdo,max(1,min(200,$limit))) as $metrics){
-        $user=['id'=>(int)$metrics['id'],'public_id'=>(string)$metrics['public_id'],'status'=>'active','created_at'=>(string)$metrics['created_at']];
+    foreach(coveted_membership_lifecycle_admin_candidates($pdo,max(1,min(200,$limit))) as $user){
+        $metrics=$scanMap[(int)$user['id']]??[
+            'id'=>(int)$user['id'],'public_id'=>(string)$user['public_id'],'display_name'=>(string)$user['display_name'],'created_at'=>(string)$user['created_at'],
+            'active_groups'=>(int)$user['active_groups'],'verified_365d'=>0,'verified_90d'=>0,'verified_30d'=>0,'last_verified_at'=>'',
+            'small_format_365d'=>0,'no_shows_180d'=>0,'declines_180d'=>0,'invitations_30d'=>0,'invitations_60d'=>0,
+            'pending_invitations'=>0,'future_invitations'=>0,'event_messages_30d'=>0,'rewards_issued_180d'=>0,'rewards_claimed_180d'=>0,
+        ];
         $current=coveted_membership_lifecycle_current($user,$pdo);
         $rec=coveted_membership_lifecycle_recommendation($metrics,$current);
         $rows[]=[
-            'member_ref'=>(string)$metrics['public_id'],'display_name'=>(string)$metrics['display_name'],'state'=>(string)$current['state'],
+            'member_ref'=>(string)$user['public_id'],'display_name'=>(string)$user['display_name'],'account_status'=>(string)$user['status'],'state'=>(string)$current['state'],
             'state_since'=>(string)$current['state_since'],'renewal_due_at'=>(string)$current['renewal_due_at'],'paused_until'=>(string)$current['paused_until'],
-            'recommendation'=>$rec,'verified_30d'=>(int)$metrics['verified_30d'],'verified_90d'=>(int)$metrics['verified_90d'],'verified_365d'=>(int)$metrics['verified_365d'],
+            'recommendation'=>$rec,'active_groups'=>(int)$metrics['active_groups'],'verified_30d'=>(int)$metrics['verified_30d'],'verified_90d'=>(int)$metrics['verified_90d'],'verified_365d'=>(int)$metrics['verified_365d'],
         ];
     }
     usort($rows,static fn(array $a,array $b):int=>((int)($a['recommendation']['priority']??9)<=> (int)($b['recommendation']['priority']??9)) ?: strcasecmp((string)$a['display_name'],(string)$b['display_name']));
-    return $rows;
+    return array_slice($rows,0,max(1,min(200,$limit)));
 }
 
 /** @return array<string,mixed> */
@@ -181,14 +227,43 @@ function coveted_membership_lifecycle_agent_context(array $admin,int $limit=80,?
             'priority'=>(int)$rec['priority'],'key'=>'membership-lifecycle-'.(string)$row['member_ref'].'-'.$state.'-'.$to,
             'category'=>'Membership Lifecycle','title'=>(string)$rec['title'].' — '.(string)$row['display_name'],
             'detail'=>(string)$rec['detail'].' Current state: '.$state.'. Recommended state: '.$to.'. Member ref: '.(string)$row['member_ref'].'.',
-            'evidence'=>(string)$rec['evidence'],'href'=>'/admin/member-journeys.php?member='.rawurlencode((string)$row['member_ref']),
+            'evidence'=>(string)$rec['evidence'],'href'=>'/admin/membership-lifecycle.php?member='.rawurlencode((string)$row['member_ref']),
             'member_ref'=>(string)$row['member_ref'],'from_state'=>$state,'recommended_state'=>$to,
             'task_sync'=>$to!==$state,
         ];
     }
     return ['available'=>true,'summary'=>$summary,'recommendations'=>array_slice($recommendations,0,20),'attention'=>$attention,
         'privacy'=>'System Admin-only lifecycle context. States are evidence-based CRM labels, never personality traits, popularity scores, or public rankings.',
-        'authority'=>'Only System Admin may persist lifecycle transitions. Agent task execution may use the allowlisted lifecycle action only after the existing Admin authorization controls.'];
+        'authority'=>'Only System Admin may persist lifecycle transitions. Approved Agent task execution may use the allowlisted lifecycle action through the canonical lifecycle service.'];
+}
+
+/** @return array<string,mixed> */
+function coveted_membership_lifecycle_group_context(array $admin,string $groupRef,?PDO $pdo=null): array
+{
+    if(!coveted_is_system_admin($admin))throw new InvalidArgumentException('System Admin access is required.');
+    $pdo ??= coveted_db();
+    if(!coveted_membership_lifecycle_schema_available($pdo))return ['available'=>false,'summary'=>[],'held_members'=>[],'held_count'=>0];
+    $stmt=$pdo->prepare(
+        "SELECT gm.user_id,u.public_id,u.display_name,
+                COALESCE(ml.lifecycle_state,IF(u.status='invited','invited','active')) AS lifecycle_state
+         FROM social_groups g
+         JOIN group_memberships gm ON gm.group_id=g.id
+         JOIN users u ON u.id=gm.user_id
+         LEFT JOIN membership_lifecycle ml ON ml.user_id=u.id
+         WHERE g.public_id=? AND g.status='active'
+           AND gm.membership_status='active' AND gm.group_role<>'guest' AND u.status='active'
+         ORDER BY u.display_name,u.id"
+    );
+    $stmt->execute([$groupRef]);
+    $summary=array_fill_keys(coveted_membership_lifecycle_states(),0);$held=[];
+    foreach($stmt->fetchAll() as $row){
+        $state=(string)$row['lifecycle_state'];$summary[$state]=($summary[$state]??0)+1;
+        if(in_array($state,['paused','alumni'],true))$held[]=[
+            'user_id'=>(int)$row['user_id'],'member_ref'=>(string)$row['public_id'],'display_name'=>(string)$row['display_name'],'state'=>$state,
+        ];
+    }
+    return ['available'=>true,'summary'=>$summary,'held_members'=>$held,'held_count'=>count($held),
+        'guidance'=>'Paused and alumni lifecycle states are explicit relationship-planning holds. Do not treat those members as routine drift/reconnect targets until System Admin changes their lifecycle state.'];
 }
 
 /** @return array<string,mixed> */
@@ -227,7 +302,7 @@ function coveted_membership_lifecycle_set_state(array $admin,string $userRef,str
         }
         coveted_audit('membership.lifecycle_changed','membership_lifecycle',$publicId,['user_ref'=>(string)$user['public_id'],'from'=>$from,'to'=>$toState,'source'=>$source],(int)$admin['id']);
         $pdo->commit();
-        return ['record_ref'=>$publicId,'member_ref'=>(string)$user['public_id'],'from_state'=>$from,'state'=>$toState];
+        return ['record_ref'=>$publicId,'member_ref'=>(string)$user['public_id'],'from_state'=>$from,'state'=>$toState,'changed'=>$from!==$toState];
     }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 }
 
