@@ -47,7 +47,9 @@ $contains($operations,"require_once __DIR__ . '/member_relationships.php';",'Ope
 $contains($operations,'coveted_member_relationship_agent_context($actor, 20, $pdo)','Operations must request aggregate relationship context');
 $contains($operations,"\$summary['member_relationships']",'Operations summary must expose relationship health');
 $contains($operations,"\$summary['member_relationship_attention']",'relationship attention must contribute to Operations');
-$contains($operations,'array_merge((array)($eventResults[\'recommendations\'] ?? []),$relationshipRecommendations)','relationship recommendations must enter the existing Agent-promoted post-event stream');
+$contains($operations,'$relationshipRecommendations','relationship recommendations must be collected for the Agent-promoted stream');
+$contains($operations,'$resultRecommendations=array_merge(','relationship recommendations must enter the combined Agent-promoted stream');
+$contains($operations,'usort($resultRecommendations','combined Agent recommendations must preserve priority ordering');
 $contains($operations,"'member_relationships' => \$memberRelationships",'Operations response must expose relationship context');
 
 $contains($nav,"'/admin/member-relationships.php'",'Admin navigation must expose relationship intelligence');
