@@ -267,6 +267,10 @@
                 localStorage.setItem(storageKey, state.threadRef);
             }
             await loadBootstrap(state.threadRef);
+            if (!data.thread || !data.thread.public_id) {
+                notice.hidden = false;
+                notice.textContent = `${String(data.message || 'Action completed.')} Chat history could not be saved for this action.`;
+            }
             setOpen(true);
         } catch (error) {
             messageNode('assistant', error instanceof Error ? error.message : 'The Concierge action failed.', true);
