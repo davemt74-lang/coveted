@@ -35,9 +35,12 @@ $client = $read('assets/js/event-invitation-execution-v1.js');
 $contains($service, 'function coveted_event_invitation_execution_snapshot', 'live execution snapshot required');
 $contains($service, 'function coveted_event_invitation_execution_send_selected', 'explicit selected-recipient execution service required');
 $contains($service, 'coveted_event_invitation_wave_snapshot($admin, $eventRef, $pdo)', 'send must rebuild the live wave forecast');
+$contains($service, "coveted_utc_datetime((string)(\$event['starts_at'] ?? ''))->getTimestamp()", 'event execution must use canonical UTC parsing');
 $contains($service, "str_starts_with(\$decisionKey, 'open_wave_')", 'only open-wave recommendations may be executable');
+$contains($service, '$candidates = $safeLimit > 0 ? array_slice($candidates, 0, $safeLimit) : [];', 'server must restrict selectable candidates to exact safe recommended top-N');
 $contains($service, "count(\$selected) > (int)\$live['safe_limit']", 'selected batch must obey live safe limit');
 $contains($service, 'if (!isset($currentCandidates[$userId]))', 'every selected recipient must remain in the current recommended wave');
+$contains($service, "\$canonicalEventRef = (string)(\$live['event']['public_id'] ?? \$eventRef);", 'execution must normalize to canonical Event public ID');
 $contains($service, 'coveted_event_invite_user(', 'every recipient must use canonical Event invitation service');
 $contains($service, "'require_active_group_member' => true", 'canonical invitation must require active group membership');
 $contains($service, "'reject_event_host' => true", 'canonical invitation must reject event hosts');
@@ -46,6 +49,8 @@ $contains($service, "'idempotent_pending' => true", 'canonical invitation must b
 $contains($service, "'invitation-wave-' . \$eventRef", 'execution must bind to proactive Invitation Wave Agent task');
 $contains($service, "coveted_admin_agent_task_set_status(\$admin, \$taskRef, 'approved', \$pdo, 'suggested')", 'explicit Admin execution must approve a Suggested Agent task with optimistic status guard');
 $contains($service, "coveted_admin_agent_task_set_status(\$admin, \$taskRef, 'in_progress', \$pdo, 'approved')", 'executed wave must become an In Progress Agent task with optimistic status guard');
+$contains($service, 'A concurrent', 'Agent tracking concurrency boundary must be documented');
+$contains($service, "'agent_tracking_warning' => \$agentTrackingWarning", 'Agent tracking failure must be returned without undoing sent invitations');
 $contains($service, "'recipient_identities_in_agent_payload' => false", 'Agent execution audit must document identity privacy');
 $contains($service, 'System Admin must review and explicitly select exact recipients', 'human recipient approval boundary required');
 $missing($service, 'INSERT INTO event_invitations', 'execution service must not directly insert invitations');
@@ -61,6 +66,8 @@ $contains($page, 'name="recipient_ids[]"', 'Admin must explicitly select exact r
 $contains($page, 'data-wave-preview', 'forecast impact preview required');
 $contains($page, 'Agent Tasks', 'workspace must link the proactive Agent task system');
 $contains($page, 'Human approval boundary.', 'workspace must explain Agent/Admin authority boundary');
+$contains($page, "!empty(\$execution['agent_tracking_warning'])", 'Admin must be warned if Agent tracking changes concurrently after invitations send');
+$contains($page, 'Invitations were sent, but the Agent task changed concurrently', 'Agent tracking warning must truthfully preserve successful send result');
 $contains($page, 'Manual Email Invite', 'canonical manual invitation fallback must remain available');
 
 $contains($wave, 'function coveted_event_invitation_wave_agent_context', 'existing wave forecast must remain in Agent brain context');
