@@ -168,13 +168,13 @@ function coveted_admin_agent_capabilities(): array
         ['key' => 'crm', 'label' => 'Invite CRM', 'href' => '/admin/crm.php', 'can' => ['review invite requests', 'qualify prospects', 'convert approved prospects into member accounts']],
         ['key' => 'businesses', 'label' => 'Businesses', 'href' => '/admin/?view=businesses', 'can' => ['create partner businesses', 'assign Business Admins', 'open business workspaces for locations, rewards and campaigns']],
         ['key' => 'groups', 'label' => 'Groups', 'href' => '/admin/?view=groups', 'can' => ['create private communities', 'manage status', 'open group membership and host workflows']],
-        ['key' => 'events', 'label' => 'Events', 'href' => '/admin/?view=events', 'can' => ['create events inside groups', 'manage hosts, locations, invitations, RSVPs, attendance and lifecycle']],
+        ['key' => 'events', 'label' => 'Events', 'href' => '/admin/?view=events', 'can' => ['create events inside groups', 'reason over Event Playbooks and Proposals', 'manage hosts, locations, invitations, RSVPs, attendance and lifecycle', 'review Host Command blockers and incidents']],
         ['key' => 'artists', 'label' => 'Artist partners', 'href' => '/admin/?view=artists', 'can' => ['create artist identities', 'manage artist workspaces, appearances, media and rewards']],
         ['key' => 'benefits', 'label' => 'Benefits & campaigns', 'href' => '/admin/?view=benefits', 'can' => ['review reward templates and campaigns', 'connect campaign value to event and partner activity']],
         ['key' => 'distribution', 'label' => 'Distribution', 'href' => '/admin/?view=distribution', 'can' => ['preview eligible recipients', 'distribute event campaigns', 'send manual campaign rewards']],
         ['key' => 'cities', 'label' => 'Cities', 'href' => '/admin/cities.php', 'can' => ['manage supported city records used by acquisition and CRM']],
         ['key' => 'landing', 'label' => 'Landing page', 'href' => '/admin/landing.php', 'can' => ['control public upcoming-event visibility', 'switch synthetic landing preview events']],
-        ['key' => 'operations', 'label' => 'Operations', 'href' => '/admin/operations.php', 'can' => ['inspect event lifecycle backlog', 'find location gaps', 'review delivery failures', 'review claims and audit history']],
+        ['key' => 'operations', 'label' => 'Operations', 'href' => '/admin/operations.php', 'can' => ['inspect event lifecycle backlog', 'find location gaps', 'review Host Command escalations', 'review delivery failures', 'review claims and audit history']],
         ['key' => 'pwa', 'label' => 'PWA & notifications', 'href' => '/admin/?view=pwa', 'can' => ['upload install artwork', 'inspect notification delivery', 'create test notifications']],
         ['key' => 'ai', 'label' => 'AI providers', 'href' => '/admin/ai-settings.php', 'can' => ['configure OpenAI and Anthropic chat providers', 'store ElevenLabs credentials for voice services']],
     ];
@@ -254,6 +254,31 @@ function coveted_admin_agent_opportunities(
         $count = (int)($summary['permanent_failures_24h'] ?? 0) + (int)($summary['stuck_deliveries'] ?? 0);
         $add(1, 'delivery-health', 'Operations', 'Review notification delivery failures', 'Push delivery has permanent failures or records stuck in the canonical queue.', '/admin/operations.php', $count . ' delivery item' . ($count === 1 ? '' : 's') . ' need attention.');
     }
+
+    // Event Playbooks / Proposals and Host Command are first-class Agent brain
+    // inputs. Their services provide compact, canonical, read-only recommendations
+    // with internal routes; promote those recommendations into the same opportunity
+    // queue the Admin Agent is instructed to prioritize during chat.
+    foreach (['event_planning','host_command'] as $streamKey) {
+        $stream = (array)($summary[$streamKey] ?? []);
+        foreach (array_slice((array)($stream['recommendations'] ?? []), 0, 6) as $recommendation) {
+            if (!is_array($recommendation)) continue;
+            $key = trim((string)($recommendation['key'] ?? ''));
+            $title = trim((string)($recommendation['title'] ?? ''));
+            $href = trim((string)($recommendation['href'] ?? ''));
+            if ($key === '' || $title === '' || $href === '' || !str_starts_with($href, '/')) continue;
+            $add(
+                max(1, min(3, (int)($recommendation['priority'] ?? 2))),
+                $key,
+                trim((string)($recommendation['category'] ?? 'Events')) ?: 'Events',
+                $title,
+                trim((string)($recommendation['detail'] ?? 'Review the current canonical event operating state.')),
+                $href,
+                trim((string)($recommendation['evidence'] ?? ''))
+            );
+        }
+    }
+
     if ((int)($metrics['pending_role_requests'] ?? 0) > 0) {
         $count = (int)$metrics['pending_role_requests'];
         $add(1, 'role-requests', 'People', 'Review pending role requests', 'Members are waiting for an Admin decision on expanded platform access.', '/admin/?view=requests', $count . ' pending request' . ($count === 1 ? '' : 's') . '.');

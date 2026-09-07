@@ -6,6 +6,7 @@ require_once __DIR__ . '/lifecycle.php';
 require_once __DIR__ . '/event_opportunities.php';
 require_once __DIR__ . '/event_production.php';
 require_once __DIR__ . '/event_proposals.php';
+require_once __DIR__ . '/host_command.php';
 
 /**
  * Read-only System Admin launch-health view.
@@ -15,9 +16,9 @@ require_once __DIR__ . '/event_proposals.php';
  * never exposes notification endpoints, push keys, provider error payloads,
  * private event feedback, or Mutual Reconnect choices.
  *
- * Event Opportunity, Proposal / Playbook and Event Production summaries are
- * intentionally included here because the Admin Agent already consumes this
- * canonical Operations summary on every reasoning/chat round.
+ * Event Opportunity, Proposal / Playbook, Event Production and Host Command
+ * summaries are intentionally included here because the Admin Agent consumes
+ * this canonical Operations summary on every reasoning/chat round.
  *
  * @return array<string,mixed>
  */
@@ -112,8 +113,16 @@ function coveted_operations_snapshot(array $actor): array
         error_log('Operations Event Production context unavailable: ' . $e->getMessage());
     }
 
+    try {
+        $hostCommand = coveted_host_command_agent_context($actor, $pdo);
+    } catch (Throwable $e) {
+        $hostCommand = ['available'=>false,'events'=>[],'recommendations'=>[],'attention'=>0,'unavailable'=>true];
+        error_log('Operations Host Command context unavailable: ' . $e->getMessage());
+    }
+
     $planningPipeline=(array)($eventPlanning['pipeline'] ?? []);
     $planningRecommendations=array_slice((array)($eventPlanning['recommendations'] ?? []),0,12);
+    $hostRecommendations=array_slice((array)($hostCommand['recommendations'] ?? []),0,12);
     $summary['event_opportunity_count'] = (int)($eventOpportunities['total'] ?? 0);
     $summary['event_opportunity_high_priority'] = (int)($eventOpportunities['high_priority'] ?? 0);
     $summary['event_proposal_active']=(int)($planningPipeline['active'] ?? 0);
@@ -121,6 +130,7 @@ function coveted_operations_snapshot(array $actor): array
     $summary['event_proposal_negotiating']=(int)($planningPipeline['negotiating'] ?? 0);
     $summary['event_proposal_stalled']=(int)($planningPipeline['stalled'] ?? 0);
     $summary['event_production_attention'] = (int)($eventProduction['attention'] ?? 0);
+    $summary['host_command_attention'] = (int)($hostCommand['attention'] ?? 0);
     $summary['event_opportunities'] = array_slice((array)($eventOpportunities['recommendations'] ?? []), 0, 8);
     $summary['event_planning'] = [
         'available'=>!empty($eventPlanning['available']),
@@ -135,6 +145,13 @@ function coveted_operations_snapshot(array $actor): array
         'attention' => (int)($eventProduction['attention'] ?? 0),
         'events' => array_slice((array)($eventProduction['events'] ?? []), 0, 10),
     ];
+    $summary['host_command'] = [
+        'available' => !empty($hostCommand['available']),
+        'attention' => (int)($hostCommand['attention'] ?? 0),
+        'events' => array_slice((array)($hostCommand['events'] ?? []), 0, 12),
+        'recommendations' => $hostRecommendations,
+        'authority' => (string)($hostCommand['authority'] ?? ''),
+    ];
 
     $summary['attention_count'] = (int)$summary['pending_role_requests']
         + (int)$summary['overdue_events']
@@ -144,7 +161,8 @@ function coveted_operations_snapshot(array $actor): array
         + (int)$summary['lifecycle_backlog']
         + (int)$summary['event_proposal_approved']
         + (int)$summary['event_proposal_stalled']
-        + (int)$summary['event_production_attention'];
+        + (int)$summary['event_production_attention']
+        + (int)$summary['host_command_attention'];
 
     $overdueEvents = $pdo->query(
         "SELECT
@@ -302,6 +320,7 @@ function coveted_operations_snapshot(array $actor): array
         'event_opportunities' => $eventOpportunities,
         'event_planning' => $eventPlanning,
         'event_production' => $eventProduction,
+        'host_command' => $hostCommand,
         'lifecycle_backlog' => $lifecycleBacklog,
         'overdue_events' => $overdueEvents,
         'location_attention' => $locationAttention,

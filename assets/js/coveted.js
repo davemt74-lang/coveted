@@ -15,6 +15,7 @@
         await loadScript('/assets/js/legal-footer.js?v=legal-footer-20260905');
         await loadScript('/assets/js/member-v2.js?v=member-v2-20260905');
         await loadScript('/assets/js/attendee-event-nav-v1.js?v=attendee-event-nav-v1-20260906');
+        await loadScript('/assets/js/host-command-nav-v1.js?v=host-command-v1-20260907');
         await loadScript('/assets/js/daily-events-nav-v1.js?v=daily-events-nav-v1-20260906');
         await loadScript('/assets/js/event-opportunity-production-nav-v1.js?v=event-opportunity-production-v1-20260906');
         await loadScript('/assets/js/partner-opportunities-v1.js?v=partner-opportunities-v1-20260906');
