@@ -45,8 +45,10 @@ $contains($service, 'DATE_SUB(UTC_TIMESTAMP(),INTERVAL 15 MINUTE)', 'stuck pendi
 $contains($service, "'in_app_only'", 'members without a push delivery row must remain valid in-app notifications');
 $contains($service, "'time_sensitive'", 'time-sensitive critical delivery state is required');
 $contains($service, "'limited_push_coverage'", 'limited push coverage must be represented without treating in-app notifications as failed');
+$contains($service, "elseif (\$permanent > 0)", 'mixed-device permanent failures must stay visible until another device succeeds');
 $contains($service, "'event-communications-'", 'delivery recommendation must reuse the canonical Event Communications Agent task key');
-$contains($service, "'#delivery-health'", 'delivery recommendations must route to the exact Admin delivery workspace');
+$contains($service, "'/admin/event-communication-delivery.php?event='", 'delivery recommendations must route to the exact Admin delivery workspace');
+$contains($service, "'#delivery-health'", 'delivery recommendation must target the delivery-health panel');
 $contains($service, 'Broad Agent context receives aggregate delivery counts only.', 'Agent privacy boundary must be explicit');
 $contains($service, 'Delivery Health is read-only.', 'read-only authority boundary must be explicit');
 $contains($service, "coveted_system_sample_mode(\$admin,\$pdo)", 'delivery Agent context must isolate Sample Mode');
@@ -80,6 +82,9 @@ $contains($operations, '$communicationDeliveryRecommendations', 'delivery recomm
 $contains($operations, "'event_communication_delivery_attention'", 'Operations summary must expose Event delivery attention');
 $contains($operations, "'event_communication_delivery' => \$eventCommunicationDelivery", 'Operations response must expose aggregate Event delivery health');
 $contains($operations, '$seenRecommendationKeys', 'promoted Event recommendations must dedupe canonical source keys');
+$contains($operations, "str_contains((string)(\$a['href']??''),'#delivery-health')", 'delivery health must win same-key/same-priority recommendation ties');
+$contains($operations, 'rather than adding the same underlying failures to attention_count twice.', 'Event delivery drilldown must not double-count global transport failures');
+$missing($operations, "+ (int)\$summary['event_communication_delivery_attention'];", 'overall Operations attention must not count the same transport failures twice');
 
 $contains($nav, '/admin/event-communication-delivery.php?event=', 'shared Event navigation must expose Delivery Health');
 $contains($nav, 'data-event-delivery-health-tab', 'Delivery Health must be a first-class Event tab');
