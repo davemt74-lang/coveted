@@ -30,17 +30,11 @@ function coveted_event_communications_agent_source_task(array $admin, string $so
 function coveted_event_communications_agent_task(array $admin, string $eventRef, ?PDO $pdo = null): ?array
 {
     $eventRef = trim($eventRef);
-    $communications = coveted_event_communications_agent_source_task(
-        $admin,
-        'event-communications-' . $eventRef,
-        $pdo
-    );
-    if ($communications) return $communications;
-    return coveted_event_communications_agent_source_task(
-        $admin,
-        'rsvp-followup-' . $eventRef,
-        $pdo
-    );
+    foreach (['event-communications-', 'rsvp-followup-', 'invitation-wave-'] as $prefix) {
+        $task = coveted_event_communications_agent_source_task($admin, $prefix . $eventRef, $pdo);
+        if ($task) return $task;
+    }
+    return null;
 }
 
 /** @return array<string,mixed> */
@@ -90,16 +84,20 @@ function coveted_event_communications_reminder_queue_state(array $admin, array $
     return ['ready'=>$ready,'already_queued'=>$queued];
 }
 
-function coveted_event_communications_attending_count(PDO $pdo, int $eventId): int
+/** @return array{ready:int,already_queued:int,total:int} */
+function coveted_event_communications_confirmation_queue_state(PDO $pdo, array $event): array
 {
-    $stmt = $pdo->prepare(
-        "SELECT COUNT(*)
-         FROM event_rsvps er
-         JOIN users u ON u.id=er.user_id AND u.status='active'
-         WHERE er.event_id=? AND er.response='attending'"
-    );
-    $stmt->execute([$eventId]);
-    return (int)$stmt->fetchColumn();
+    $recipients = coveted_event_communications_attending($pdo, (int)$event['id']);
+    $ready = 0;
+    $queued = 0;
+    $find = $pdo->prepare('SELECT 1 FROM notifications WHERE user_id=? AND dedupe_key=? LIMIT 1');
+    foreach ($recipients as $recipient) {
+        $cycle = preg_replace('/[^0-9]/', '', (string)($recipient['responded_at'] ?? $recipient['updated_at'] ?? ''));
+        $dedupe = 'event-confirmation:' . (int)$event['id'] . ':user:' . (int)$recipient['user_id'] . ':' . $cycle;
+        $find->execute([(int)$recipient['user_id'], $dedupe]);
+        if ($find->fetchColumn()) $queued++; else $ready++;
+    }
+    return ['ready'=>$ready,'already_queued'=>$queued,'total'=>count($recipients)];
 }
 
 function coveted_event_communications_responses_since(PDO $pdo, int $eventId, string $since): int
@@ -120,7 +118,8 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
     $event = coveted_event_communications_event($admin, $eventRef, $pdo);
     $queue = coveted_event_communications_queue_metrics($pdo, $event);
     $reminders = coveted_event_communications_reminder_queue_state($admin, $event, $pdo);
-    $attending = coveted_event_communications_attending_count($pdo, (int)$event['id']);
+    $confirmations = coveted_event_communications_confirmation_queue_state($pdo, $event);
+    $attending = (int)$confirmations['total'];
     $responsesSinceReminder = coveted_event_communications_responses_since(
         $pdo,
         (int)$event['id'],
@@ -211,10 +210,10 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
         $actionable = true;
         $recommendationKey = 'invitation-wave-' . (string)$event['public_id'];
         $recommendationCategory = 'Invitations';
-    } elseif ($attending > 0 && (int)$queue['confirmations'] === 0 && $daysToEvent <= 3.0) {
+    } elseif ((int)$confirmations['ready'] > 0 && $daysToEvent <= 3.0) {
         $stateKey = 'confirmation_ready';
         $title = 'Review attendee confirmations';
-        $detail = 'The Event is approaching and current attending RSVPs have not yet received a canonical attendance confirmation.';
+        $detail = 'The Event is approaching and current attending RSVPs still have current confirmation cycles that have not been queued.';
         $href .= '&type=confirmation';
         $priority = 2;
         $actionable = true;
@@ -229,12 +228,19 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
             'category'=>$recommendationCategory,
             'title'=>$title,
             'detail'=>$detail,
-            'evidence'=>(int)$reminders['ready'] . ' reminder-ready · ' . (int)$reminders['already_queued'] . ' current-cycle reminder already queued · ' . $responsesSinceReminder . ' RSVP change' . ($responsesSinceReminder === 1 ? '' : 's') . ' after latest reminder · forecast ' . $forecast['expected'] . '/' . $forecast['target'] . ' · ' . $attending . ' attending.',
+            'evidence'=>(int)$reminders['ready'] . ' reminder-ready · ' . (int)$reminders['already_queued'] . ' current-cycle reminder already queued · ' . (int)$confirmations['ready'] . ' confirmation-ready · ' . (int)$confirmations['already_queued'] . ' current-cycle confirmation already queued · ' . $responsesSinceReminder . ' RSVP change' . ($responsesSinceReminder === 1 ? '' : 's') . ' after latest reminder · forecast ' . $forecast['expected'] . '/' . $forecast['target'] . ' · ' . $attending . ' attending.',
             'href'=>$href,
         ];
     }
 
-    $task = coveted_event_communications_agent_task($admin, (string)$event['public_id'], $pdo);
+    $task = null;
+    if ($recommendationKey !== '') {
+        $task = coveted_event_communications_agent_source_task($admin, $recommendationKey, $pdo);
+    }
+    if (!$task) {
+        $task = coveted_event_communications_agent_task($admin, (string)$event['public_id'], $pdo);
+    }
+
     return [
         'event'=>[
             'event_ref'=>(string)$event['public_id'],
@@ -250,6 +256,7 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
         'href'=>$href,
         'queue'=>$queue,
         'reminders'=>$reminders,
+        'confirmations'=>$confirmations,
         'attending'=>$attending,
         'responses_since_latest_reminder'=>$responsesSinceReminder,
         'hours_since_latest_reminder'=>$hoursSinceReminder !== null ? round($hoursSinceReminder, 1) : null,
@@ -303,6 +310,8 @@ function coveted_event_communications_agent_context(array $admin, int $limit = 1
             'queued_total'=>(int)$snap['queue']['total'],
             'reminder_ready'=>(int)$snap['reminders']['ready'],
             'reminders_queued'=>(int)$snap['reminders']['already_queued'],
+            'confirmation_ready'=>(int)$snap['confirmations']['ready'],
+            'confirmations_queued'=>(int)$snap['confirmations']['already_queued'],
             'responses_since_latest_reminder'=>(int)$snap['responses_since_latest_reminder'],
             'attending'=>(int)$snap['attending'],
             'forecast'=>(array)$snap['forecast'],
@@ -312,8 +321,15 @@ function coveted_event_communications_agent_context(array $admin, int $limit = 1
             'href'=>(string)$snap['href'],
         ];
         if (is_array($snap['recommendation'] ?? null)) {
-            $attention++;
-            if (count($recommendations)<12) $recommendations[]=$snap['recommendation'];
+            $recommendation = (array)$snap['recommendation'];
+            $key = (string)($recommendation['key'] ?? '');
+            // Invitation Wave already promotes invitation-wave-* into the same
+            // Admin Agent stream. Keep the lifecycle handoff visible here without
+            // double-counting or duplicating that canonical Agent opportunity.
+            if (!str_starts_with($key, 'invitation-wave-')) {
+                $attention++;
+                if (count($recommendations)<12) $recommendations[]=$recommendation;
+            }
         }
     }
     return [
@@ -357,7 +373,7 @@ function coveted_event_communications_agent_track_queue(
     coveted_admin_agent_tasks_sync_opportunities($admin, [[
         'priority'=>2,
         'key'=>$key,
-        'category'=>'Event Communications',
+        'category'=>$communicationType==='rsvp_reminder' ? 'RSVP Follow-Up' : 'Event Communications',
         'title'=>'Track responses after Event communication',
         'detail'=>'A System Admin explicitly queued a reviewed Event communication. Track canonical RSVP/forecast changes and surface the next safe action; do not send another message autonomously.',
         'evidence'=>$queuedCount . ' canonical notification' . ($queuedCount===1?'':'s') . ' queued · ' . $duplicateCount . ' already queued · communication type ' . $communicationType . '.',
