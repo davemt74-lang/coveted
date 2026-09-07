@@ -18,6 +18,11 @@
         return node;
     };
 
+    const safeInternalPath = (value) => {
+        const path = String(value || '').trim();
+        return path.startsWith('/') && !path.startsWith('//') ? path : '';
+    };
+
     const root = el('div', 'cv-account-agent-shell');
     root.dataset.accountAgentShell = '1';
 
@@ -50,10 +55,13 @@
 
     const notice = el('div', 'cv-account-agent-notice');
     notice.hidden = true;
+    const conciergePanel = el('section', 'cv-account-agent-concierge');
+    conciergePanel.hidden = true;
+    conciergePanel.setAttribute('aria-label', 'Concierge items needing attention');
     const messages = el('div', 'cv-account-agent-messages');
     messages.setAttribute('aria-live', 'polite');
     messages.setAttribute('aria-relevant', 'additions text');
-    canvas.append(head, history, notice, messages);
+    canvas.append(head, history, notice, conciergePanel, messages);
 
     const composerWrap = el('div', 'cv-account-agent-composer-wrap');
     const form = el('form', 'cv-account-agent-composer');
@@ -90,6 +98,7 @@
         welcomeBody: 'Ask about your Coveted events, invitations, benefits, hosting responsibilities, or account context.',
         ready: false,
         busy: false,
+        actionBusy: false,
         isSystemAdmin: false,
     };
 
@@ -198,7 +207,7 @@
         if (!state.ready) status.textContent = 'Chat storage required';
         else if (!state.providers.length) status.textContent = 'Chat provider required';
         else if (state.busy) status.textContent = 'Thinking…';
-        else status.textContent = 'Ready · read/advise mode';
+        else status.textContent = 'Ready · private Concierge';
     };
 
     const requestJson = async (url, options = {}) => {
@@ -219,6 +228,111 @@
         return data;
     };
 
+    const requestId = () => {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return `req_${window.crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g, '')}`;
+        }
+        return `req_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
+    };
+
+    const executeConciergeAction = async (action, confirmButton, cancelButton) => {
+        if (state.actionBusy) return;
+        const actionName = String(action.action || '');
+        const targetRef = String(action.target_ref || '');
+        if (!actionName || !targetRef) return;
+
+        state.actionBusy = true;
+        confirmButton.disabled = true;
+        cancelButton.disabled = true;
+        confirmButton.textContent = 'Working…';
+
+        const body = new URLSearchParams();
+        body.set('csrf_token', state.csrf);
+        body.set('confirmed', '1');
+        body.set('action', actionName);
+        body.set('target_ref', targetRef);
+        body.set('decision', String(action.decision || ''));
+        body.set('guest_count', String(Number.isInteger(action.guest_count) ? action.guest_count : 0));
+        body.set('thread_ref', state.threadRef);
+        body.set('request_id', requestId());
+
+        try {
+            const data = await requestJson('/api/account-agent-action.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+                body: body.toString(),
+            });
+            if (data.thread && data.thread.public_id) {
+                state.threadRef = String(data.thread.public_id);
+                localStorage.setItem(storageKey, state.threadRef);
+            }
+            await loadBootstrap(state.threadRef);
+            if (!data.thread || !data.thread.public_id) {
+                notice.hidden = false;
+                notice.textContent = `${String(data.message || 'Action completed.')} Chat history could not be saved for this action.`;
+            }
+            setOpen(true);
+        } catch (error) {
+            messageNode('assistant', error instanceof Error ? error.message : 'The Concierge action failed.', true);
+        } finally {
+            state.actionBusy = false;
+        }
+    };
+
+    const renderConcierge = (concierge) => {
+        while (conciergePanel.firstChild) conciergePanel.removeChild(conciergePanel.firstChild);
+        const items = concierge && Array.isArray(concierge.attention) ? concierge.attention : [];
+        if (!items.length || state.isSystemAdmin) {
+            conciergePanel.hidden = true;
+            return;
+        }
+
+        const heading = el('div', 'cv-account-agent-concierge-head');
+        heading.appendChild(el('span', 'cv-account-agent-message-label', 'Needs attention'));
+        heading.appendChild(el('strong', '', `${items.length} item${items.length === 1 ? '' : 's'}`));
+        conciergePanel.appendChild(heading);
+
+        items.forEach((item) => {
+            const card = el('article', 'cv-account-agent-concierge-card');
+            const copy = el('div', 'cv-account-agent-concierge-copy');
+            copy.appendChild(el('strong', '', String(item.title || 'Coveted update')));
+            const detail = String(item.detail || '').trim();
+            if (detail) copy.appendChild(el('p', '', detail));
+            card.appendChild(copy);
+
+            const actions = el('div', 'cv-account-agent-concierge-actions');
+            (Array.isArray(item.actions) ? item.actions : []).forEach((action) => {
+                const button = el('button', 'cv-account-agent-concierge-action', String(action.label || 'Review'));
+                button.type = 'button';
+                button.addEventListener('click', () => {
+                    if (state.actionBusy || actions.querySelector('[data-concierge-confirm]')) return;
+                    const confirm = el('div', 'cv-account-agent-concierge-confirm');
+                    confirm.dataset.conciergeConfirm = '1';
+                    confirm.appendChild(el('span', '', `Confirm “${String(action.label || 'this action')}”?`));
+                    const confirmButton = el('button', 'cv-account-agent-concierge-confirm-button', String(action.confirm_label || 'Confirm'));
+                    confirmButton.type = 'button';
+                    const cancelButton = el('button', 'cv-account-agent-concierge-cancel', 'Cancel');
+                    cancelButton.type = 'button';
+                    confirmButton.addEventListener('click', () => executeConciergeAction(action, confirmButton, cancelButton));
+                    cancelButton.addEventListener('click', () => confirm.remove());
+                    confirm.append(confirmButton, cancelButton);
+                    actions.appendChild(confirm);
+                });
+                actions.appendChild(button);
+            });
+
+            const href = safeInternalPath(item.url);
+            if (href) {
+                const open = el('a', 'cv-account-agent-concierge-link', 'Open');
+                open.href = href;
+                actions.appendChild(open);
+            }
+            card.appendChild(actions);
+            conciergePanel.appendChild(card);
+        });
+        conciergePanel.hidden = false;
+    };
+
     const applyBootstrap = (data) => {
         state.csrf = String(data.csrf || '');
         state.userRef = String(data.user_ref || '');
@@ -235,6 +349,7 @@
         if (state.threadRef) localStorage.setItem(storageKey, state.threadRef);
         else localStorage.removeItem(storageKey);
         renderHistory(data.recent_threads);
+        renderConcierge(data.concierge);
         renderMessages(data.messages);
 
         notice.hidden = true;
@@ -246,7 +361,7 @@
             notice.hidden = false;
             notice.textContent = state.isSystemAdmin
                 ? 'Agent chat needs an enabled OpenAI or Anthropic provider. Configure it in Admin → AI Settings.'
-                : 'Agent chat is not configured yet. A System Admin must enable a chat provider.';
+                : 'Agent chat is not configured yet. RSVP confirmation cards remain available, but a System Admin must enable a provider for conversation.';
         }
         updateAvailability();
     };
@@ -269,13 +384,6 @@
     const resizeInput = () => {
         input.style.height = 'auto';
         input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
-    };
-
-    const requestId = () => {
-        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-            return `req_${window.crypto.randomUUID().replace(/[^A-Za-z0-9_-]/g, '')}`;
-        }
-        return `req_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
     };
 
     const submitMessage = async () => {
