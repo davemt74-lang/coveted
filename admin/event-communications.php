@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
-require_once dirname(__DIR__) . '/app/event_communications.php';
+require_once dirname(__DIR__) . '/app/event_communications_agent.php';
 
 $admin = coveted_require_system_admin();
 $pdo = coveted_db();
@@ -16,6 +16,7 @@ $revealId = max(0, (int)($_GET['reveal'] ?? $_POST['reveal_id'] ?? 0));
 $error = '';
 $notice = '';
 $execution = null;
+$agentTrackingWarning = false;
 
 $eventOptions = $pdo->query(
     "SELECT public_id, title, starts_at, status
@@ -70,6 +71,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ((int)$summary['skipped'] > 0) $notice .= ' · ' . (int)$summary['skipped'] . ' skipped after live revalidation';
         if ((int)$summary['failed'] > 0) $notice .= ' · ' . (int)$summary['failed'] . ' failed';
         $notice .= '. Transport delivery remains in the canonical notification delivery queue.';
+
+        if ((int)$summary['queued'] > 0) {
+            try {
+                coveted_event_communications_agent_track_queue(
+                    $admin,
+                    $eventRef,
+                    $communicationType,
+                    (int)$summary['queued'],
+                    (int)$summary['duplicate'],
+                    $pdo
+                );
+                $notice .= ' The Agent lifecycle is now tracking canonical RSVP/forecast changes.';
+            } catch (Throwable $e) {
+                $agentTrackingWarning = true;
+                error_log('Event Communications Agent tracking failed: ' . $e->getMessage());
+            }
+        }
     } catch (InvalidArgumentException $e) {
         $error = $e->getMessage();
     } catch (Throwable $e) {
@@ -79,6 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $preview = null;
+$lifecycle = null;
+$taskSyncWarning = false;
 if ($eventRef !== '') {
     try {
         $preview = coveted_event_communications_preview($admin, $eventRef, $communicationType, $revealId, $pdo);
@@ -86,6 +106,16 @@ if ($eventRef !== '') {
         $reveals = (array)$preview['reveals'];
     } catch (InvalidArgumentException $e) {
         if ($error === '') $error = $e->getMessage();
+    }
+    try {
+        $lifecycle = coveted_event_communications_lifecycle_snapshot($admin, $eventRef, $pdo);
+        if (is_array($lifecycle['recommendation'] ?? null)) {
+            coveted_event_communications_agent_sync_recommendation($admin, $lifecycle, $pdo);
+            $lifecycle = coveted_event_communications_lifecycle_snapshot($admin, $eventRef, $pdo);
+        }
+    } catch (Throwable $e) {
+        $taskSyncWarning = true;
+        error_log('Event Communications lifecycle unavailable: ' . $e->getMessage());
     }
 }
 
@@ -95,6 +125,15 @@ $typeLabel = static fn(string $value): string => match ($value) {
     'location' => 'Location Update',
     'reveal' => 'Live Reveal / Instructions',
     default => 'Event Communication',
+};
+$stateLabel = static fn(string $value): string => match ($value) {
+    'waitlist_first' => 'Waitlist first',
+    'review_followup' => 'Review follow-up',
+    'recalculate_after_responses' => 'Forecast refreshed',
+    'waiting_response' => 'Waiting for response',
+    'next_wave' => 'Next wave',
+    'confirmation_ready' => 'Confirmation ready',
+    default => 'Hold',
 };
 $revealLabel = static fn(array $row): string => ucfirst((string)$row['reveal_type']) . ' · ' . ((string)($row['title'] ?? '') !== '' ? (string)$row['title'] : mb_substr((string)$row['content'], 0, 70));
 
@@ -109,6 +148,7 @@ coveted_admin_ui_start($admin, 'events', 'Event Communications');
     </div>
     <?php if ($currentEvent): ?>
         <div class="cv-action-row">
+            <a class="cv-button cv-button-soft" href="/admin/agent-tasks.php">Agent Tasks</a>
             <a class="cv-button cv-button-soft" href="/admin/event-rsvp-followup.php?event=<?= coveted_e(rawurlencode((string)$currentEvent['public_id'])) ?>">RSVP Follow-Up</a>
             <a class="cv-button cv-button-soft" href="/admin/event-invitation-waves.php?event=<?= coveted_e(rawurlencode((string)$currentEvent['public_id'])) ?>">Invitation Waves</a>
             <a class="cv-button cv-button-soft" href="/admin/event-invitation-execution.php?event=<?= coveted_e(rawurlencode((string)$currentEvent['public_id'])) ?>">Wave Execution</a>
@@ -119,6 +159,32 @@ coveted_admin_ui_start($admin, 'events', 'Event Communications');
 
 <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
 <?php if ($notice !== ''): ?><div class="cv-alert"><?= coveted_e($notice) ?></div><?php endif; ?>
+<?php if ($agentTrackingWarning): ?><div class="cv-alert cv-alert-error">The communication was queued, but Agent task tracking changed concurrently or was unavailable. Canonical notification state is unaffected.</div><?php endif; ?>
+<?php if ($taskSyncWarning): ?><div class="cv-alert cv-alert-error">Event communications remain available, but the aggregate Agent lifecycle could not be refreshed.</div><?php endif; ?>
+
+<?php if ($lifecycle): $lfForecast=(array)$lifecycle['forecast']; ?>
+<section class="cv-admin-panel cv-admin-section-gap">
+    <div class="cv-admin-panel-head">
+        <div><span class="cv-eyebrow">AGENT COMMUNICATIONS LIFECYCLE</span><h2><?= coveted_e((string)$lifecycle['title']) ?></h2></div>
+        <span class="cv-status"><?= coveted_e($stateLabel((string)$lifecycle['state'])) ?></span>
+    </div>
+    <p><?= coveted_e((string)$lifecycle['detail']) ?></p>
+    <div class="cv-admin-metric-grid">
+        <div><span>Reminder ready</span><strong><?= (int)$lifecycle['reminders']['ready'] ?></strong><small>current cycles not queued</small></div>
+        <div><span>Reminder queued</span><strong><?= (int)$lifecycle['reminders']['already_queued'] ?></strong><small>deduped current cycles</small></div>
+        <div><span>Responses since reminder</span><strong><?= (int)$lifecycle['responses_since_latest_reminder'] ?></strong><small>canonical RSVP changes</small></div>
+        <div><span>Forecast</span><strong><?= (int)$lfForecast['expected'] ?>/<?= (int)$lfForecast['target'] ?></strong><small><?= coveted_e((string)$lifecycle['wave_decision']) ?></small></div>
+    </div>
+    <dl class="cv-admin-event-definition-list">
+        <div><dt>Agent task</dt><dd><?= !empty($lifecycle['agent_task']) ? coveted_e(ucwords(str_replace('_',' ',(string)$lifecycle['agent_task']['status']))) . ' · ' . coveted_e((string)$lifecycle['agent_task']['task_ref']) : 'No active lifecycle task' ?></dd></div>
+        <div><dt>Latest communication</dt><dd><?= coveted_e((string)($lifecycle['queue']['latest_at'] ?: 'None queued')) ?></dd></div>
+        <div><dt>Learned response window</dt><dd><?= (int)$lifecycle['response_window_hours'] ?>h</dd></div>
+        <div><dt>Agent recipient identities</dt><dd>Not exposed</dd></div>
+    </dl>
+    <?php if (!empty($lifecycle['actionable'])): ?><div class="cv-action-row"><a class="cv-button cv-button-soft" href="<?= coveted_e((string)$lifecycle['href']) ?>">Open Recommended Action</a></div><?php endif; ?>
+    <div class="cv-alert"><strong>Agent boundary.</strong> <?= coveted_e((string)$lifecycle['authority']) ?> <?= coveted_e((string)$lifecycle['privacy']) ?></div>
+</section>
+<?php endif; ?>
 
 <section class="cv-admin-panel cv-admin-section-gap">
     <div class="cv-admin-panel-head"><div><span class="cv-eyebrow">COMMUNICATION SOURCE</span><h2>Select Event + message source</h2></div><span class="cv-status">System Admin</span></div>
