@@ -45,7 +45,7 @@ $contains($opportunity,"'create_proposal'",'Opportunity UI must create Proposal 
 $contains($opportunity,'coveted_event_proposal_create_from_opportunity','Opportunity UI must use canonical Proposal service');
 $contains($opportunity,'Event Playbook','Opportunity UI must choose a Playbook');
 $missing($opportunity,"'create_draft'",'Opportunity UI must not bypass Proposal workflow');
-$contains($proposals,'Partner Conversation','Proposal workspace must support partner discussion');
+$contains($proposals,'PARTNER CONVERSATION','Proposal workspace must support partner discussion');
 $contains($proposals,'Feeds Partner CRM','proposal workspace must make CRM linkage explicit');
 $contains($proposals,'Approve Proposal','proposal approval control required');
 $contains($proposals,'Convert to Draft Event','approved Proposal conversion control required');
