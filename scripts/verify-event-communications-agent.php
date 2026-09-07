@@ -82,7 +82,7 @@ $contains($operations, "'event_communications_attention'", 'Operations attention
 $contains($operations, "'event_communications' => \$eventCommunications", 'Operations response must expose aggregate communications lifecycle');
 $contains($operations, '$communicationRecommendations', 'communications recommendations must join the promoted Agent stream');
 $contains($operations, '$resultRecommendations=array_merge(', 'communications must reuse an existing promoted Agent opportunity stream');
-$contains($brain, "foreach (['event_planning','host_command','event_results'] as \$streamKey)", 'Admin Agent brain must continue promoting the shared event-results recommendation stream');
+$contains($brain, "foreach (['event_planning','host_command','event_results'", 'Admin Agent brain must continue promoting the shared event-results recommendation stream while permitting additive intelligence streams');
 $contains($tasks, 'function coveted_admin_agent_tasks_sync_opportunities', 'canonical Agent task queue must remain the task persistence service');
 $contains($communications, 'coveted_notification_create(', 'actual communication execution must remain in the canonical Phase 2 service');
 
