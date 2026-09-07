@@ -86,6 +86,8 @@
         userRef: '',
         providers: [],
         starters: [],
+        welcomeTitle: 'How can I help?',
+        welcomeBody: 'Ask about your Coveted events, invitations, benefits, hosting responsibilities, or account context.',
         ready: false,
         busy: false,
         isSystemAdmin: false,
@@ -130,8 +132,8 @@
         clearMessages();
         const empty = el('div', 'cv-account-agent-empty');
         empty.appendChild(el('div', 'cv-account-agent-mark', 'C'));
-        empty.appendChild(el('h3', '', 'How can I help?'));
-        empty.appendChild(el('p', '', 'Ask about your Coveted events, invitations, benefits, hosting responsibilities, or account context.'));
+        empty.appendChild(el('h3', '', state.welcomeTitle));
+        empty.appendChild(el('p', '', state.welcomeBody));
         const starters = el('div', 'cv-account-agent-starters');
         state.starters.forEach((prompt) => {
             const button = el('button', '', prompt);
@@ -223,6 +225,9 @@
         state.ready = Boolean(data.storage_ready);
         state.isSystemAdmin = Boolean(data.is_system_admin);
         state.starters = Array.isArray(data.starters) ? data.starters.map(String) : [];
+        const welcome = data.welcome && typeof data.welcome === 'object' ? data.welcome : {};
+        state.welcomeTitle = String(welcome.title || 'How can I help?');
+        state.welcomeBody = String(welcome.body || 'Ask about your Coveted events, invitations, benefits, hosting responsibilities, or account context.');
         roleSmall.textContent = `${data.role || 'Member'} · private account context`;
         renderProviders(data.providers);
         state.threadRef = data.thread ? String(data.thread.public_id || '') : '';

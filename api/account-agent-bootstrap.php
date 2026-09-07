@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/account_agent_context.php';
+require_once dirname(__DIR__) . '/app/member_onboarding_agent.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -48,7 +49,27 @@ try {
 
     $snapshot = coveted_account_agent_context_snapshot($user, '/', $pdo);
     $member = (array)($snapshot['member'] ?? []);
+    $onboarding = null;
+    $welcome = [
+        'title'=>'How can I help?',
+        'body'=>'Ask about your Coveted events, invitations, benefits, hosting responsibilities, or account context.',
+    ];
+
+    if (!empty($caps['member']) && empty($caps['system_admin'])) {
+        $onboarding = coveted_member_onboarding_agent_snapshot($user, $pdo);
+        $welcome = [
+            'title'=>'Your Coveted guide',
+            'body'=>(string)($onboarding['headline'] ?? 'I can help you decide what to do next in Coveted.'),
+        ];
+    }
+
     $starters = [];
+    if ($onboarding !== null) {
+        foreach ((array)($onboarding['starter_prompts'] ?? []) as $prompt) {
+            $prompt = trim((string)$prompt);
+            if ($prompt !== '') $starters[] = $prompt;
+        }
+    }
     if ((int)($member['pending_invitations'] ?? 0) > 0) {
         $starters[] = 'What invitations need my attention?';
     }
@@ -93,6 +114,8 @@ try {
             'last_message_at'=>(string)($row['last_message_at'] ?? ''),
         ], $recent),
         'starters'=>array_slice(array_values(array_unique($starters)), 0, 5),
+        'welcome'=>$welcome,
+        'onboarding'=>$onboarding,
         'authority'=>'Chat does not elevate account permissions. Mutations remain behind canonical Coveted controls and approval boundaries.',
     ]);
 } catch (Throwable $e) {
