@@ -11,6 +11,7 @@ require_once __DIR__ . '/event_results.php';
 require_once __DIR__ . '/member_relationships.php';
 require_once __DIR__ . '/event_invitation_waves.php';
 require_once __DIR__ . '/event_communications_agent.php';
+require_once __DIR__ . '/guest_member_conversion.php';
 
 /**
  * Read-only System Admin launch-health view.
@@ -19,13 +20,14 @@ require_once __DIR__ . '/event_communications_agent.php';
  * tables. It deliberately does not create a second lifecycle/state machine and
  * never exposes notification endpoints, push keys, provider error payloads,
  * private event feedback, attendee identities, communication recipient identities,
- * or Mutual Reconnect choices.
+ * Mutual Reconnect choices, or Guest Conversion identities.
  *
  * Event Opportunity, Proposal / Playbook, Event Production, Host Command,
  * Event Results, aggregate Member Relationship summaries, aggregate Invitation
- * Wave / RSVP forecasts and aggregate Event Communications lifecycle state are
- * intentionally included here because the Admin Agent consumes this canonical
- * Operations summary on every reasoning/chat round.
+ * Wave / RSVP forecasts, aggregate Event Communications lifecycle state and
+ * aggregate Guest → Member Conversion state are intentionally included here
+ * because the Admin Agent consumes this canonical Operations summary on every
+ * reasoning/chat round.
  *
  * @return array<string,mixed>
  */
@@ -155,16 +157,33 @@ function coveted_operations_snapshot(array $actor): array
         error_log('Operations Event Communications lifecycle unavailable: ' . $e->getMessage());
     }
 
+    try {
+        $guestConversion = coveted_guest_conversion_agent_context($actor, $pdo);
+    } catch (Throwable $e) {
+        $guestConversion = [
+            'available'=>false,
+            'counts'=>['first_time'=>0,'returning'=>0,'conversion_ready'=>0,'hold'=>0],
+            'recommendations'=>[],
+            'attention'=>0,
+            'unavailable'=>true,
+            'privacy'=>'Guest Conversion context unavailable.',
+            'authority'=>'No conversion action is available from Operations.',
+        ];
+        error_log('Operations Guest Conversion context unavailable: ' . $e->getMessage());
+    }
+
     $planningPipeline=(array)($eventPlanning['pipeline'] ?? []);
     $planningRecommendations=array_slice((array)($eventPlanning['recommendations'] ?? []),0,12);
     $hostRecommendations=array_slice((array)($hostCommand['recommendations'] ?? []),0,12);
     $relationshipRecommendations=array_slice((array)($memberRelationships['recommendations'] ?? []),0,8);
     $invitationWaveRecommendations=array_slice((array)($invitationWaves['recommendations'] ?? []),0,8);
     $communicationRecommendations=array_slice((array)($eventCommunications['recommendations'] ?? []),0,8);
+    $guestConversionRecommendations=array_slice((array)($guestConversion['recommendations'] ?? []),0,4);
     // Relationship, invitation-wave and communications lifecycle intelligence are
     // merged into the already promoted post-event recommendation stream so each
     // reaches the Admin Agent's canonical opportunity queue without a parallel
-    // Agent path. Priority sorting prevents urgent RSVP/waitlist work from being buried.
+    // Agent path. Guest Conversion remains its own aggregate-only stream so
+    // exact guest identities cannot leak into broad Event Result context.
     $resultRecommendations=array_merge(
         (array)($eventResults['recommendations'] ?? []),
         $relationshipRecommendations,
@@ -188,6 +207,7 @@ function coveted_operations_snapshot(array $actor): array
     $summary['member_relationship_attention'] = (int)($memberRelationships['attention'] ?? 0);
     $summary['invitation_wave_attention'] = (int)($invitationWaves['attention'] ?? 0);
     $summary['event_communications_attention'] = (int)($eventCommunications['attention'] ?? 0);
+    $summary['guest_conversion_attention'] = (int)($guestConversion['attention'] ?? 0);
     $summary['event_opportunities'] = array_slice((array)($eventOpportunities['recommendations'] ?? []), 0, 8);
     $summary['event_planning'] = [
         'available'=>!empty($eventPlanning['available']),
@@ -239,6 +259,14 @@ function coveted_operations_snapshot(array $actor): array
         'privacy' => (string)($eventCommunications['privacy'] ?? ''),
         'authority' => (string)($eventCommunications['authority'] ?? ''),
     ];
+    $summary['guest_conversion'] = [
+        'available' => !empty($guestConversion['available']),
+        'attention' => (int)($guestConversion['attention'] ?? 0),
+        'counts' => (array)($guestConversion['counts'] ?? []),
+        'recommendations' => $guestConversionRecommendations,
+        'privacy' => (string)($guestConversion['privacy'] ?? ''),
+        'authority' => (string)($guestConversion['authority'] ?? ''),
+    ];
 
     $summary['attention_count'] = (int)$summary['pending_role_requests']
         + (int)$summary['overdue_events']
@@ -253,7 +281,8 @@ function coveted_operations_snapshot(array $actor): array
         + (int)$summary['event_results_attention']
         + (int)$summary['member_relationship_attention']
         + (int)$summary['invitation_wave_attention']
-        + (int)$summary['event_communications_attention'];
+        + (int)$summary['event_communications_attention']
+        + (int)$summary['guest_conversion_attention'];
 
     $overdueEvents = $pdo->query(
         "SELECT
@@ -416,6 +445,7 @@ function coveted_operations_snapshot(array $actor): array
         'member_relationships' => $memberRelationships,
         'invitation_waves' => $invitationWaves,
         'event_communications' => $eventCommunications,
+        'guest_conversion' => $guestConversion,
         'lifecycle_backlog' => $lifecycleBacklog,
         'overdue_events' => $overdueEvents,
         'location_attention' => $locationAttention,
