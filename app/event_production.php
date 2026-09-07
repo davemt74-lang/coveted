@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/event_management.php';
+require_once __DIR__ . '/system_sample_data.php';
 
 /** @return array<int,string> */
 function coveted_event_production_phases(): array
@@ -37,6 +38,10 @@ function coveted_event_production_schema_available(?PDO $pdo = null): bool
 function coveted_event_production_require_event(array $actor, string $eventRef, ?PDO $pdo = null): array
 {
     $pdo ??= coveted_db();
+    if (coveted_system_sample_mode($actor, $pdo)) {
+        throw new InvalidArgumentException('Full System Sample Mode is read-only. Event Production is available only against live canonical events.');
+    }
+
     $eventRef = trim($eventRef);
     if ($eventRef === '' || strlen($eventRef) > 64) {
         throw new InvalidArgumentException('Event not found.');
@@ -64,7 +69,8 @@ function coveted_event_production_default_items(array $event): array
     $pre = $start->modify('-3 days')->format('Y-m-d H:i:s');
     $arrival = $start->modify('-90 minutes')->format('Y-m-d H:i:s');
     $live = $start->format('Y-m-d H:i:s');
-    $closeout = $start->modify('+4 hours')->format('Y-m-d H:i:s');
+    $closeoutBase = !empty($event['ends_at']) ? coveted_utc_datetime((string)$event['ends_at']) : $start->modify('+4 hours');
+    $closeout = $closeoutBase->modify('+30 minutes')->format('Y-m-d H:i:s');
 
     return [
         ['phase'=>'planning','item_type'=>'venue','title'=>'Confirm venue operating details','detail'=>'Confirm access, service window, capacity assumptions and the primary venue contact.','priority'=>'high','due_at'=>$pre,'sort_order'=>10],
@@ -306,6 +312,9 @@ function coveted_event_production_agent_context(array $admin, ?PDO $pdo = null):
 {
     if (!coveted_is_system_admin($admin)) throw new InvalidArgumentException('System Admin access is required.');
     $pdo ??= coveted_db();
+    if (coveted_system_sample_mode($admin, $pdo)) {
+        return ['unavailable'=>true,'reason'=>'sample_mode','events'=>[],'attention'=>0];
+    }
     if (!coveted_event_production_schema_available($pdo)) {
         return ['unavailable'=>true,'reason'=>'migration_not_installed','events'=>[],'attention'=>0];
     }
@@ -343,7 +352,7 @@ function coveted_event_production_agent_context(array $admin, ?PDO $pdo = null):
             'attending'=>(int)$snapshot['canonical']['attending_count'],
             'verified_attendance'=>(int)$snapshot['canonical']['verified_attendance'],
             'blockers'=>$blockers,
-            'href'=>'/admin/event.php?event=' . rawurlencode((string)$event['public_id']) . '&tab=production',
+            'href'=>'/admin/event-production.php?event=' . rawurlencode((string)$event['public_id']),
         ];
     }
     return ['unavailable'=>false,'events'=>$rows,'attention'=>$attention];
