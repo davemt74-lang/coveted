@@ -40,6 +40,7 @@ $contains($service, "'nudge_ready'", 'nudge-ready classification required');
 $contains($service, "'stop_contact'", 'stop-contact classification required');
 $contains($service, '$closeWindowHours = max(72, $responseWindowHours * 2);', 'stop-contact must require at least two learned windows / 72 hours');
 $contains($service, '$hoursToEvent <= 12.0', 'follow-up must stop when the Event is too close');
+$contains($service, '$waitlistReady = $capacity > 0 && $waitlist > 0 && $attendingSeats < $capacity;', 'waitlist-first must match canonical capacity-constrained promotion logic');
 $contains($service, "'waitlist_ready' => $waitlistReady", 'waitlist-first readiness required');
 $contains($service, "'key' => 'rsvp-followup-'", 'stable proactive Agent source key required');
 $contains($service, "'aggregate_context'", 'privacy-safe aggregate Agent context payload required');
