@@ -77,7 +77,7 @@ $contains($operations, "'host_command'", 'Operations summary must expose Host Co
 $contains($operations, "'recommendations' => \$hostRecommendations", 'Operations summary must carry Host Command recommendations');
 $contains($operations, "'host_command_attention'", 'Host Command attention must contribute to Operations attention');
 
-$contains($brain, "foreach (['event_planning','host_command'] as \$streamKey)", 'Agent opportunity queue must promote Playbook/Proposal and Host Command recommendations');
+$contains($brain, "foreach (['event_planning','host_command','event_results'] as \$streamKey)", 'Agent opportunity queue must retain Playbook/Proposal and Host Command recommendation promotion while allowing post-event intelligence');
 $contains($brain, "!str_starts_with(\$href, '/')", 'Agent recommendation routes must remain internal');
 $contains($brain, 'reason over Event Playbooks and Proposals', 'Agent capability catalog must include Playbook/Proposal reasoning');
 $contains($brain, 'review Host Command blockers and incidents', 'Agent capability catalog must include Host Command oversight');
