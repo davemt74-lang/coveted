@@ -101,6 +101,9 @@ jobs:
       - name: Verify RSVP Follow-Up Intelligence contract
         run: php scripts/verify-event-rsvp-followup.php
 
+      - name: Verify Event Communications Execution contract
+        run: php scripts/verify-event-communications.php
+
       - name: Verify Invitation Wave Execution JavaScript syntax
         run: node --check assets/js/event-invitation-execution-v1.js
 
