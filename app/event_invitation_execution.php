@@ -103,14 +103,14 @@ function coveted_event_invitation_execution_snapshot(array $admin, string $event
         static fn(mixed $row): bool => is_array($row) && (int)($row['user_id'] ?? 0) > 0
     ));
 
-    $eventStarts = strtotime((string)($event['starts_at'] ?? '')) ?: 0;
+    $eventStarts = coveted_utc_datetime((string)($event['starts_at'] ?? ''))->getTimestamp();
     $sendEnabled = str_starts_with($decisionKey, 'open_wave_')
         && $recommended > 0
         && (string)($event['status'] ?? '') === 'published'
         && $eventStarts > time();
 
     $safeLimit = $sendEnabled ? min($recommended, count($candidates), 50) : 0;
-    $candidates = array_slice($candidates, 0, max($safeLimit, count($candidates)));
+    $candidates = $safeLimit > 0 ? array_slice($candidates, 0, $safeLimit) : [];
     $task = coveted_event_invitation_execution_agent_task($admin, (string)($event['public_id'] ?? $eventRef), $pdo);
 
     return [
@@ -191,6 +191,7 @@ function coveted_event_invitation_execution_send_selected(
     // Critical revalidation: never trust a recipient list or safe limit rendered
     // earlier in the browser. Rebuild Guest Mix + forecast immediately before send.
     $live = coveted_event_invitation_execution_snapshot($admin, $eventRef, $pdo);
+    $canonicalEventRef = (string)($live['event']['public_id'] ?? $eventRef);
     if (empty($live['send_enabled']) || (int)$live['safe_limit'] < 1) {
         throw new InvalidArgumentException('The live forecast no longer recommends sending a new invitation wave. Refresh the queue.');
     }
@@ -227,7 +228,7 @@ function coveted_event_invitation_execution_send_selected(
         try {
             $invitationRef = coveted_event_invite_user(
                 $admin,
-                $eventRef,
+                $canonicalEventRef,
                 $userId,
                 $inviteType,
                 [
@@ -261,21 +262,34 @@ function coveted_event_invitation_execution_send_selected(
     }
 
     $agentTask = null;
+    $agentTrackingWarning = false;
     if ($sent > 0) {
-        $agentTask = coveted_event_invitation_execution_mark_agent_in_progress(
-            $admin,
-            $eventRef,
-            count($selected),
-            $sent,
-            $pdo
-        );
+        try {
+            $agentTask = coveted_event_invitation_execution_mark_agent_in_progress(
+                $admin,
+                $canonicalEventRef,
+                count($selected),
+                $sent,
+                $pdo
+            );
+        } catch (Throwable $e) {
+            // Invitations are already committed one recipient at a time. A concurrent
+            // task-queue update must never make a successful batch look rolled back.
+            $agentTrackingWarning = true;
+            error_log('Invitation Wave Agent task tracking failed: ' . $e->getMessage());
+            try {
+                $agentTask = coveted_event_invitation_execution_agent_task($admin, $canonicalEventRef, $pdo);
+            } catch (Throwable $ignored) {
+                $agentTask = null;
+            }
+        }
     }
 
-    $fresh = coveted_event_invitation_execution_snapshot($admin, $eventRef, $pdo);
+    $fresh = coveted_event_invitation_execution_snapshot($admin, $canonicalEventRef, $pdo);
     coveted_audit(
         'event.invitation_wave_batch_executed',
         'event',
-        $eventRef,
+        $canonicalEventRef,
         [
             'selected_count' => count($selected),
             'sent_count' => $sent,
@@ -284,6 +298,7 @@ function coveted_event_invitation_execution_send_selected(
             'decision_before' => (string)($live['decision']['key'] ?? ''),
             'decision_after' => (string)($fresh['decision']['key'] ?? ''),
             'agent_task_ref' => (string)($agentTask['public_id'] ?? ''),
+            'agent_tracking_warning' => $agentTrackingWarning,
         ],
         (int)$admin['id']
     );
@@ -296,5 +311,6 @@ function coveted_event_invitation_execution_send_selected(
         'before' => $live,
         'after' => $fresh,
         'agent_task' => $agentTask,
+        'agent_tracking_warning' => $agentTrackingWarning,
     ];
 }
