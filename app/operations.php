@@ -12,6 +12,7 @@ require_once __DIR__ . '/member_relationships.php';
 require_once __DIR__ . '/event_invitation_waves.php';
 require_once __DIR__ . '/event_communications_agent.php';
 require_once __DIR__ . '/guest_member_conversion.php';
+require_once __DIR__ . '/network_growth.php';
 
 /**
  * Read-only System Admin launch-health view.
@@ -20,14 +21,14 @@ require_once __DIR__ . '/guest_member_conversion.php';
  * tables. It deliberately does not create a second lifecycle/state machine and
  * never exposes notification endpoints, push keys, provider error payloads,
  * private event feedback, attendee identities, communication recipient identities,
- * Mutual Reconnect choices, or Guest Conversion identities.
+ * Mutual Reconnect choices, Guest Conversion identities, or referral identities.
  *
  * Event Opportunity, Proposal / Playbook, Event Production, Host Command,
  * Event Results, aggregate Member Relationship summaries, aggregate Invitation
- * Wave / RSVP forecasts, aggregate Event Communications lifecycle state and
- * aggregate Guest → Member Conversion state are intentionally included here
- * because the Admin Agent consumes this canonical Operations summary on every
- * reasoning/chat round.
+ * Wave / RSVP forecasts, aggregate Event Communications lifecycle state,
+ * aggregate Guest → Member Conversion state and aggregate Network Growth state
+ * are intentionally included here because the Admin Agent consumes this
+ * canonical Operations summary on every reasoning/chat round.
  *
  * @return array<string,mixed>
  */
@@ -172,6 +173,22 @@ function coveted_operations_snapshot(array $actor): array
         error_log('Operations Guest Conversion context unavailable: ' . $e->getMessage());
     }
 
+    try {
+        $networkGrowth = coveted_network_growth_agent_context($actor, 30, $pdo);
+    } catch (Throwable $e) {
+        $networkGrowth = [
+            'available'=>false,
+            'summary'=>[],
+            'groups'=>[],
+            'recommendations'=>[],
+            'attention'=>0,
+            'unavailable'=>true,
+            'privacy'=>'Network Growth context unavailable.',
+            'authority'=>'No referral or network-growth action is available from Operations.',
+        ];
+        error_log('Operations Network Growth context unavailable: ' . $e->getMessage());
+    }
+
     $planningPipeline=(array)($eventPlanning['pipeline'] ?? []);
     $planningRecommendations=array_slice((array)($eventPlanning['recommendations'] ?? []),0,12);
     $hostRecommendations=array_slice((array)($hostCommand['recommendations'] ?? []),0,12);
@@ -179,22 +196,25 @@ function coveted_operations_snapshot(array $actor): array
     $invitationWaveRecommendations=array_slice((array)($invitationWaves['recommendations'] ?? []),0,8);
     $communicationRecommendations=array_slice((array)($eventCommunications['recommendations'] ?? []),0,8);
     $guestConversionRecommendations=array_slice((array)($guestConversion['recommendations'] ?? []),0,4);
-    // Relationship, invitation-wave and communications lifecycle intelligence are
-    // merged into the already promoted post-event recommendation stream so each
-    // reaches the Admin Agent's canonical opportunity queue without a parallel
-    // Agent path. Guest Conversion remains its own aggregate-only stream so
-    // exact guest identities cannot leak into broad Event Result context.
+    $networkGrowthRecommendations=array_slice((array)($networkGrowth['recommendations'] ?? []),0,8);
+    // Relationship, invitation-wave, communications lifecycle and Network Growth
+    // intelligence are merged into the already promoted post-event recommendation
+    // stream so each reaches the Admin Agent's canonical opportunity queue without
+    // a parallel Agent path. Network Growth recommendations are group-level only;
+    // exact referrer/guest identities never enter this broad stream. Guest
+    // Conversion remains its own aggregate-only stream for the same reason.
     $resultRecommendations=array_merge(
         (array)($eventResults['recommendations'] ?? []),
         $relationshipRecommendations,
         $invitationWaveRecommendations,
-        $communicationRecommendations
+        $communicationRecommendations,
+        $networkGrowthRecommendations
     );
     usort($resultRecommendations, static function(array $a,array $b): int {
         $priority=((int)($a['priority']??3)) <=> ((int)($b['priority']??3));
         return $priority!==0 ? $priority : strcmp((string)($a['key']??''),(string)($b['key']??''));
     });
-    $resultRecommendations=array_slice($resultRecommendations,0,20);
+    $resultRecommendations=array_slice($resultRecommendations,0,24);
     $summary['event_opportunity_count'] = (int)($eventOpportunities['total'] ?? 0);
     $summary['event_opportunity_high_priority'] = (int)($eventOpportunities['high_priority'] ?? 0);
     $summary['event_proposal_active']=(int)($planningPipeline['active'] ?? 0);
@@ -208,6 +228,7 @@ function coveted_operations_snapshot(array $actor): array
     $summary['invitation_wave_attention'] = (int)($invitationWaves['attention'] ?? 0);
     $summary['event_communications_attention'] = (int)($eventCommunications['attention'] ?? 0);
     $summary['guest_conversion_attention'] = (int)($guestConversion['attention'] ?? 0);
+    $summary['network_growth_attention'] = (int)($networkGrowth['attention'] ?? 0);
     $summary['event_opportunities'] = array_slice((array)($eventOpportunities['recommendations'] ?? []), 0, 8);
     $summary['event_planning'] = [
         'available'=>!empty($eventPlanning['available']),
@@ -267,6 +288,16 @@ function coveted_operations_snapshot(array $actor): array
         'privacy' => (string)($guestConversion['privacy'] ?? ''),
         'authority' => (string)($guestConversion['authority'] ?? ''),
     ];
+    $summary['network_growth'] = [
+        'available' => !empty($networkGrowth['available']),
+        'attention' => (int)($networkGrowth['attention'] ?? 0),
+        'summary' => (array)($networkGrowth['summary'] ?? []),
+        'groups' => array_slice((array)($networkGrowth['groups'] ?? []),0,30),
+        'recommendations' => $networkGrowthRecommendations,
+        'privacy' => (string)($networkGrowth['privacy'] ?? ''),
+        'authority' => (string)($networkGrowth['authority'] ?? ''),
+        'measurement' => (string)($networkGrowth['measurement'] ?? ''),
+    ];
 
     $summary['attention_count'] = (int)$summary['pending_role_requests']
         + (int)$summary['overdue_events']
@@ -282,7 +313,8 @@ function coveted_operations_snapshot(array $actor): array
         + (int)$summary['member_relationship_attention']
         + (int)$summary['invitation_wave_attention']
         + (int)$summary['event_communications_attention']
-        + (int)$summary['guest_conversion_attention'];
+        + (int)$summary['guest_conversion_attention']
+        + (int)$summary['network_growth_attention'];
 
     $overdueEvents = $pdo->query(
         "SELECT
@@ -446,6 +478,7 @@ function coveted_operations_snapshot(array $actor): array
         'invitation_waves' => $invitationWaves,
         'event_communications' => $eventCommunications,
         'guest_conversion' => $guestConversion,
+        'network_growth' => $networkGrowth,
         'lifecycle_backlog' => $lifecycleBacklog,
         'overdue_events' => $overdueEvents,
         'location_attention' => $locationAttention,
