@@ -89,7 +89,7 @@ $contains($operationsUi,"\$guestCounts['hold']",'Operations UI must visibly surf
 $contains($operationsUi,'Exact guest identities, referral paths and attendance evidence stay inside the private System Admin workspace.','Operations UI must explain aggregate-only privacy');
 
 $contains($brain,"'guest_conversion'",'Admin Agent capability/stream must include Guest Conversion');
-$contains($brain,"'guest-conversions.php'",'Admin Agent must route conversion review to the private workspace');
+$contains($brain,'/admin/guest-conversions.php','Admin Agent must route conversion review to the private workspace');
 $contains($brain,"['event_planning','host_command','event_results','guest_conversion']",'Guest Conversion recommendations must enter the canonical Agent opportunity queue');
 $contains($brain,'recommend an explicit System Admin Invite-to-Stay review without automatic enrollment','Agent capability must preserve Admin and guest authority');
 $missing($brain,'coveted_group_create_stay_invitation(','Admin Agent brain must never execute Invite to Stay itself');
