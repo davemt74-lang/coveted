@@ -186,7 +186,14 @@ function coveted_operations_snapshot(array $actor): array
     );
     usort($resultRecommendations, static function(array $a,array $b): int {
         $priority=((int)($a['priority']??3)) <=> ((int)($b['priority']??3));
-        return $priority!==0 ? $priority : strcmp((string)($a['key']??''),(string)($b['key']??''));
+        if ($priority!==0) return $priority;
+        $keyCompare=strcmp((string)($a['key']??''),(string)($b['key']??''));
+        if ($keyCompare!==0) return $keyCompare;
+        // When lifecycle and delivery health share the same Event communications
+        // source key at the same priority, surface the transport-health warning.
+        $aDelivery=str_contains((string)($a['href']??''),'#delivery-health');
+        $bDelivery=str_contains((string)($b['href']??''),'#delivery-health');
+        return ($aDelivery===$bDelivery) ? 0 : ($aDelivery ? -1 : 1);
     });
     // De-duplicate by canonical source key after priority ordering. This matters
     // when lifecycle and delivery health both describe event-communications-<event>.
@@ -273,6 +280,9 @@ function coveted_operations_snapshot(array $actor): array
         'authority' => (string)($eventCommunicationDelivery['authority'] ?? ''),
     ];
 
+    // Global stuck/permanent transport rows are already counted above. Keep
+    // Event delivery attention as a contextual drilldown and Agent recommendation
+    // rather than adding the same underlying failures to attention_count twice.
     $summary['attention_count'] = (int)$summary['pending_role_requests']
         + (int)$summary['overdue_events']
         + (int)$summary['upcoming_without_location']
@@ -286,8 +296,7 @@ function coveted_operations_snapshot(array $actor): array
         + (int)$summary['event_results_attention']
         + (int)$summary['member_relationship_attention']
         + (int)$summary['invitation_wave_attention']
-        + (int)$summary['event_communications_attention']
-        + (int)$summary['event_communication_delivery_attention'];
+        + (int)$summary['event_communications_attention'];
 
     $overdueEvents = $pdo->query(
         "SELECT
