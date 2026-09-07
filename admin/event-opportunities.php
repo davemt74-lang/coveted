@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/event_opportunities.php';
-require_once dirname(__DIR__) . '/app/event_production.php';
+require_once dirname(__DIR__) . '/app/event_proposals.php';
 
 $admin = coveted_require_system_admin();
 $pdo = coveted_db();
@@ -15,25 +15,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     coveted_require_csrf();
     try {
         $action = trim((string)($_POST['action'] ?? ''));
-        if ($action !== 'create_draft') {
+        if ($action !== 'create_proposal') {
             throw new InvalidArgumentException('Unsupported Event Opportunity action.');
         }
-
-        $result = coveted_event_opportunity_create_draft($admin, $selectedKey, $pdo);
-        $eventRef = (string)$result['event']['public_id'];
-        if (coveted_event_production_schema_available($pdo)) {
-            try {
-                coveted_event_production_seed_defaults($admin, $eventRef, $pdo);
-            } catch (Throwable $e) {
-                error_log('Unable to seed Event Production defaults after opportunity draft: ' . $e->getMessage());
-            }
-        }
-        coveted_redirect('/admin/event-production.php?event=' . rawurlencode($eventRef) . '&created=1');
+        $result = coveted_event_proposal_create_from_opportunity(
+            $admin,
+            $selectedKey,
+            (string)($_POST['playbook_ref'] ?? ''),
+            $pdo
+        );
+        coveted_redirect('/admin/event-proposals.php?proposal=' . rawurlencode((string)$result['public_id']) . '&created=1');
     } catch (InvalidArgumentException $e) {
         $error = $e->getMessage();
     } catch (Throwable $e) {
-        error_log('Event Opportunity action failed: ' . $e->getMessage());
-        $error = 'Unable to create that recommended event draft right now.';
+        error_log('Event Opportunity proposal action failed: ' . $e->getMessage());
+        $error = 'Unable to create that Event Proposal right now.';
     }
 }
 
@@ -45,6 +41,9 @@ if ($selected === null && $opportunities) {
 }
 $high = count(array_filter($opportunities, static fn(array $row): bool => (int)$row['priority'] === 1));
 $avgScore = $opportunities ? (int)round(array_sum(array_map(static fn(array $row): int => (int)$row['score'], $opportunities)) / count($opportunities)) : 0;
+$proposalReady = coveted_event_proposal_schema_available($pdo);
+$playbooks = $proposalReady ? coveted_event_playbooks($admin, false, $pdo) : [];
+$recommendedPlaybook = $selected ? coveted_event_proposal_suggest_playbook($selected, $playbooks) : null;
 
 $formatStart = static function (string $utc, string $timezone): string {
     try {
@@ -63,17 +62,22 @@ coveted_admin_ui_start($admin, 'event-opportunities', 'Event Opportunities');
         <h1>What should Coveted host next?</h1>
         <p>Deterministic recommendations from group cadence, partner strength, attendance, member value and existing future-event coverage.</p>
     </div>
-    <a class="cv-button cv-button-soft" href="/admin/?view=events">All Events</a>
+    <div class="cv-admin-event-top-actions">
+        <a class="cv-button cv-button-soft" href="/admin/event-proposals.php">Proposals</a>
+        <a class="cv-button cv-button-soft" href="/admin/event-playbooks.php">Playbooks</a>
+        <a class="cv-button cv-button-soft" href="/admin/?view=events">All Events</a>
+    </div>
 </div>
 
 <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
 <?php if ($notice !== ''): ?><div class="cv-alert"><?= coveted_e($notice) ?></div><?php endif; ?>
+<?php if (!$proposalReady): ?><div class="cv-alert cv-alert-error"><strong>Planning migration required.</strong> Import the Event Proposals + Playbooks migration before turning recommendations into proposals.</div><?php endif; ?>
 
 <div class="cv-admin-metric-grid cv-admin-section-gap">
     <div><span>Recommendations</span><strong><?= count($opportunities) ?></strong><small>No future event already scheduled</small></div>
     <div><span>Priority</span><strong><?= $high ?></strong><small>P1 opportunities</small></div>
     <div><span>Avg score</span><strong><?= $avgScore ?></strong><small>0–100 deterministic score</small></div>
-    <div><span>Authority</span><strong>Admin</strong><small>Recommendations never create events automatically</small></div>
+    <div><span>Planning</span><strong>Proposal</strong><small>Opportunity → Playbook → Proposal → Event</small></div>
 </div>
 
 <?php if (!$opportunities): ?>
@@ -116,13 +120,22 @@ coveted_admin_ui_start($admin, 'event-opportunities', 'Event Opportunities');
                     <div><dt>Active perks</dt><dd><?= (int)$signals['active_perks'] ?></dd></div>
                     <div><dt>Active campaigns</dt><dd><?= (int)$signals['active_campaigns'] ?></dd></div>
                 </dl>
-                <div class="cv-alert"><strong>Draft only.</strong> Creating this recommendation opens a canonical draft Event and preloads its Event Production checklist. Publishing remains a separate System Admin decision.</div>
-                <form method="post" data-confirm="Create this recommended event as a draft?">
-                    <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
-                    <input type="hidden" name="action" value="create_draft">
-                    <input type="hidden" name="opportunity_key" value="<?= coveted_e((string)$selected['key']) ?>">
-                    <button class="cv-button cv-button-primary" type="submit">Create Draft + Production Plan</button>
-                </form>
+                <div class="cv-alert"><strong>Planning first.</strong> Create a proposal, work the partner relationship, approve the terms, then convert it into a canonical draft Event. Publishing remains a separate System Admin decision.</div>
+                <?php if ($proposalReady && $playbooks): ?>
+                    <form method="post" data-confirm="Create an Event Proposal from this recommendation?">
+                        <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
+                        <input type="hidden" name="action" value="create_proposal">
+                        <input type="hidden" name="opportunity_key" value="<?= coveted_e((string)$selected['key']) ?>">
+                        <label>Event Playbook
+                            <select name="playbook_ref" required>
+                                <?php foreach ($playbooks as $playbook): ?>
+                                    <option value="<?= coveted_e((string)$playbook['public_id']) ?>" <?= $recommendedPlaybook && (int)$recommendedPlaybook['id']===(int)$playbook['id']?'selected':'' ?>><?= coveted_e((string)$playbook['name']) ?> · <?= (int)$playbook['default_capacity'] ?> guests</option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+                        <button class="cv-button cv-button-primary" type="submit">Create Proposal</button>
+                    </form>
+                <?php endif; ?>
             </section>
         <?php endif; ?>
     </div>
@@ -130,6 +143,6 @@ coveted_admin_ui_start($admin, 'event-opportunities', 'Event Opportunities');
 
 <section class="cv-admin-panel cv-admin-section-gap">
     <div class="cv-admin-panel-head"><div><span class="cv-eyebrow">HOW IT THINKS</span><h2>Evidence, not guesswork</h2></div></div>
-    <p>The engine favors groups without another future event, then scores established venue relationships using time since the last event, relationship tier, verified attendance, active membership, enabled benefits, standing Partner Perks and active partner campaigns. It never invents a venue, group, member or event reference.</p>
+    <p>The engine favors groups without another future event, then scores established venue relationships using time since the last event, relationship tier, verified attendance, active membership, enabled benefits, standing Partner Perks and active partner campaigns. Playbooks turn that evidence into repeatable operating patterns without bypassing Partner CRM or System Admin approval.</p>
 </section>
 <?php coveted_admin_ui_end(); coveted_page_end(); ?>
