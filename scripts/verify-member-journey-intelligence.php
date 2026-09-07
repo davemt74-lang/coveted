@@ -39,14 +39,16 @@ $contains($journey,"ri.status='claimed'",'reward engagement must use canonical r
 $contains($scan,'function coveted_member_journey_scan_rows','bounded aggregate member scan is required');
 $contains($scan,'function coveted_member_journey_admin_index_fast','Admin queue must have aggregate-scan adapter');
 $contains($scan,'function coveted_member_journey_agent_context_fast','Agent must use aggregate-scan context');
-$contains($scan,"'key'=>'member-journey-review'",'Agent must receive aggregate Member Journey queue awareness');
-$contains($scan,"'key'=>'member-journey-'",'stable opaque per-member Agent opportunity key is required');
-$contains($scan,"'title'=>'Review a member journey next-best action'",'broad per-member Agent title must not expose the member name');
-$contains($scan,'if(count($individual)<6)','per-member proactive task fan-out must be capped');
+$contains($scan,"'key'=>'member-journey-pacing'",'Agent must receive aggregate pacing awareness');
+$contains($scan,"'key'=>'member-journey-reconnect'",'Agent must receive aggregate reconnect/recovery awareness');
+$contains($scan,"'key'=>'member-journey-followup'",'Agent must receive aggregate post-event/momentum awareness');
+$contains($scan,"'key'=>'member-journey-activation'",'Agent must receive aggregate activation awareness');
 $contains($scan,'One bounded aggregate member scan per Agent context build','Agent performance boundary must be explicit');
-$contains($scan,'Broad Agent context contains no member names, email addresses','Agent privacy boundary must be explicit');
+$contains($scan,'Broad Agent context contains no member names, member refs','Agent privacy boundary must explicitly exclude member identity');
 $contains($scan,'The Agent may recommend and track work, but System Admin explicitly performs','System Admin action authority must be explicit');
 $contains($scan,'coveted_system_sample_mode($admin,$pdo)','live journey Agent context must be isolated in Sample Mode');
+$missing($scan,"'?member='",'broad Agent context must not route by exact member identity');
+$missing($scan,"'member-journey-'.(string)$metrics['public_id']",'broad Agent context must not create per-member task keys');
 
 foreach(['INSERT INTO','UPDATE event_invitations','UPDATE event_rsvps','UPDATE reward_issuances','coveted_notification_create(','coveted_event_invite_user(','CREATE TABLE','ALTER TABLE'] as $needle){
     $missing($journey,$needle,'journey detail service must remain read-only: '.$needle);
@@ -57,7 +59,6 @@ $contains($relationships,"require_once __DIR__ . '/member_journey_scan.php';",'M
 $contains($relationships,'coveted_member_journey_agent_context_fast($admin,60,$pdo)','journey intelligence must enter the existing relationship Agent bridge through the aggregate scan');
 $contains($relationships,"'member_journey'=>",'relationship context must expose compact journey summary');
 $contains($relationships,"foreach(array_slice((array)(\$memberJourney['recommendations']??[]),0,8) as \$rec)\$recommendations[]=\$rec;",'journey recommendations must enter the existing promoted recommendation stream');
-$contains($relationships,'Member Journey recommendations use opaque member refs','relationship bridge must preserve identity privacy');
 $missing($relationships,'coveted_member_journey_agent_context($admin','Operations bridge must not use the N+1 member context path');
 
 $contains($operations,'$relationshipRecommendations=array_slice','Operations must continue consuming the canonical relationship recommendation stream');
@@ -67,6 +68,7 @@ $contains($tasks,'function coveted_admin_agent_tasks_sync_opportunities','proact
 
 $contains($page,"require_once dirname(__DIR__) . '/app/member_journey_scan.php';",'System Admin journey workspace must load aggregate scan');
 $contains($page,'coveted_member_journey_admin_index_fast($admin,100,$pdo)','System Admin queue must avoid a per-member metrics query loop');
+$contains($page,"coveted_admin_ui_start(\$admin,'member-journeys','Member Journeys')",'Member Journeys must own its active nav state');
 $contains($page,'MEMBER JOURNEY INTELLIGENCE','System Admin journey workspace is required');
 $contains($page,'NEXT BEST ACTION','journey workspace must display the current next-best action');
 $contains($page,'JOURNEY TIMELINE','journey workspace must show canonical interaction history');
