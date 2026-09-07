@@ -29,9 +29,16 @@ function coveted_event_communications_agent_source_task(array $admin, string $so
 /** @return array<string,mixed>|null */
 function coveted_event_communications_agent_task(array $admin, string $eventRef, ?PDO $pdo = null): ?array
 {
+    $eventRef = trim($eventRef);
+    $communications = coveted_event_communications_agent_source_task(
+        $admin,
+        'event-communications-' . $eventRef,
+        $pdo
+    );
+    if ($communications) return $communications;
     return coveted_event_communications_agent_source_task(
         $admin,
-        'event-communications-' . trim($eventRef),
+        'rsvp-followup-' . $eventRef,
         $pdo
     );
 }
@@ -175,8 +182,6 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
         $href .= '&type=rsvp_reminder';
         $priority = $daysToEvent <= 3.0 ? 1 : 2;
         $actionable = true;
-        // Phase 1 already owns this recommendation/task. Reuse its source key
-        // instead of creating a competing Event Communications task before send.
         $recommendationKey = 'rsvp-followup-' . (string)$event['public_id'];
         $recommendationCategory = 'RSVP Follow-Up';
     } elseif ($latestReminderAt !== '' && $responsesSinceReminder > 0) {
@@ -257,6 +262,7 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
         'agent_task'=>$task ? [
             'task_ref'=>(string)$task['public_id'],
             'status'=>(string)$task['status'],
+            'source_key'=>(string)$task['source_key'],
             'priority'=>(int)$task['priority'],
         ] : null,
         'privacy'=>'Agent context contains aggregate communication, RSVP and forecast counts only. Recipient names, emails, user IDs and reminder recipient lists are excluded.',
@@ -302,6 +308,7 @@ function coveted_event_communications_agent_context(array $admin, int $limit = 1
             'forecast'=>(array)$snap['forecast'],
             'wave_decision'=>(string)$snap['wave_decision'],
             'task_status'=>(string)($snap['agent_task']['status'] ?? ''),
+            'task_source_key'=>(string)($snap['agent_task']['source_key'] ?? ''),
             'href'=>(string)$snap['href'],
         ];
         if (is_array($snap['recommendation'] ?? null)) {
@@ -328,28 +335,6 @@ function coveted_event_communications_agent_sync_recommendation(array $admin, ar
     return coveted_admin_agent_tasks_sync_opportunities($admin, [$recommendation], $pdo);
 }
 
-function coveted_event_communications_agent_complete_source_task(
-    array $admin,
-    string $sourceKey,
-    ?PDO $pdo = null
-): void {
-    $pdo = coveted_event_communications_require_admin($admin, $pdo);
-    $task = coveted_event_communications_agent_source_task($admin,$sourceKey,$pdo);
-    if (!$task) return;
-    $status=(string)$task['status'];$ref=(string)$task['public_id'];
-    if ($status==='suggested') {
-        coveted_admin_agent_task_set_status($admin,$ref,'approved',$pdo,'suggested');
-        $status='approved';
-    }
-    if ($status==='approved') {
-        coveted_admin_agent_task_set_status($admin,$ref,'in_progress',$pdo,'approved');
-        $status='in_progress';
-    }
-    if ($status==='in_progress') {
-        coveted_admin_agent_task_set_status($admin,$ref,'completed',$pdo,'in_progress');
-    }
-}
-
 /** @return array<string,mixed>|null */
 function coveted_event_communications_agent_track_queue(
     array $admin,
@@ -363,17 +348,12 @@ function coveted_event_communications_agent_track_queue(
     if ($queuedCount < 1 || !coveted_admin_agent_tasks_schema_available($pdo)) return null;
     $event = coveted_event_communications_event($admin,$eventRef,$pdo);
 
-    // Explicitly queueing an RSVP reminder fulfills the Phase 1 follow-up task.
-    // Close that canonical stage before opening the response-tracking stage.
-    if ($communicationType==='rsvp_reminder') {
-        coveted_event_communications_agent_complete_source_task(
-            $admin,
-            'rsvp-followup-' . (string)$event['public_id'],
-            $pdo
-        );
-    }
-
-    $key = 'event-communications-' . (string)$event['public_id'];
+    // RSVP reminder execution continues the Phase 1 task through the response
+    // tracking stage. This keeps one reopenable source key for all reminder
+    // cycles on the Event instead of completing it and blocking future cycles.
+    $key = $communicationType==='rsvp_reminder'
+        ? 'rsvp-followup-' . (string)$event['public_id']
+        : 'event-communications-' . (string)$event['public_id'];
     coveted_admin_agent_tasks_sync_opportunities($admin, [[
         'priority'=>2,
         'key'=>$key,
@@ -384,7 +364,7 @@ function coveted_event_communications_agent_track_queue(
         'href'=>'/admin/event-communications.php?event='.rawurlencode((string)$event['public_id']),
     ]],$pdo);
 
-    $task = coveted_event_communications_agent_task($admin,(string)$event['public_id'],$pdo);
+    $task = coveted_event_communications_agent_source_task($admin,$key,$pdo);
     if (!$task) return null;
     $status=(string)$task['status'];$ref=(string)$task['public_id'];
     if ($status==='suggested') {
@@ -401,6 +381,7 @@ function coveted_event_communications_agent_track_queue(
         [
             'event_ref'=>(string)$event['public_id'],
             'communication_type'=>$communicationType,
+            'source_key'=>$key,
             'queued_count'=>$queuedCount,
             'duplicate_count'=>$duplicateCount,
             'recipient_identities_in_agent_payload'=>false,
