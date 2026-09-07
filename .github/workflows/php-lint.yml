@@ -44,6 +44,12 @@ jobs:
             -type f -name '*.php' -print0)
           exit "$failed"
 
+      - name: Verify persistent logged-in Agent Chat shell contract
+        run: php scripts/verify-account-agent-chat.php
+
+      - name: Verify persistent logged-in Agent Chat JavaScript syntax
+        run: node --check assets/js/account-agent-shell-v1.js
+
       - name: Verify event authority contract
         run: php scripts/verify-event-authority.php
 

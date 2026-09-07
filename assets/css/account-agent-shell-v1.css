@@ -1,0 +1,49 @@
+:root{--cv-agent-keyboard-offset:0px;--cv-agent-player-offset:0px}
+.cv-account-agent-active .cv-main{padding-bottom:max(132px,calc(132px + env(safe-area-inset-bottom)))}
+.cv-account-agent-shell{position:fixed;inset:0;z-index:900;pointer-events:none;font-family:inherit}
+.cv-account-agent-canvas{position:absolute;left:50%;bottom:calc(104px + var(--cv-agent-keyboard-offset) + var(--cv-agent-player-offset));width:min(860px,calc(100vw - 32px));max-height:min(68vh,720px);transform:translateX(-50%);display:flex;flex-direction:column;background:#fff;border:1px solid rgba(15,23,42,.12);border-radius:22px;box-shadow:0 24px 70px rgba(15,23,42,.18);overflow:hidden;pointer-events:auto}
+.cv-account-agent-canvas[hidden]{display:none}
+.cv-account-agent-canvas-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;border-bottom:1px solid rgba(15,23,42,.08);background:rgba(255,255,255,.96)}
+.cv-account-agent-title{min-width:0;display:flex;align-items:center;gap:10px}
+.cv-account-agent-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:10px;background:#111827;color:#fff;font-weight:800;font-size:14px;flex:0 0 auto}
+.cv-account-agent-title-copy{min-width:0;display:flex;flex-direction:column;line-height:1.15}
+.cv-account-agent-title-copy strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv-account-agent-title-copy small{margin-top:3px;color:#64748b;font-size:11px}
+.cv-account-agent-head-actions{display:flex;align-items:center;gap:7px}
+.cv-account-agent-icon-button{border:0;background:#f1f5f9;color:#334155;border-radius:10px;min-width:34px;height:34px;padding:0 10px;font:inherit;font-size:12px;cursor:pointer}
+.cv-account-agent-icon-button:hover{background:#e2e8f0}
+.cv-account-agent-history{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid rgba(15,23,42,.07);background:#f8fafc}
+.cv-account-agent-history select{min-width:0;max-width:320px;height:34px;border:1px solid #d8dee8;border-radius:9px;background:#fff;padding:0 9px;font:inherit;font-size:12px;color:#334155}
+.cv-account-agent-messages{overflow:auto;overscroll-behavior:contain;padding:20px 18px 28px;min-height:180px;scrollbar-gutter:stable}
+.cv-account-agent-empty{max-width:620px;margin:26px auto;text-align:center;color:#475569}
+.cv-account-agent-empty .cv-account-agent-mark{margin:0 auto 12px;width:42px;height:42px;border-radius:14px}
+.cv-account-agent-empty h3{margin:0 0 7px;color:#0f172a;font-size:19px}
+.cv-account-agent-empty p{margin:0;font-size:13px;line-height:1.55}
+.cv-account-agent-starters{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:16px}
+.cv-account-agent-starters button{border:1px solid #dbe2ea;background:#fff;border-radius:999px;padding:8px 11px;color:#334155;font:inherit;font-size:12px;cursor:pointer}
+.cv-account-agent-starters button:hover{background:#f8fafc;border-color:#cbd5e1}
+.cv-account-agent-message{display:flex;flex-direction:column;gap:5px;margin:0 auto 18px;max-width:720px}
+.cv-account-agent-message.is-user{align-items:flex-end}
+.cv-account-agent-message.is-assistant{align-items:flex-start}
+.cv-account-agent-message-label{font-size:10px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;padding:0 3px}
+.cv-account-agent-message-body{max-width:min(92%,680px);white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.55;color:#172033}
+.cv-account-agent-message.is-user .cv-account-agent-message-body{background:#eef2f7;border-radius:18px 18px 5px 18px;padding:10px 13px}
+.cv-account-agent-message.is-assistant .cv-account-agent-message-body{padding:4px 3px}
+.cv-account-agent-message.is-error .cv-account-agent-message-body{color:#991b1b}
+.cv-account-agent-typing{display:flex;gap:5px;padding:8px 3px;align-items:center}
+.cv-account-agent-typing i{width:6px;height:6px;border-radius:50%;background:#94a3b8;animation:cv-agent-dot 1.1s infinite ease-in-out}
+.cv-account-agent-typing i:nth-child(2){animation-delay:.15s}.cv-account-agent-typing i:nth-child(3){animation-delay:.3s}
+@keyframes cv-agent-dot{0%,60%,100%{opacity:.28;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.cv-account-agent-composer-wrap{position:absolute;left:50%;bottom:calc(14px + env(safe-area-inset-bottom) + var(--cv-agent-keyboard-offset) + var(--cv-agent-player-offset));width:min(860px,calc(100vw - 32px));transform:translateX(-50%);pointer-events:auto}
+.cv-account-agent-composer{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:end;gap:8px;padding:9px;background:rgba(255,255,255,.96);border:1px solid rgba(15,23,42,.13);border-radius:22px;box-shadow:0 12px 34px rgba(15,23,42,.14);backdrop-filter:blur(16px)}
+.cv-account-agent-launch{width:40px;height:40px;border:0;border-radius:14px;background:#111827;color:#fff;font-weight:800;cursor:pointer}
+.cv-account-agent-input{min-height:40px;max-height:160px;resize:none;overflow:auto;border:0;outline:0;background:transparent;color:#111827;padding:10px 4px 7px;font:inherit;font-size:14px;line-height:1.4}
+.cv-account-agent-input::placeholder{color:#94a3b8}
+.cv-account-agent-send{width:40px;height:40px;border:0;border-radius:50%;background:#111827;color:#fff;font-size:19px;line-height:1;cursor:pointer}
+.cv-account-agent-send:disabled,.cv-account-agent-launch:disabled{opacity:.35;cursor:not-allowed}
+.cv-account-agent-composer-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 9px 0;color:#64748b;font-size:10px;pointer-events:none}
+.cv-account-agent-composer-meta select{pointer-events:auto;border:0;background:transparent;color:#64748b;font:inherit;font-size:10px;max-width:220px}
+.cv-account-agent-notice{padding:10px 14px;background:#fff7ed;color:#9a3412;border-bottom:1px solid #fed7aa;font-size:12px;line-height:1.45}
+.cv-player:not([hidden])~.cv-account-agent-shell{--cv-agent-player-offset:74px}
+@media(max-width:720px){.cv-account-agent-active .cv-main{padding-bottom:max(118px,calc(118px + env(safe-area-inset-bottom)))}.cv-account-agent-canvas{width:calc(100vw - 12px);bottom:calc(90px + var(--cv-agent-keyboard-offset) + var(--cv-agent-player-offset));max-height:min(72vh,640px);border-radius:18px}.cv-account-agent-composer-wrap{width:calc(100vw - 12px);bottom:calc(6px + env(safe-area-inset-bottom) + var(--cv-agent-keyboard-offset) + var(--cv-agent-player-offset))}.cv-account-agent-composer{border-radius:18px;padding:7px}.cv-account-agent-launch,.cv-account-agent-send{width:38px;height:38px}.cv-account-agent-messages{padding:16px 12px 22px}.cv-account-agent-message-body{max-width:95%;font-size:13px}.cv-account-agent-history{padding:7px 10px}.cv-account-agent-history select{max-width:220px}.cv-account-agent-title-copy small{max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+@media(prefers-reduced-motion:reduce){.cv-account-agent-typing i{animation:none}}
