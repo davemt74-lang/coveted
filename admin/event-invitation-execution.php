@@ -37,6 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ((int)$execution['failed_count'] > 0) {
             $notice .= ' ' . (int)$execution['failed_count'] . ' recipient' . ((int)$execution['failed_count'] === 1 ? '' : 's') . ' could not be sent; review the result list below.';
         }
+        if (!empty($execution['agent_tracking_warning'])) {
+            $notice .= ' Invitations were sent, but the Agent task changed concurrently; refresh Agent Tasks to confirm its current tracking state.';
+        }
     } catch (InvalidArgumentException $e) {
         $error = $e->getMessage();
     } catch (Throwable $e) {
