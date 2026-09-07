@@ -52,7 +52,8 @@ $missing($page,'$_POST','Guest Mix workspace must remain read-only');
 $contains($relationships,"require_once __DIR__ . '/event_guest_mix.php';",'relationship intelligence must load Guest Mix Agent bridge');
 $contains($relationships,'coveted_event_guest_mix_agent_context($admin,12,$pdo)','relationship intelligence must request aggregate Guest Mix context');
 $contains($relationships,"'guest_mix'=>",'aggregate Guest Mix context must enter the existing Agent relationship stream');
-$contains($relationships,'No member identities, pair identities, Mutual Reconnect choices','combined Agent context must preserve identity/privacy boundary');
+$contains($relationships,'Aggregate group/event/member-journey relationship and Guest Mix signals only.','combined Agent context must remain aggregate across relationship, journey and Guest Mix signals');
+$contains($relationships,'pair identities, Mutual Reconnect choices, contact details, private messages, personality inference, and public rankings','combined Agent context must preserve the established private-data boundary');
 
 $contains($nav,'/admin/event-guest-mix.php?event=','Event Workspace navigation must expose Guest Mix');
 $contains($nav,"shell.dataset.systemSample==='1'",'Guest Mix navigation must remain isolated in Sample Mode');
