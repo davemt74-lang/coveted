@@ -63,8 +63,8 @@ $contains($operations,"require_once __DIR__ . '/network_growth.php';",'Operation
 $contains($operations,'coveted_network_growth_agent_context($actor, 30, $pdo)','Operations must load aggregate Network Growth context');
 $contains($operations,"'network_growth_attention'",'Operations launch health must include Network Growth attention');
 $contains($operations,"'network_growth'",'Operations summary must expose Network Growth context');
-$contains($operations,'$networkGrowthRecommendations','Network Growth recommendations must enter an existing promoted Agent stream');
-$contains($operations,'$networkGrowthRecommendations\n    );','Network Growth recommendations must join the shared event-results opportunity stream');
+$contains($operations,'$networkGrowthRecommendations=array_slice','Network Growth recommendations must be bounded before Agent promotion');
+$contains($operations,'$communicationRecommendations,\n        $networkGrowthRecommendations','Network Growth recommendations must join the shared event-results opportunity stream');
 $contains($brain,"foreach (['event_planning','host_command','event_results','guest_conversion'] as \$streamKey)",'Admin Agent must continue promoting the Operations recommendation streams');
 $contains($tasks,'function coveted_admin_agent_tasks_sync_opportunities','Network Growth recommendations must reach the canonical proactive task queue');
 
