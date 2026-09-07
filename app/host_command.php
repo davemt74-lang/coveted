@@ -42,9 +42,13 @@ function coveted_host_command_can_operate_task(string $role, array $item, int $a
 {
     if ($role === 'system_admin') return true;
     if ((string)$item['phase'] === 'planning') return false;
-    if (in_array($role,['lead','cohost'],true)) return true;
+
+    $assignedUserId = (int)($item['assigned_user_id'] ?? 0);
+    if ($role === 'lead') return true;
+    if ($role === 'cohost') return $assignedUserId === 0 || $assignedUserId === $actorId;
+
     return $role === 'checkin'
-        && (int)($item['assigned_user_id'] ?? 0) === $actorId
+        && $assignedUserId === $actorId
         && in_array((string)$item['item_type'],['guest','staffing','task','checklist','safety','other'],true);
 }
 
@@ -176,7 +180,7 @@ function coveted_host_command_agent_context(array $admin,?PDO $pdo=null): array
 {
     if (!coveted_is_system_admin($admin)) throw new InvalidArgumentException('System Admin access is required.');
     $pdo ??= coveted_db();
-    if (coveted_system_sample_mode($admin,$pdo) || !coveted_event_production_schema_available($pdo)) return ['available'=>false,'events'=>[],'attention'=>0];
+    if (coveted_system_sample_mode($admin,$pdo) || !coveted_event_production_schema_available($pdo)) return ['available'=>false,'events'=>[],'recommendations'=>[],'attention'=>0];
     $rows=$pdo->query(
         "SELECT e.id,e.public_id,e.title,e.status,e.starts_at,g.name AS group_name,
                 (SELECT COUNT(*) FROM event_hosts eh WHERE eh.event_id=e.id) AS host_count,
@@ -189,15 +193,25 @@ function coveted_host_command_agent_context(array $admin,?PDO $pdo=null): array
          WHERE e.status IN ('published','closed') AND e.starts_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY) AND e.starts_at<=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 14 DAY)
          ORDER BY e.starts_at ASC LIMIT 20"
     )->fetchAll();
-    $events=[];$attention=0;
+    $events=[];$recommendations=[];$attention=0;
     foreach($rows as $row){
-        $needs=(int)$row['host_blocked']>0||(int)$row['incidents_24h']>0;
+        $blocked=(int)$row['host_blocked'];
+        $incidents=(int)$row['incidents_24h'];
+        $needs=$blocked>0||$incidents>0;
         if($needs)$attention++;
+        $href='/host-command.php?event='.rawurlencode((string)$row['public_id']);
         $events[]=[
             'event_ref'=>(string)$row['public_id'],'title'=>(string)$row['title'],'status'=>(string)$row['status'],'starts_at'=>(string)$row['starts_at'],'group'=>(string)$row['group_name'],
-            'hosts'=>(int)$row['host_count'],'open_host_tasks'=>(int)$row['host_open'],'blocked_host_tasks'=>(int)$row['host_blocked'],'incidents_24h'=>(int)$row['incidents_24h'],'attending'=>(int)$row['attending'],'arrived'=>(int)$row['arrived'],
-            'href'=>'/host-command.php?event='.rawurlencode((string)$row['public_id']),
+            'hosts'=>(int)$row['host_count'],'open_host_tasks'=>(int)$row['host_open'],'blocked_host_tasks'=>$blocked,'incidents_24h'=>$incidents,'attending'=>(int)$row['attending'],'arrived'=>(int)$row['arrived'],
+            'href'=>$href,
         ];
+        if($blocked>0){
+            $recommendations[]=['priority'=>1,'key'=>'host-blocked:'.$row['public_id'],'category'=>'Events','title'=>'Resolve blocked Host Command work · '.$row['title'],'detail'=>'The assigned host team has blocked operational Production work. Review the canonical task state and unblock the event-day plan.','href'=>$href,'evidence'=>$blocked.' blocked host task'.($blocked===1?'':'s').' · '.$row['group_name']];
+        }
+        if($incidents>0){
+            $recommendations[]=['priority'=>1,'key'=>'host-incident:'.$row['public_id'],'category'=>'Events','title'=>'Review Host Command incident · '.$row['title'],'detail'=>'The host team logged a meaningful event-day incident in the last 24 hours. Review the operational record and decide whether follow-up is required.','href'=>$href,'evidence'=>$incidents.' incident'.($incidents===1?'':'s').' in 24h · '.$row['group_name']];
+        }
     }
-    return ['available'=>true,'events'=>$events,'attention'=>$attention,'authority'=>'Host Command is operational only. Hosts may execute allowed Production tasks, check in eligible guests and log incidents/closeout; event configuration remains System Admin-only.'];
+    usort($recommendations,static fn(array $a,array $b):int=>((int)$a['priority']<=> (int)$b['priority']) ?: strcmp((string)$a['key'],(string)$b['key']));
+    return ['available'=>true,'events'=>$events,'recommendations'=>array_slice($recommendations,0,12),'attention'=>$attention,'authority'=>'Host Command is operational only. Hosts may execute allowed Production tasks, check in eligible guests and log incidents/closeout; event configuration remains System Admin-only.'];
 }
