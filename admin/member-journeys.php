@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/member_journey.php';
+require_once dirname(__DIR__) . '/app/member_journey_scan.php';
 
 $admin=coveted_require_system_admin();
 $pdo=coveted_db();
@@ -13,7 +14,7 @@ if(coveted_system_sample_mode($admin,$pdo)){
 $memberRef=trim((string)($_GET['member']??''));
 $error='';$snapshot=null;
 try{
-    $index=coveted_member_journey_admin_index($admin,100,$pdo);
+    $index=coveted_member_journey_admin_index_fast($admin,100,$pdo);
     if($memberRef==='' && $index)$memberRef=(string)$index[0]['member_ref'];
     if($memberRef!=='')$snapshot=coveted_member_journey_snapshot($admin,$memberRef,$pdo);
 }catch(Throwable $e){
