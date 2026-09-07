@@ -84,7 +84,10 @@ function coveted_event_communication_delivery_rows(array $admin, string $eventRe
                 $transportState = ($failed + $permanent + $pending + $sending) > 0 ? 'partial' : 'sent';
             } elseif ($stuck > 0) {
                 $transportState = 'stuck';
-            } elseif ($permanent > 0 && ($pending + $sending + $failed) === 0) {
+            } elseif ($permanent > 0) {
+                // If one device is permanently failed while another device is
+                // still pending/retrying, keep the notification visible as a
+                // permanent-failure concern until any device succeeds.
                 $transportState = 'permanent_failure';
             } elseif ($failed > 0) {
                 $transportState = 'retrying';
@@ -195,9 +198,10 @@ function coveted_event_communication_delivery_snapshot(array $admin, string $eve
     } elseif ($counts['notifications'] > 0 && $coverage < 50.0 && $hoursToEvent <= 24.0) {
         $severity = 'limited_push_coverage';
         $title = 'Event communication has limited push coverage';
-        $detail = 'Most canonical notifications for this Event have no active Web Push delivery route. The in-app notifications still exist, but System Admin should account for limited push reach close to Event start.';
+        $detail = 'Most canonical notifications for this Event have no Web Push delivery row. The in-app notifications still exist, but System Admin should account for limited push reach close to Event start.';
     }
 
+    $deliveryHref='/admin/event-communication-delivery.php?event='.rawurlencode((string)$event['public_id']).'#delivery-health';
     $recommendation = $actionable ? [
         'priority'=>$priority,
         'key'=>'event-communications-' . (string)$event['public_id'],
@@ -205,7 +209,7 @@ function coveted_event_communication_delivery_snapshot(array $admin, string $eve
         'title'=>$title,
         'detail'=>$detail,
         'evidence'=>$counts['stuck'] . ' stuck · ' . $counts['permanent_failure'] . ' permanent failure · ' . $criticalOpen . ' critical still open · ' . $coverage . '% push-routed · ' . round($hoursToEvent,1) . 'h to Event.',
-        'href'=>'/admin/event-communications.php?event='.rawurlencode((string)$event['public_id']).'#delivery-health',
+        'href'=>$deliveryHref,
     ] : null;
 
     return [
@@ -227,7 +231,7 @@ function coveted_event_communication_delivery_snapshot(array $admin, string $eve
         'latest_critical_queued_at'=>$latestCritical,
         'recommendation'=>$recommendation,
         'rows'=>$rows,
-        'privacy'=>'Broad Agent context receives aggregate delivery counts only. Exact member identities and per-notification delivery details stay in the System Admin Event Communications workspace. Endpoint URLs, push keys and provider response bodies are never exposed by this service.',
+        'privacy'=>'Broad Agent context receives aggregate delivery counts only. Exact member identities and per-notification delivery details stay in the System Admin Delivery Health workspace. Endpoint URLs, push keys and provider response bodies are never exposed by this service.',
         'authority'=>'Delivery Health is read-only. It does not retry, dispatch, cancel or mutate notifications. System Admin remains responsible for communication decisions and the canonical transport worker remains the only dispatcher.',
     ];
 }
@@ -273,7 +277,7 @@ function coveted_event_communication_delivery_agent_context(array $admin, int $l
             'critical_open'=>(int)$snap['critical_open'],
             'push_coverage_percent'=>(float)$snap['push_coverage_percent'],
             'hours_to_event'=>(float)$snap['hours_to_event'],
-            'href'=>'/admin/event-communications.php?event='.rawurlencode((string)$snap['event']['event_ref']).'#delivery-health',
+            'href'=>'/admin/event-communication-delivery.php?event='.rawurlencode((string)$snap['event']['event_ref']).'#delivery-health',
         ];
         if (is_array($snap['recommendation'] ?? null)) {
             $attention++;
