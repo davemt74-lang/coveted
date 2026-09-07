@@ -30,19 +30,37 @@ function coveted_event_rsvp_followup_pending(PDO $pdo, array $event, int $respon
             ei.user_id,
             ei.invite_type,
             ei.status,
-            ei.created_at AS invited_at,
+            COALESCE((
+                SELECT MAX(ae.created_at)
+                FROM audit_events ae
+                WHERE ae.event_type = 'event.user_invited'
+                  AND ae.entity_type = 'event'
+                  AND ae.entity_id = ev.public_id
+                  AND JSON_UNQUOTE(JSON_EXTRACT(ae.metadata_json, '$.invitation_id')) = ei.public_id
+            ), ei.created_at) AS invited_at,
             u.display_name,
             er.response,
             er.responded_at,
-            TIMESTAMPDIFF(HOUR, ei.created_at, UTC_TIMESTAMP()) AS age_hours
+            TIMESTAMPDIFF(HOUR,
+                COALESCE((
+                    SELECT MAX(ae2.created_at)
+                    FROM audit_events ae2
+                    WHERE ae2.event_type = 'event.user_invited'
+                      AND ae2.entity_type = 'event'
+                      AND ae2.entity_id = ev.public_id
+                      AND JSON_UNQUOTE(JSON_EXTRACT(ae2.metadata_json, '$.invitation_id')) = ei.public_id
+                ), ei.created_at),
+                UTC_TIMESTAMP()
+            ) AS age_hours
          FROM event_invitations ei
+         JOIN events ev ON ev.id = ei.event_id
          JOIN users u ON u.id = ei.user_id
          LEFT JOIN event_rsvps er ON er.event_id = ei.event_id AND er.user_id = ei.user_id
          WHERE ei.event_id = ?
            AND ei.status = 'pending'
            AND er.response IS NULL
            AND u.status = 'active'
-         ORDER BY ei.created_at ASC, ei.id ASC"
+         ORDER BY invited_at ASC, ei.id ASC"
     );
     $stmt->execute([(int)$event['id']]);
 
