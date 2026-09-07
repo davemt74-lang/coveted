@@ -152,12 +152,18 @@ function coveted_operations_snapshot(array $actor): array
     $invitationWaveRecommendations=array_slice((array)($invitationWaves['recommendations'] ?? []),0,8);
     // Relationship and invitation-wave intelligence are merged into the already
     // promoted post-event recommendation stream so both reach the Admin Agent's
-    // canonical opportunity queue without parallel Agent paths.
-    $resultRecommendations=array_slice(array_merge(
+    // canonical opportunity queue without parallel Agent paths. Priority sorting
+    // prevents urgent Wave 3 or waitlist work from being buried by insertion order.
+    $resultRecommendations=array_merge(
         (array)($eventResults['recommendations'] ?? []),
         $relationshipRecommendations,
         $invitationWaveRecommendations
-    ),0,16);
+    );
+    usort($resultRecommendations, static function(array $a,array $b): int {
+        $priority=((int)($a['priority']??3)) <=> ((int)($b['priority']??3));
+        return $priority!==0 ? $priority : strcmp((string)($a['key']??''),(string)($b['key']??''));
+    });
+    $resultRecommendations=array_slice($resultRecommendations,0,16);
     $summary['event_opportunity_count'] = (int)($eventOpportunities['total'] ?? 0);
     $summary['event_opportunity_high_priority'] = (int)($eventOpportunities['high_priority'] ?? 0);
     $summary['event_proposal_active']=(int)($planningPipeline['active'] ?? 0);
