@@ -41,6 +41,10 @@ $lifecycleLabel=static fn(string $state):string=>ucwords(str_replace('_',' ',$st
 $kindLabel=static fn(string $kind):string=>match($kind){
     'invitation'=>'Invitation','rsvp'=>'RSVP','attendance'=>'Attendance','reward'=>'Reward',default=>ucfirst($kind),
 };
+$fmtOrigin=static function(?string $value):string{
+    $value=trim((string)$value);if($value==='')return 'Not recorded';
+    try{return coveted_utc_datetime($value)->setTimezone(coveted_timezone())->format('M j, Y g:i A');}catch(Throwable){return $value;}
+};
 
 coveted_page_start('Member Journeys','',true);
 coveted_admin_ui_start($admin,'member-journeys','Member Journeys');
@@ -53,6 +57,7 @@ coveted_admin_ui_start($admin,'member-journeys','Member Journeys');
     </div>
     <div class="cv-action-row">
         <a class="cv-button cv-button-soft" href="/admin/membership-lifecycle.php<?= $memberRef!==''?'?member='.coveted_e(rawurlencode($memberRef)):'' ?>">Membership Lifecycle</a>
+        <a class="cv-button cv-button-soft" href="/admin/guest-conversions.php">Guest Conversion</a>
         <a class="cv-button cv-button-soft" href="/admin/member-relationships.php">Relationship Intelligence</a>
         <a class="cv-button cv-button-soft" href="/admin/agent-tasks.php">Agent Tasks</a>
         <a class="cv-button cv-button-soft" href="/admin/?view=users">Users</a>
@@ -93,6 +98,7 @@ coveted_admin_ui_start($admin,'member-journeys','Member Journeys');
 
 <?php if($snapshot):
     $member=(array)$snapshot['member'];$metrics=(array)$snapshot['metrics'];$decision=(array)$snapshot['decision'];$prefs=(array)$snapshot['preferences'];
+    $origin=is_array($snapshot['membership_origin']??null)?(array)$snapshot['membership_origin']:null;
 ?>
 <section class="cv-admin-panel cv-admin-section-gap">
     <div class="cv-admin-panel-head">
@@ -108,6 +114,24 @@ coveted_admin_ui_start($admin,'member-journeys','Member Journeys');
         <a class="cv-button cv-button-soft" href="/admin/member-relationships.php">Relationship Intelligence</a>
     </div>
 </section>
+
+<?php if($origin):$originInviter=(array)($origin['invited_by']??[]);$originReferrer=is_array($origin['referrer']??null)?(array)$origin['referrer']:null;?>
+<section class="cv-admin-panel cv-admin-section-gap">
+    <div class="cv-admin-panel-head">
+        <div><span class="cv-eyebrow">GUEST → MEMBER ORIGIN</span><h2>Accepted Invite to Stay</h2></div>
+        <span class="cv-status">Converted</span>
+    </div>
+    <p>This member entered through the canonical Guest → Invite to Stay → Member path. The outcome is historical provenance only; it does not create a score or alter current access.</p>
+    <dl class="cv-admin-event-definition-list">
+        <div><dt>Converted group</dt><dd><?=coveted_e((string)$origin['group_name'])?></dd></div>
+        <div><dt>Accepted</dt><dd><?=coveted_e($fmtOrigin((string)$origin['converted_at']))?></dd></div>
+        <div><dt>Invite approved by</dt><dd><?=coveted_e((string)($originInviter['display_name']??'Unknown'))?></dd></div>
+        <div><dt>Known referral path</dt><dd><?= $originReferrer?coveted_e((string)$originReferrer['display_name']):'Not established from Guest Pass history' ?></dd></div>
+    </dl>
+    <div class="cv-alert"><strong>Canonical outcome:</strong> The member conversion was recorded only after the guest accepted <code><?=coveted_e((string)$origin['invitation_ref'])?></code>.</div>
+    <div class="cv-action-row"><a class="cv-button cv-button-soft" href="/admin/guest-conversions.php">Review Guest Conversion</a></div>
+</section>
+<?php endif;?>
 
 <?php if($lifecycle):$lifecycleRec=is_array($lifecycle['recommendation']??null)?(array)$lifecycle['recommendation']:null;?>
 <section class="cv-admin-panel cv-admin-section-gap">
