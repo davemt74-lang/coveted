@@ -98,6 +98,9 @@ jobs:
       - name: Verify Invitation Wave Execution Queue + Agent management contract
         run: php scripts/verify-event-invitation-execution.php
 
+      - name: Verify RSVP Follow-Up Intelligence contract
+        run: php scripts/verify-event-rsvp-followup.php
+
       - name: Verify Invitation Wave Execution JavaScript syntax
         run: node --check assets/js/event-invitation-execution-v1.js
 

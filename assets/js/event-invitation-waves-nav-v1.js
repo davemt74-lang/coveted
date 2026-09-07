@@ -24,6 +24,14 @@
         if (location.pathname === '/admin/event-invitation-execution.php') link.classList.add('is-active');
         tabs.appendChild(link);
     }
+    if (tabs && !tabs.querySelector('[data-event-rsvp-followup-tab]')) {
+        const link = document.createElement('a');
+        link.dataset.eventRsvpFollowupTab = '1';
+        link.href = `/admin/event-rsvp-followup.php?event=${encodeURIComponent(eventRef)}`;
+        link.textContent = 'RSVP Follow-Up';
+        if (location.pathname === '/admin/event-rsvp-followup.php') link.classList.add('is-active');
+        tabs.appendChild(link);
+    }
 
     const actions = document.querySelector('.cv-admin-event-top-actions,.cv-admin-page-head .cv-action-row');
     if (actions && !actions.querySelector('[data-event-invitation-waves-action]')) {
@@ -40,6 +48,14 @@
         link.className = 'cv-button cv-button-soft';
         link.href = `/admin/event-invitation-execution.php?event=${encodeURIComponent(eventRef)}`;
         link.textContent = 'Wave Execution';
+        actions.prepend(link);
+    }
+    if (actions && !actions.querySelector('[data-event-rsvp-followup-action]')) {
+        const link = document.createElement('a');
+        link.dataset.eventRsvpFollowupAction = '1';
+        link.className = 'cv-button cv-button-soft';
+        link.href = `/admin/event-rsvp-followup.php?event=${encodeURIComponent(eventRef)}`;
+        link.textContent = 'RSVP Follow-Up';
         actions.prepend(link);
     }
 })();
