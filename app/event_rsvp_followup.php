@@ -121,7 +121,9 @@ function coveted_event_rsvp_followup_snapshot(array $admin, string $eventRef, ?P
     $capacity = max(0, (int)($event['capacity'] ?? 0));
     $attendingSeats = max(0, (int)($state['attending_seats'] ?? 0));
     $waitlist = max(0, (int)($state['waitlist_rsvps'] ?? 0));
-    $waitlistReady = $waitlist > 0 && ($capacity === 0 || $attendingSeats < $capacity);
+    // Match the canonical Invitation Wave rule exactly: waitlist promotion is
+    // meaningful only for a capacity-constrained Event with seats available.
+    $waitlistReady = $capacity > 0 && $waitlist > 0 && $attendingSeats < $capacity;
     $daysToEvent = (float)($state['days_to_event'] ?? 0.0);
 
     $recommendation = null;
@@ -132,7 +134,7 @@ function coveted_event_rsvp_followup_snapshot(array $admin, string $eventRef, ?P
             'category' => 'RSVP Follow-Up',
             'title' => 'Reconcile the waitlist before follow-up outreach',
             'detail' => 'Existing waitlisted demand should be promoted through the canonical RSVP flow before contacting pending invitees again.',
-            'evidence' => $waitlist . ' waitlisted RSVP' . ($waitlist === 1 ? '' : 's') . ' and ' . $attendingSeats . ' attending seat' . ($attendingSeats === 1 ? '' : 's') . ' against capacity ' . ($capacity > 0 ? $capacity : 'open') . '.',
+            'evidence' => $waitlist . ' waitlisted RSVP' . ($waitlist === 1 ? '' : 's') . ' and ' . $attendingSeats . ' attending seat' . ($attendingSeats === 1 ? '' : 's') . ' against capacity ' . $capacity . '.',
             'href' => '/admin/event-rsvp-followup.php?event=' . rawurlencode((string)$event['public_id']),
         ];
     } elseif ($counts['nudge_ready'] > 0) {
