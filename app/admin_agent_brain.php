@@ -6,6 +6,7 @@ require_once __DIR__ . '/operations.php';
 require_once __DIR__ . '/ai_providers.php';
 require_once __DIR__ . '/site_settings.php';
 require_once __DIR__ . '/system_sample_data.php';
+require_once __DIR__ . '/membership_lifecycle.php';
 
 /**
  * The Admin Agent brain is deliberately read-only. It derives its state from
@@ -115,8 +116,6 @@ function coveted_admin_agent_crm_metrics(PDO $pdo, array &$issues): array
              FROM invite_requests"
         )->fetch() ?: [];
     } catch (Throwable $e) {
-        // Invite CRM is migration-backed on older installs. Its absence must
-        // never take down the Admin Agent.
         $issues[] = 'invite_crm';
         return [
             'new_count' => 0,
@@ -166,6 +165,7 @@ function coveted_admin_agent_capabilities(): array
     return [
         ['key' => 'people', 'label' => 'People & access', 'href' => '/admin/?view=users', 'can' => ['create users', 'grant or revoke platform roles', 'suspend or reactivate accounts', 'reset passwords']],
         ['key' => 'crm', 'label' => 'Invite CRM', 'href' => '/admin/crm.php', 'can' => ['review invite requests', 'qualify prospects', 'convert approved prospects into member accounts']],
+        ['key' => 'membership_lifecycle', 'label' => 'Membership lifecycle', 'href' => '/admin/membership-lifecycle.php', 'can' => ['review invited, applicant, active, engaged, drifting, paused and alumni CRM state', 'review renewal and re-engagement evidence', 'persist System Admin-authorized lifecycle transitions']],
         ['key' => 'businesses', 'label' => 'Businesses', 'href' => '/admin/?view=businesses', 'can' => ['create partner businesses', 'assign Business Admins', 'open business workspaces for locations, rewards and campaigns']],
         ['key' => 'groups', 'label' => 'Groups', 'href' => '/admin/?view=groups', 'can' => ['create private communities', 'manage status', 'open group membership and host workflows']],
         ['key' => 'events', 'label' => 'Events', 'href' => '/admin/?view=events', 'can' => ['create events inside groups', 'reason over Event Playbooks and Proposals', 'manage hosts, locations, invitations, RSVPs, attendance and lifecycle', 'review Host Command blockers and incidents', 'review Event Results and post-event intelligence']],
@@ -255,10 +255,6 @@ function coveted_admin_agent_opportunities(
         $add(1, 'delivery-health', 'Operations', 'Review notification delivery failures', 'Push delivery has permanent failures or records stuck in the canonical queue.', '/admin/operations.php', $count . ' delivery item' . ($count === 1 ? '' : 's') . ' need attention.');
     }
 
-    // Event Playbooks / Proposals, Host Command and Event Results are first-class
-    // Agent brain inputs. Their services provide compact canonical recommendations
-    // with internal routes; promote them into the same opportunity queue the Admin
-    // Agent is instructed to prioritize during chat.
     foreach (['event_planning','host_command','event_results'] as $streamKey) {
         $stream = (array)($summary[$streamKey] ?? []);
         foreach (array_slice((array)($stream['recommendations'] ?? []), 0, 6) as $recommendation) {
@@ -408,6 +404,14 @@ function coveted_admin_agent_snapshot(array $admin, ?PDO $pdo = null): array
         error_log('Admin Agent operations snapshot unavailable: ' . $e->getMessage());
     }
 
+    try {
+        $membershipLifecycle = coveted_membership_lifecycle_agent_context($admin, 120, $pdo);
+    } catch (Throwable $e) {
+        $membershipLifecycle = ['available'=>false,'reason'=>'unavailable','summary'=>[],'recommendations'=>[],'attention'=>0];
+        $issues[] = 'membership_lifecycle';
+        error_log('Admin Agent membership lifecycle context unavailable: ' . $e->getMessage());
+    }
+
     $landingEventsEnabled = coveted_site_setting_bool(COVETED_SETTING_LANDING_EVENTS, false, $pdo);
     $sampleEventsEnabled = coveted_site_setting_bool(COVETED_SETTING_LANDING_SAMPLE_EVENTS, false, $pdo);
 
@@ -437,6 +441,18 @@ function coveted_admin_agent_snapshot(array $admin, ?PDO $pdo = null): array
         $pwaReady,
         count($pwaFiles)
     );
+    foreach((array)($membershipLifecycle['recommendations']??[]) as $recommendation){
+        if(!is_array($recommendation))continue;
+        $key=trim((string)($recommendation['key']??''));
+        $title=trim((string)($recommendation['title']??''));
+        $href=trim((string)($recommendation['href']??''));
+        if($key===''||$title===''||!str_starts_with($href,'/admin/'))continue;
+        $opportunities[]=$recommendation;
+    }
+    usort($opportunities,static function(array $a,array $b):int{
+        $priority=((int)($a['priority']??2))<=>((int)($b['priority']??2));
+        return $priority!==0?$priority:strcmp((string)($a['key']??''),(string)($b['key']??''));
+    });
 
     $app = coveted_config('app');
 
@@ -452,6 +468,7 @@ function coveted_admin_agent_snapshot(array $admin, ?PDO $pdo = null): array
         'metrics' => $metrics,
         'crm' => $crm,
         'operations' => ['summary' => (array)($operations['summary'] ?? [])],
+        'membership_lifecycle' => $membershipLifecycle,
         'public_experience' => [
             'landing_events_enabled' => $landingEventsEnabled,
             'sample_events_enabled' => $sampleEventsEnabled,
@@ -477,6 +494,7 @@ function coveted_admin_agent_snapshot(array $admin, ?PDO $pdo = null): array
  */
 function coveted_admin_agent_context_message(array $snapshot): string
 {
+    $lifecycle=(array)($snapshot['membership_lifecycle']??[]);
     $context = [
         'generated_at' => $snapshot['generated_at'] ?? null,
         'sample_mode' => !empty($snapshot['sample_mode']),
@@ -486,6 +504,13 @@ function coveted_admin_agent_context_message(array $snapshot): string
         'metrics' => $snapshot['metrics'] ?? [],
         'crm' => $snapshot['crm'] ?? [],
         'operations' => $snapshot['operations'] ?? [],
+        'membership_lifecycle' => [
+            'available'=>!empty($lifecycle['available']),
+            'summary'=>(array)($lifecycle['summary']??[]),
+            'attention'=>(int)($lifecycle['attention']??0),
+            'authority'=>(string)($lifecycle['authority']??''),
+            'privacy'=>(string)($lifecycle['privacy']??''),
+        ],
         'public_experience' => $snapshot['public_experience'] ?? [],
         'pwa' => $snapshot['pwa'] ?? [],
         'opportunities' => array_slice((array)($snapshot['opportunities'] ?? []), 0, 12),
