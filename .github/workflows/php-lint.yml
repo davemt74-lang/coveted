@@ -77,6 +77,12 @@ jobs:
       - name: Verify Event Learning + Predictive Planning contract
         run: php scripts/verify-event-learning-predictive-planning.php
 
+      - name: Verify Member Relationship + Reconnection Intelligence contract
+        run: php scripts/verify-member-relationship-intelligence.php
+
+      - name: Verify Member Relationship navigation JavaScript syntax
+        run: node --check assets/js/member-relationships-nav-v1.js
+
       - name: Verify Event Results navigation JavaScript syntax
         run: node --check assets/js/event-results-nav-v1.js
 
