@@ -78,6 +78,7 @@ $contains($followupPage, '/admin/event-communications.php?event=', 'RSVP Follow-
 $contains($followupPage, '&amp;type=rsvp_reminder', 'RSVP Follow-Up must open the correct communication type');
 $contains($nav, '/admin/event-communications.php?event=', 'shared Event navigation helper must expose Communications');
 $contains($nav, 'data-event-communications-tab', 'Communications must be represented as an Event navigation tab');
+$contains($nav, "if (location.pathname === '/admin/event-communications.php') return;", 'Communications page must not receive duplicate shared shortcut actions');
 $contains($nav, "shell.dataset.systemSample === '1'", 'Communications navigation must remain isolated in Sample Mode');
 
 fwrite(STDOUT, "Event Communications Execution contract verified.\n");
