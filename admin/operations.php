@@ -8,6 +8,8 @@ $admin = coveted_require_system_admin();
 $snapshot = coveted_operations_snapshot($admin);
 $summary = $snapshot['summary'];
 $lifecycleBacklog = $snapshot['lifecycle_backlog'];
+$guestConversion = (array)($summary['guest_conversion'] ?? []);
+$guestCounts = (array)($guestConversion['counts'] ?? []);
 
 $formatTime = static function (?string $value): string {
     $value = trim((string)$value);
@@ -23,7 +25,7 @@ coveted_admin_ui_start($admin, 'operations', 'Operations');
         <div class="cv-page-heading">
             <span class="cv-eyebrow">LAUNCH OPERATIONS</span>
             <h1>What needs attention now.</h1>
-            <p>Read-only operational health derived from Coveted's canonical event, notification, claim and audit records.</p>
+            <p>Read-only operational health derived from Coveted's canonical event, membership, notification, claim and audit records.</p>
         </div>
 
         <section class="cv-stat-grid" aria-label="Operational summary">
@@ -51,6 +53,10 @@ coveted_admin_ui_start($admin, 'operations', 'Operations');
                 <strong><?= (int)$summary['lifecycle_backlog'] ?></strong>
                 <span>Lifecycle backlog</span>
             </div>
+            <a class="cv-card cv-stat" href="/admin/guest-conversions.php">
+                <strong><?= (int)($summary['guest_conversion_attention'] ?? 0) ?></strong>
+                <span>Guest conversion</span>
+            </a>
             <a class="cv-card cv-stat" href="/admin/?view=pwa">
                 <strong><?= (int)$summary['permanent_failures_24h'] ?></strong>
                 <span>Permanent push failures · 24h</span>
@@ -94,6 +100,23 @@ coveted_admin_ui_start($admin, 'operations', 'Operations');
                 <p class="cv-form-help">Server operation: <code>php scripts/reconcile-lifecycle.php</code></p>
             </article>
         <?php endif; ?>
+
+        <article class="cv-card cv-feature-card cv-copy-card cv-admin-section-gap">
+            <span class="cv-kicker">GUEST → MEMBER CONVERSION</span>
+            <h2><?= (int)($guestCounts['conversion_ready'] ?? 0) ?> conversion-ready guest<?= (int)($guestCounts['conversion_ready'] ?? 0) === 1 ? '' : 's' ?>.</h2>
+            <p>Conversion intelligence uses verified completed-Event participation and current group fit. Exact guest identities, referral paths and attendance evidence stay inside the private System Admin workspace.</p>
+            <div class="cv-tag-row">
+                <span class="cv-pill"><?= (int)($guestCounts['first_time'] ?? 0) ?> first-time</span>
+                <span class="cv-pill"><?= (int)($guestCounts['returning'] ?? 0) ?> returning</span>
+                <span class="cv-pill"><?= (int)($guestCounts['conversion_ready'] ?? 0) ?> conversion-ready</span>
+                <span class="cv-pill"><?= (int)($guestCounts['hold'] ?? 0) ?> no-pressure hold</span>
+            </div>
+            <div class="cv-action-row cv-admin-section-gap">
+                <a class="cv-button cv-button-primary" href="/admin/guest-conversions.php">Review Guest Conversion</a>
+            </div>
+            <?php if (!empty($guestConversion['authority'])): ?><p class="cv-form-help"><strong>Authority:</strong> <?= coveted_e((string)$guestConversion['authority']) ?></p><?php endif; ?>
+            <?php if (!empty($guestConversion['privacy'])): ?><p class="cv-form-help"><strong>Privacy:</strong> <?= coveted_e((string)$guestConversion['privacy']) ?></p><?php endif; ?>
+        </article>
 
         <div class="cv-section-head cv-admin-section-gap">
             <div>
