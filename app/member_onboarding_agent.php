@@ -5,8 +5,9 @@ declare(strict_types=1);
  * Self-scoped onboarding context for the authenticated member Agent.
  *
  * This module deliberately derives guidance only from the member's own profile,
- * invitations, RSVPs, active group memberships and reward issuances. It does not
- * read Admin member intelligence or other members' private relationship state.
+ * invitations, RSVPs, verified attendance, active group memberships and reward
+ * issuances. It does not read Admin member intelligence or other members'
+ * private relationship state.
  *
  * @return array<string,mixed>
  */
@@ -78,10 +79,12 @@ function coveted_member_onboarding_agent_snapshot(array $user, ?PDO $pdo = null)
     $pastAttended = 0;
     try {
         $stmt = $pdo->prepare(
-            "SELECT COUNT(*)
-             FROM event_rsvps er
-             JOIN events e ON e.id=er.event_id
-             WHERE er.user_id=? AND er.response='attending' AND e.starts_at<UTC_TIMESTAMP()"
+            "SELECT COUNT(DISTINCT ea.event_id)
+             FROM event_attendance ea
+             JOIN events e ON e.id=ea.event_id
+             WHERE ea.user_id=?
+               AND ea.status IN ('checked_in','attended','left_early')
+               AND e.status='completed'"
         );
         $stmt->execute([$userId]);
         $pastAttended = (int)$stmt->fetchColumn();
@@ -207,7 +210,7 @@ function coveted_member_onboarding_agent_snapshot(array $user, ?PDO $pdo = null)
         $primaryAction = ['label'=>'My events','url'=>'/my-events.php'];
     } else {
         $stage = 'participating';
-        $headline = 'You have shared-event history. Build on it through groups, benefits and private mutual reconnects.';
+        $headline = 'You have verified shared-event history. Build on it through groups, benefits and private mutual reconnects.';
         $primaryAction = ['label'=>'Reconnect','url'=>'/reconnect.php'];
     }
 
@@ -267,7 +270,7 @@ function coveted_member_onboarding_agent_snapshot(array $user, ?PDO $pdo = null)
     elseif (!$milestones['event_plan']) $prompts[] = 'Help me find a good first Coveted event.';
     if (!$activeGroups) $prompts[] = 'How should I choose a Coveted group?';
     if ($activeBenefits > 0) $prompts[] = 'Which benefits or perks can I use?';
-    if ($pastAttended > 0) $prompts[] = 'What can I do after my recent events?';
+    if ($pastAttended > 0) $prompts[] = 'What can I do after my verified shared events?';
 
     return [
         'stage'=>$stage,
