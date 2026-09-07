@@ -71,6 +71,12 @@ jobs:
       - name: Verify Host Command navigation JavaScript syntax
         run: node --check assets/js/host-command-nav-v1.js
 
+      - name: Verify Event Results + Post-Event Intelligence contract
+        run: php scripts/verify-event-results-intelligence.php
+
+      - name: Verify Event Results navigation JavaScript syntax
+        run: node --check assets/js/event-results-nav-v1.js
+
       - name: Verify Event Opportunity / Production navigation JavaScript syntax
         run: node --check assets/js/event-opportunity-production-nav-v1.js
 
