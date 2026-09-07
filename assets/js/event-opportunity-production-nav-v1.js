@@ -8,14 +8,28 @@
 
     const eventsLink = document.querySelector('.cv-admin-sidebar a[href="/admin/?view=events"], .cv-admin-sidebar a[href="/admin/system-preview.php?view=events"]');
     if (eventsLink && !document.querySelector('[data-event-opportunities-nav]')) {
-        const link = document.createElement('a');
-        link.href = eventHref;
-        link.dataset.eventOpportunitiesNav = '1';
-        link.innerHTML = '<span class="cv-admin-nav-text">Event Opportunities</span>';
-        if (location.pathname === '/admin/event-opportunities.php') {
-            link.classList.add('is-active');
+        const opportunity = document.createElement('a');
+        opportunity.href = eventHref;
+        opportunity.dataset.eventOpportunitiesNav = '1';
+        opportunity.innerHTML = '<span class="cv-admin-nav-text">Event Opportunities</span>';
+        if (location.pathname === '/admin/event-opportunities.php') opportunity.classList.add('is-active');
+        eventsLink.insertAdjacentElement('afterend', opportunity);
+
+        if (!sampleMode) {
+            const proposals = document.createElement('a');
+            proposals.href = '/admin/event-proposals.php';
+            proposals.dataset.eventProposalsNav = '1';
+            proposals.innerHTML = '<span class="cv-admin-nav-text">Event Proposals</span>';
+            if (location.pathname === '/admin/event-proposals.php') proposals.classList.add('is-active');
+            opportunity.insertAdjacentElement('afterend', proposals);
+
+            const playbooks = document.createElement('a');
+            playbooks.href = '/admin/event-playbooks.php';
+            playbooks.dataset.eventPlaybooksNav = '1';
+            playbooks.innerHTML = '<span class="cv-admin-nav-text">Event Playbooks</span>';
+            if (location.pathname === '/admin/event-playbooks.php') playbooks.classList.add('is-active');
+            proposals.insertAdjacentElement('afterend', playbooks);
         }
-        eventsLink.insertAdjacentElement('afterend', link);
     }
 
     const tabs = document.querySelector('.cv-admin-event-tabs');
