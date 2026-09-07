@@ -48,8 +48,7 @@ function coveted_event_invitation_wave_history(PDO $pdo, int $groupId): array
     $stmt->execute([$groupId]);
     $row = $stmt->fetch() ?: [];
 
-    $ints = ['event_count','invitation_count','response_count','positive_count','attending_count','declined_count','verified_count','no_show_count','guest_seats'];
-    foreach ($ints as $key) {
+    foreach (['event_count','invitation_count','response_count','positive_count','attending_count','declined_count','verified_count','no_show_count','guest_seats'] as $key) {
         $row[$key] = (int)($row[$key] ?? 0);
     }
     $row['avg_response_hours'] = $row['avg_response_hours'] !== null ? (float)$row['avg_response_hours'] : null;
@@ -168,6 +167,11 @@ function coveted_event_invitation_wave_snapshot(array $admin, string $eventRef, 
     $pdo = coveted_event_invitation_wave_require_admin($admin, $pdo);
     $guestMix = coveted_event_guest_mix_snapshot($admin, $eventRef, $pdo);
     $event = (array)$guestMix['event'];
+    $canonicalEvent = coveted_event_by_ref((string)$event['public_id']);
+    if (!$canonicalEvent) throw new InvalidArgumentException('Event not found.');
+    $event['plus_one_allowed'] = !empty($canonicalEvent['plus_one_allowed']) ? 1 : 0;
+    $event['timezone'] = (string)($canonicalEvent['timezone'] ?? 'UTC');
+
     $history = coveted_event_invitation_wave_history($pdo, (int)$event['group_id']);
     $state = coveted_event_invitation_wave_current_state($pdo, $event);
     $rates = coveted_event_invitation_wave_rates($history, !empty($event['plus_one_allowed']));
@@ -222,6 +226,7 @@ function coveted_event_invitation_wave_snapshot(array $admin, string $eventRef, 
     $wave1Target = max(1, (int)ceil($fullInviteNeed * 0.45));
     $wave2Target = max($wave1Target, (int)ceil($fullInviteNeed * 0.75));
     $sentTotal = (int)$state['sent_total'];
+    $planningWave = $sentTotal < $wave1Target ? 'wave_1' : ($sentTotal < $wave2Target ? 'wave_2' : 'wave_3');
 
     $wave = 'hold';
     $decision = 'hold';
@@ -265,12 +270,8 @@ function coveted_event_invitation_wave_snapshot(array $admin, string $eventRef, 
     } else {
         if ($daysToEvent <= 2.0) {
             $wave = 'wave_3';
-        } elseif ($sentTotal < $wave1Target) {
-            $wave = 'wave_1';
-        } elseif ($sentTotal < $wave2Target) {
-            $wave = 'wave_2';
         } else {
-            $wave = 'wave_3';
+            $wave = $planningWave;
         }
 
         $stageRemaining = match ($wave) {
@@ -296,14 +297,14 @@ function coveted_event_invitation_wave_snapshot(array $admin, string $eventRef, 
         ? coveted_event_invitation_wave_candidates($guestMix, $wave, $recommendedInvites)
         : [];
 
-    $waveStatus = static function (int $target, int $sent, string $current): string {
+    $waveStatus = static function (string $key, int $target, int $sent, string $planningWave): string {
         if ($sent >= $target) return 'complete';
-        return $current === 'active' ? 'active' : 'queued';
+        return $key === $planningWave ? 'active' : 'queued';
     };
     $waves = [
-        ['key'=>'wave_1','label'=>'Wave 1 · Core Mix','target_outreach'=>$wave1Target,'status'=>$waveStatus($wave1Target,$sentTotal,$wave==='wave_1'?'active':'queued'),'purpose'=>'Reliable anchors, reconnection opportunities and proven format fit.'],
-        ['key'=>'wave_2','label'=>'Wave 2 · Broaden','target_outreach'=>$wave2Target,'status'=>$waveStatus($wave2Target,$sentTotal,$wave==='wave_2'?'active':'queued'),'purpose'=>'Widen participation with under-engaged and reconnect candidates.'],
-        ['key'=>'wave_3','label'=>'Wave 3 · Fill','target_outreach'=>$fullInviteNeed,'status'=>$wave==='wave_3'?'active':($sentTotal >= $fullInviteNeed?'complete':'queued'),'purpose'=>'Close the remaining attendance forecast gap with the strongest safe fit.'],
+        ['key'=>'wave_1','label'=>'Wave 1 · Core Mix','target_outreach'=>$wave1Target,'status'=>$waveStatus('wave_1',$wave1Target,$sentTotal,$planningWave),'purpose'=>'Reliable anchors, reconnection opportunities and proven format fit.'],
+        ['key'=>'wave_2','label'=>'Wave 2 · Broaden','target_outreach'=>$wave2Target,'status'=>$waveStatus('wave_2',$wave2Target,$sentTotal,$planningWave),'purpose'=>'Widen participation with under-engaged and reconnect candidates.'],
+        ['key'=>'wave_3','label'=>'Wave 3 · Fill','target_outreach'=>$fullInviteNeed,'status'=>$waveStatus('wave_3',$fullInviteNeed,$sentTotal,$planningWave),'purpose'=>'Close the remaining attendance forecast gap with the strongest safe fit.'],
     ];
 
     return [
