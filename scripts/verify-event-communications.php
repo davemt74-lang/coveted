@@ -25,6 +25,7 @@ $missing = static function (string $content, string $needle, string $label): voi
 
 $service = $read('app/event_communications.php');
 $page = $read('admin/event-communications.php');
+$followupPage = $read('admin/event-rsvp-followup.php');
 $notifications = $read('app/notifications.php');
 $eventsProjection = $read('app/notification_events.php');
 $nav = $read('assets/js/event-invitation-waves-nav-v1.js');
@@ -73,8 +74,10 @@ $contains($page, 'unchecked by default', 'human approval boundary must be visibl
 $contains($page, 'Transport delivery remains in the canonical notification delivery queue.', 'workspace must distinguish queueing from transport dispatch');
 $contains($page, 'Host-only locations are blocked.', 'location privacy boundary must be visible');
 
-$contains($nav, '/admin/event-communications.php?event=', 'Event navigation must expose Communications');
-$contains($nav, 'data-event-communications-tab', 'Communications must be a first-class Event tab');
+$contains($followupPage, '/admin/event-communications.php?event=', 'RSVP Follow-Up must hand nudge-ready review into Communications execution');
+$contains($followupPage, '&amp;type=rsvp_reminder', 'RSVP Follow-Up must open the correct communication type');
+$contains($nav, '/admin/event-communications.php?event=', 'shared Event navigation helper must expose Communications');
+$contains($nav, 'data-event-communications-tab', 'Communications must be represented as an Event navigation tab');
 $contains($nav, "shell.dataset.systemSample === '1'", 'Communications navigation must remain isolated in Sample Mode');
 
 fwrite(STDOUT, "Event Communications Execution contract verified.\n");
