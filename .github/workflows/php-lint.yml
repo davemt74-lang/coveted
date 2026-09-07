@@ -95,6 +95,12 @@ jobs:
       - name: Verify Invitation Waves navigation JavaScript syntax
         run: node --check assets/js/event-invitation-waves-nav-v1.js
 
+      - name: Verify Invitation Wave Execution Queue + Agent management contract
+        run: php scripts/verify-event-invitation-execution.php
+
+      - name: Verify Invitation Wave Execution JavaScript syntax
+        run: node --check assets/js/event-invitation-execution-v1.js
+
       - name: Verify Event Results navigation JavaScript syntax
         run: node --check assets/js/event-results-nav-v1.js
 
