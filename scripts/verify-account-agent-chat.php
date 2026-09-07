@@ -87,7 +87,8 @@ $contains($js,"'/api/account-agent-chat.php'",'composer must submit to account-s
 $contains($js,"localStorage.setItem(storageKey",'active thread must persist across account page navigation');
 $contains($js,'window.visualViewport','mobile keyboard viewport handling is required');
 $contains($js,"event.key === 'Enter' && !event.shiftKey",'Enter must send while Shift+Enter remains multiline');
-$contains($js,'body.set(\'surface\'','current page surface must be sent as bounded context only');
+$contains($js,"body.set('surface', window.location.pathname);",'current page surface must be pathname-only context');
+$missing($js,'window.location.search','query parameters must never be sent into Agent page context');
 $contains($js,'body.textContent = content','Agent results must render as text, not executable HTML');
 $contains($js,'setOpen(true);','sending a prompt must open the chat canvas');
 $missing($js,'.innerHTML','shared Agent UI must not inject response or template HTML');
