@@ -16,6 +16,7 @@ $missing=static function(string $content,string $needle,string $label):void{
 $onboarding=$read('app/member_onboarding_agent.php');
 $bootstrap=$read('api/account-agent-bootstrap.php');
 $chat=$read('api/account-agent-chat.php');
+$js=$read('assets/js/account-agent-shell-v1.js');
 
 $contains($onboarding,'function coveted_member_onboarding_agent_snapshot','onboarding snapshot helper is required');
 $contains($onboarding,'FROM profiles WHERE user_id=?','profile evidence must be self scoped');
@@ -54,5 +55,13 @@ $contains($chat,"\$snapshot['onboarding'] = coveted_member_onboarding_agent_snap
 $contains($chat,"empty(\$snapshot['capabilities']['system_admin'])",'chat must not inject member onboarding into System Admin context');
 $contains($chat,"'onboarding_stage'=>(string)(\$snapshot['onboarding']['stage'] ?? '')",'durable assistant metadata should retain the onboarding stage used');
 $missing($chat,'coveted_admin_agent_execute_action','onboarding chat must not gain Admin mutation authority');
+
+$contains($js,"welcomeTitle: 'How can I help?'",'shared shell needs a safe default welcome');
+$contains($js,"state.welcomeTitle = String(welcome.title",'bootstrap must control member-specific welcome title as text');
+$contains($js,"state.welcomeBody = String(welcome.body",'bootstrap must control member-specific welcome guidance as text');
+$contains($js,"el('h3', '', state.welcomeTitle)",'empty Agent canvas must render proactive onboarding title');
+$contains($js,"el('p', '', state.welcomeBody)",'empty Agent canvas must render proactive onboarding guidance');
+$contains($js,'body.set(\'surface\', window.location.pathname);','onboarding shell must retain pathname-only page context hardening');
+$missing($js,'.innerHTML','onboarding shell must keep model/server copy in safe text rendering');
 
 fwrite(STDOUT,"Member Onboarding Agent contract verified.\n");
