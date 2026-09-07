@@ -26,6 +26,7 @@ $missing = static function (string $content, string $needle, string $label): voi
 $service = $read('app/event_rsvp_followup.php');
 $page = $read('admin/event-rsvp-followup.php');
 $tasks = $read('app/admin_agent_tasks.php');
+$nav = $read('assets/js/event-invitation-waves-nav-v1.js');
 
 $contains($service, 'function coveted_event_rsvp_followup_snapshot', 'derived follow-up snapshot required');
 $contains($service, 'coveted_event_invitation_wave_snapshot($admin, $eventRef, $pdo)', 'follow-up must reuse canonical Invitation Wave / forecast intelligence');
@@ -58,5 +59,8 @@ $contains($page, 'No autonomous messaging.', 'human messaging authority boundary
 $contains($page, 'Invitation Waves', 'workspace must link canonical forecasting');
 $contains($page, 'Wave Execution', 'workspace must link canonical wave execution');
 $contains($tasks, 'function coveted_admin_agent_tasks_sync_opportunities', 'canonical Agent task sync service must remain available');
+$contains($nav, '/admin/event-rsvp-followup.php?event=', 'Event navigation must expose RSVP Follow-Up');
+$contains($nav, 'data-event-rsvp-followup-tab', 'RSVP Follow-Up must be a first-class Event tab');
+$contains($nav, "shell.dataset.systemSample === '1'", 'RSVP Follow-Up navigation must stay isolated in Sample Mode');
 
 fwrite(STDOUT, "RSVP Follow-Up Intelligence contract verified.\n");
