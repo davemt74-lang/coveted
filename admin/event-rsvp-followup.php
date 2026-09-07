@@ -47,6 +47,7 @@ coveted_admin_ui_start($admin, 'events', 'RSVP Follow-Up');
     </div>
     <?php if ($snapshot): $event=(array)$snapshot['event']; ?>
         <div class="cv-action-row">
+            <a class="cv-button cv-button-soft" href="/admin/event-communications.php?event=<?= coveted_e(rawurlencode((string)$event['public_id'])) ?>&amp;type=rsvp_reminder">Communications</a>
             <a class="cv-button cv-button-soft" href="/admin/event-invitation-waves.php?event=<?= coveted_e(rawurlencode((string)$event['public_id'])) ?>">Invitation Waves</a>
             <a class="cv-button cv-button-soft" href="/admin/event-invitation-execution.php?event=<?= coveted_e(rawurlencode((string)$event['public_id'])) ?>">Wave Execution</a>
             <a class="cv-button cv-button-primary" href="/admin/event.php?event=<?= coveted_e(rawurlencode((string)$event['public_id'])) ?>#invitations">Canonical Invitations</a>
