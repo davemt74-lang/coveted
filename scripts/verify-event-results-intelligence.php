@@ -60,7 +60,7 @@ $contains($operations,"'event_results_attention'",'post-event result attention m
 $contains($operations,"\$summary['event_results']",'Operations summary must expose Event Results');
 $contains($operations,"'event_results' => \$eventResults",'Operations response must expose Event Results context');
 
-$contains($brain,"foreach (['event_planning','host_command','event_results'] as \$streamKey)",'Agent opportunity queue must promote Event Results alongside planning and Host Command');
+$contains($brain,"foreach (['event_planning','host_command','event_results'",'Agent opportunity queue must promote Event Results alongside planning and Host Command while permitting additive intelligence streams');
 $contains($brain,'review Event Results and post-event intelligence','Agent capability catalog must include post-event reasoning');
 $contains($brain,'review post-event result signals','Operations capability must include Event Results oversight');
 $contains($brain,"!str_starts_with(\$href, '/')",'Agent result routes must stay internal');
