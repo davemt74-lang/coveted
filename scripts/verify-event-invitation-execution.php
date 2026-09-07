@@ -68,7 +68,7 @@ $contains($wave, "'key'=>'invitation-wave-'", 'wave recommendation must have det
 $contains($operations, 'coveted_event_invitation_wave_agent_context($actor, 12, $pdo)', 'Operations must keep feeding wave intelligence to the Agent brain');
 $contains($operations, '$invitationWaveRecommendations', 'wave recommendations must remain in the promoted Agent opportunity stream');
 $contains($tasks, 'coveted_admin_agent_tasks_sync_opportunities', 'proactive Agent opportunity synchronization must remain active');
-$contains($tasks, "'source_type' => 'opportunity'", 'Agent task context must preserve opportunity source type');
+$contains($tasks, "'source_type'=>(string)\$task['source_type']", 'Agent task context must preserve opportunity source type');
 $missing($actions, 'coveted_event_invitation_execution_send_selected(', 'autonomous Agent action allowlist must not send recipient batches');
 
 $contains($nav, '/admin/event-invitation-execution.php?event=', 'Event navigation must expose Wave Execution');
