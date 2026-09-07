@@ -98,7 +98,17 @@ coveted_admin_ui_start($admin,'member-relationships','Member Relationship Intell
  <div class="cv-admin-panel-head"><div><span class="cv-eyebrow">GROUP HEALTH</span><h2>Community portfolio</h2></div></div>
  <div class="cv-admin-list">
  <?php foreach($groups as $row):
-   try{$gSnap=coveted_member_relationship_group_snapshot($admin,(string)$row['public_id'],$pdo);}catch(Throwable){continue;}
+   try{
+       $gSnap=coveted_member_relationship_group_snapshot($admin,(string)$row['public_id'],$pdo);
+       $gLifecycle=coveted_membership_lifecycle_group_context($admin,(string)$row['public_id'],$pdo);
+       if(!empty($gLifecycle['available'])&&!empty($gLifecycle['held_members'])){
+           $gHeld=[];foreach((array)$gLifecycle['held_members'] as $held)$gHeld[(int)$held['user_id']]=true;
+           $gSnap['drifting']=array_values(array_filter((array)$gSnap['drifting'],static fn(array $member):bool=>!isset($gHeld[(int)($member['user_id']??0)])));
+           $gSnap['reconnect_pairs']=array_values(array_filter((array)$gSnap['reconnect_pairs'],static fn(array $pair):bool=>!isset($gHeld[(int)($pair['member_a']['user_id']??0)])&&!isset($gHeld[(int)($pair['member_b']['user_id']??0)])));
+           $gSnap['metrics']['drifting_members']=count($gSnap['drifting']);
+           $gSnap['metrics']['reconnect_pairs']=count($gSnap['reconnect_pairs']);
+       }
+   }catch(Throwable){continue;}
    $gm=(array)$gSnap['metrics']; ?>
   <a class="cv-admin-list-row" href="/admin/member-relationships.php?group=<?=coveted_e(rawurlencode((string)$row['public_id']))?>">
    <span class="cv-admin-list-copy"><strong><?=coveted_e((string)$row['name'])?></strong><small><?=$healthLabel((string)$gSnap['health'])?> · <?=number_format((float)$gm['participation_breadth'],1)?>% recent breadth</small><small><?= (int)$gm['drifting_members']?> drifting · <?= (int)$gm['reconnect_pairs']?> reconnect pairs</small></span>
