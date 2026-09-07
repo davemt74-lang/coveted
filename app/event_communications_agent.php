@@ -5,11 +5,13 @@ require_once __DIR__ . '/event_communications.php';
 require_once __DIR__ . '/admin_agent_tasks.php';
 
 /** @return array<string,mixed>|null */
-function coveted_event_communications_agent_task(array $admin, string $eventRef, ?PDO $pdo = null): ?array
+function coveted_event_communications_agent_source_task(array $admin, string $sourceKey, ?PDO $pdo = null): ?array
 {
     coveted_event_communications_require_admin($admin, $pdo);
     $pdo ??= coveted_db();
     if (!coveted_admin_agent_tasks_schema_available($pdo)) return null;
+    $sourceKey = trim($sourceKey);
+    if ($sourceKey === '' || strlen($sourceKey) > 120) return null;
 
     $stmt = $pdo->prepare(
         "SELECT id,public_id,title,detail,priority,status,source_key,source_href,created_at,updated_at
@@ -19,9 +21,19 @@ function coveted_event_communications_agent_task(array $admin, string $eventRef,
          ORDER BY FIELD(status,'in_progress','approved','suggested'),updated_at DESC,id DESC
          LIMIT 1"
     );
-    $stmt->execute([(int)$admin['id'], 'event-communications-' . trim($eventRef)]);
+    $stmt->execute([(int)$admin['id'], $sourceKey]);
     $task = $stmt->fetch();
     return $task ?: null;
+}
+
+/** @return array<string,mixed>|null */
+function coveted_event_communications_agent_task(array $admin, string $eventRef, ?PDO $pdo = null): ?array
+{
+    return coveted_event_communications_agent_source_task(
+        $admin,
+        'event-communications-' . trim($eventRef),
+        $pdo
+    );
 }
 
 /** @return array<string,mixed> */
@@ -71,6 +83,18 @@ function coveted_event_communications_reminder_queue_state(array $admin, array $
     return ['ready'=>$ready,'already_queued'=>$queued];
 }
 
+function coveted_event_communications_attending_count(PDO $pdo, int $eventId): int
+{
+    $stmt = $pdo->prepare(
+        "SELECT COUNT(*)
+         FROM event_rsvps er
+         JOIN users u ON u.id=er.user_id AND u.status='active'
+         WHERE er.event_id=? AND er.response='attending'"
+    );
+    $stmt->execute([$eventId]);
+    return (int)$stmt->fetchColumn();
+}
+
 function coveted_event_communications_responses_since(PDO $pdo, int $eventId, string $since): int
 {
     if ($since === '') return 0;
@@ -89,14 +113,13 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
     $event = coveted_event_communications_event($admin, $eventRef, $pdo);
     $queue = coveted_event_communications_queue_metrics($pdo, $event);
     $reminders = coveted_event_communications_reminder_queue_state($admin, $event, $pdo);
-    $attending = count(coveted_event_communications_attending($pdo, (int)$event['id']));
+    $attending = coveted_event_communications_attending_count($pdo, (int)$event['id']);
     $responsesSinceReminder = coveted_event_communications_responses_since(
         $pdo,
         (int)$event['id'],
         (string)$queue['latest_rsvp_reminder_at']
     );
 
-    $wave = null;
     $forecast = ['low'=>0,'expected'=>0,'high'=>0,'target'=>0,'gap'=>0];
     $waveDecision = 'closed';
     $waitlist = 0;
@@ -133,6 +156,8 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
     $href = '/admin/event-communications.php?event=' . rawurlencode((string)$event['public_id']);
     $priority = 3;
     $actionable = false;
+    $recommendationKey = '';
+    $recommendationCategory = 'Event Communications';
 
     if ((string)$event['status'] === 'published' && $waitlist > 0 && $waveDecision === 'reconcile_waitlist') {
         $stateKey = 'waitlist_first';
@@ -141,6 +166,8 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
         $href = '/admin/event-invitation-waves.php?event=' . rawurlencode((string)$event['public_id']);
         $priority = $daysToEvent <= 3.0 ? 1 : 2;
         $actionable = true;
+        $recommendationKey = 'invitation-wave-' . (string)$event['public_id'];
+        $recommendationCategory = 'Invitations';
     } elseif ((int)$reminders['ready'] > 0) {
         $stateKey = 'review_followup';
         $title = 'Review RSVP reminders for nudge-ready members';
@@ -148,6 +175,10 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
         $href .= '&type=rsvp_reminder';
         $priority = $daysToEvent <= 3.0 ? 1 : 2;
         $actionable = true;
+        // Phase 1 already owns this recommendation/task. Reuse its source key
+        // instead of creating a competing Event Communications task before send.
+        $recommendationKey = 'rsvp-followup-' . (string)$event['public_id'];
+        $recommendationCategory = 'RSVP Follow-Up';
     } elseif ($latestReminderAt !== '' && $responsesSinceReminder > 0) {
         $stateKey = 'recalculate_after_responses';
         if (str_starts_with($waveDecision, 'open_wave_')) {
@@ -156,6 +187,8 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
             $href = '/admin/event-invitation-waves.php?event=' . rawurlencode((string)$event['public_id']);
             $priority = $daysToEvent <= 3.0 ? 1 : 2;
             $actionable = true;
+            $recommendationKey = 'invitation-wave-' . (string)$event['public_id'];
+            $recommendationCategory = 'Invitations';
         } else {
             $title = 'RSVP responses changed the forecast — hold and monitor';
             $detail = 'Members responded after the latest reminder and the refreshed canonical forecast currently recommends holding additional outreach.';
@@ -171,6 +204,8 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
         $href = '/admin/event-invitation-waves.php?event=' . rawurlencode((string)$event['public_id']);
         $priority = $daysToEvent <= 3.0 ? 1 : 2;
         $actionable = true;
+        $recommendationKey = 'invitation-wave-' . (string)$event['public_id'];
+        $recommendationCategory = 'Invitations';
     } elseif ($attending > 0 && (int)$queue['confirmations'] === 0 && $daysToEvent <= 3.0) {
         $stateKey = 'confirmation_ready';
         $title = 'Review attendee confirmations';
@@ -178,17 +213,18 @@ function coveted_event_communications_lifecycle_snapshot(array $admin, string $e
         $href .= '&type=confirmation';
         $priority = 2;
         $actionable = true;
+        $recommendationKey = 'event-communications-' . (string)$event['public_id'];
     }
 
     $recommendation = null;
-    if ($actionable) {
+    if ($actionable && $recommendationKey !== '') {
         $recommendation = [
             'priority'=>$priority,
-            'key'=>'event-communications-' . (string)$event['public_id'],
-            'category'=>'Event Communications',
+            'key'=>$recommendationKey,
+            'category'=>$recommendationCategory,
             'title'=>$title,
             'detail'=>$detail,
-            'evidence'=>(int)$reminders['ready'] . ' reminder-ready · ' . (int)$reminders['already_queued'] . ' reminder already queued · ' . $responsesSinceReminder . ' RSVP change' . ($responsesSinceReminder === 1 ? '' : 's') . ' after latest reminder · forecast ' . $forecast['expected'] . '/' . $forecast['target'] . ' · ' . $attending . ' attending.',
+            'evidence'=>(int)$reminders['ready'] . ' reminder-ready · ' . (int)$reminders['already_queued'] . ' current-cycle reminder already queued · ' . $responsesSinceReminder . ' RSVP change' . ($responsesSinceReminder === 1 ? '' : 's') . ' after latest reminder · forecast ' . $forecast['expected'] . '/' . $forecast['target'] . ' · ' . $attending . ' attending.',
             'href'=>$href,
         ];
     }
@@ -292,6 +328,28 @@ function coveted_event_communications_agent_sync_recommendation(array $admin, ar
     return coveted_admin_agent_tasks_sync_opportunities($admin, [$recommendation], $pdo);
 }
 
+function coveted_event_communications_agent_complete_source_task(
+    array $admin,
+    string $sourceKey,
+    ?PDO $pdo = null
+): void {
+    $pdo = coveted_event_communications_require_admin($admin, $pdo);
+    $task = coveted_event_communications_agent_source_task($admin,$sourceKey,$pdo);
+    if (!$task) return;
+    $status=(string)$task['status'];$ref=(string)$task['public_id'];
+    if ($status==='suggested') {
+        coveted_admin_agent_task_set_status($admin,$ref,'approved',$pdo,'suggested');
+        $status='approved';
+    }
+    if ($status==='approved') {
+        coveted_admin_agent_task_set_status($admin,$ref,'in_progress',$pdo,'approved');
+        $status='in_progress';
+    }
+    if ($status==='in_progress') {
+        coveted_admin_agent_task_set_status($admin,$ref,'completed',$pdo,'in_progress');
+    }
+}
+
 /** @return array<string,mixed>|null */
 function coveted_event_communications_agent_track_queue(
     array $admin,
@@ -304,6 +362,17 @@ function coveted_event_communications_agent_track_queue(
     $pdo = coveted_event_communications_require_admin($admin, $pdo);
     if ($queuedCount < 1 || !coveted_admin_agent_tasks_schema_available($pdo)) return null;
     $event = coveted_event_communications_event($admin,$eventRef,$pdo);
+
+    // Explicitly queueing an RSVP reminder fulfills the Phase 1 follow-up task.
+    // Close that canonical stage before opening the response-tracking stage.
+    if ($communicationType==='rsvp_reminder') {
+        coveted_event_communications_agent_complete_source_task(
+            $admin,
+            'rsvp-followup-' . (string)$event['public_id'],
+            $pdo
+        );
+    }
+
     $key = 'event-communications-' . (string)$event['public_id'];
     coveted_admin_agent_tasks_sync_opportunities($admin, [[
         'priority'=>2,
