@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/member_journey.php';
 require_once __DIR__ . '/events.php';
 require_once __DIR__ . '/rewards.php';
+require_once __DIR__ . '/member_people_v2.php';
 
 /** @return array<string,mixed> */
 function coveted_member_concierge_event_view(array $event): array
@@ -20,7 +21,7 @@ function coveted_member_concierge_event_view(array $event): array
         'group'=>(string)($event['group_name'] ?? $event['group'] ?? ''),
         'starts_at'=>(string)($event['starts_at'] ?? ''),
         'timezone'=>(string)($event['timezone'] ?? ''),
-        'capacity'=>$event['capacity'] !== null && isset($event['capacity']) ? (int)$event['capacity'] : null,
+        'capacity'=>isset($event['capacity']) && $event['capacity'] !== null ? (int)$event['capacity'] : null,
         'plus_one_allowed'=>!empty($event['plus_one_allowed']),
         'location_visibility'=>$visibility,
         'location_revealed'=>$revealed,
@@ -128,6 +129,45 @@ function coveted_member_concierge_benefits(array $user): array
     return $result;
 }
 
+/** @return array<string,mixed> */
+function coveted_member_concierge_reconnect(array $user, ?PDO $pdo = null): array
+{
+    $pdo ??= coveted_db();
+    try {
+        $events=coveted_member_v2_reconnect_events($user,$pdo);
+        $matches=coveted_member_v2_reconnect_matches($user,$pdo);
+    } catch (Throwable) {
+        return ['eligible_events'=>[],'mutual_matches'=>[],'action_url'=>'/reconnect.php'];
+    }
+
+    $eligible=[];
+    foreach (array_slice($events,0,8) as $event) {
+        $eligible[]=[
+            'event_ref'=>(string)($event['public_id'] ?? ''),
+            'title'=>(string)($event['title'] ?? ''),
+            'starts_at'=>(string)($event['starts_at'] ?? ''),
+            'group'=>(string)($event['group_name'] ?? $event['group'] ?? ''),
+        ];
+    }
+
+    $mutual=[];
+    foreach (array_slice($matches,0,8) as $match) {
+        $mutual[]=[
+            'event_ref'=>(string)($match['event_public_id'] ?? ''),
+            'event_title'=>(string)($match['event_title'] ?? ''),
+            'matched_display_name'=>(string)($match['matched_display_name'] ?? ''),
+            'matched_at'=>(string)($match['matched_at'] ?? ''),
+        ];
+    }
+
+    return [
+        'eligible_events'=>$eligible,
+        'mutual_matches'=>$mutual,
+        'action_url'=>'/reconnect.php',
+        'privacy'=>'Eligible Events come from this member verified attendance. Person-level results include mutual matches only; one-sided reconnect choices are not included.',
+    ];
+}
+
 /** @return array<int,array<string,mixed>> */
 function coveted_member_concierge_event_recommendations(array $user, array $preferences): array
 {
@@ -146,15 +186,16 @@ function coveted_member_concierge_event_recommendations(array $user, array $pref
 
     $ranked=[];
     foreach (coveted_events_for_user($user,100) as $event) {
-        if ((string)($event['status'] ?? '') !== 'published') continue;
+        $status=(string)($event['status'] ?? '');
+        $response=(string)($event['response'] ?? '');
+        if ($status!=='published' && !($status==='closed' && $response==='attending')) continue;
         $starts=(string)($event['starts_at'] ?? '');
         if ($starts==='' || strtotime($starts)===false || strtotime($starts)<=time()) continue;
-        if ((string)($event['response'] ?? '')==='declined') continue;
+        if ($response==='declined') continue;
         if ((string)($event['invitation_status'] ?? '')==='declined') continue;
 
         $score=1;
         $reasons=[];
-        $response=(string)($event['response'] ?? '');
         $invite=(string)($event['invitation_status'] ?? '');
         if ($response==='attending') {
             $score+=120;
@@ -282,6 +323,7 @@ function coveted_member_concierge_snapshot(array $user, ?PDO $pdo = null): array
     $pendingInvitations=coveted_member_concierge_pending_invitations($user,$pdo);
     $notifications=coveted_member_concierge_notifications($user,$pdo);
     $benefits=coveted_member_concierge_benefits($user);
+    $reconnect=coveted_member_concierge_reconnect($user,$pdo);
     $recommendations=coveted_member_concierge_event_recommendations($user,$preferences);
     $nextEvent=coveted_member_concierge_next_event($recommendations);
 
@@ -306,6 +348,7 @@ function coveted_member_concierge_snapshot(array $user, ?PDO $pdo = null): array
         'benefits'=>array_slice($benefits,0,8),
         'unread_notifications'=>array_slice($notifications,0,6),
         'recent_journey'=>array_slice($timeline,0,12),
+        'reconnect'=>$reconnect,
         'starter_prompts'=>[
             'What should I attend next?',
             'What invitations or RSVP actions need my attention?',
@@ -313,7 +356,7 @@ function coveted_member_concierge_snapshot(array $user, ?PDO $pdo = null): array
             'What should I know before my next event?',
             'What reconnect opportunities are available to me?',
         ],
-        'privacy'=>'This Concierge uses only this authenticated member own Member Journey, visible Events, rewards, notifications and permitted relationship context. It does not expose other members restricted timelines, private choices, contact details or Admin-only intelligence.',
+        'privacy'=>'This Concierge uses only this authenticated member own Member Journey, visible Events, rewards, notifications and permitted relationship context. It does not expose other members restricted timelines, one-sided reconnect choices, contact details or Admin-only intelligence.',
         'authority'=>'Recommendations are private. The model itself cannot mutate Coveted. RSVP changes run only after an explicit member confirmation through the server-owned Concierge action endpoint and canonical Event services.',
     ];
 }
