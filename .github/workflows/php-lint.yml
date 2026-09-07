@@ -107,6 +107,9 @@ jobs:
       - name: Verify Event Communications Agent lifecycle contract
         run: php scripts/verify-event-communications-agent.php
 
+      - name: Verify Event Communication Delivery Health contract
+        run: php scripts/verify-event-communication-delivery.php
+
       - name: Verify Invitation Wave Execution JavaScript syntax
         run: node --check assets/js/event-invitation-execution-v1.js
 

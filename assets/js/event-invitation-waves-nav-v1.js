@@ -40,10 +40,32 @@
         if (location.pathname === '/admin/event-communications.php') link.classList.add('is-active');
         tabs.appendChild(link);
     }
+    if (tabs && !tabs.querySelector('[data-event-delivery-health-tab]')) {
+        const link = document.createElement('a');
+        link.dataset.eventDeliveryHealthTab = '1';
+        link.href = `/admin/event-communication-delivery.php?event=${encodeURIComponent(eventRef)}`;
+        link.textContent = 'Delivery Health';
+        if (location.pathname === '/admin/event-communication-delivery.php') link.classList.add('is-active');
+        tabs.appendChild(link);
+    }
 
-    // Event Communications renders its own reviewed workflow actions. Do not
-    // prepend the shared shortcut set a second time on that page.
+    // Communications renders its own reviewed workflow actions. Add only the
+    // delivery-health handoff before preserving the Phase 2 early-return guard.
+    if (location.pathname === '/admin/event-communications.php') {
+        const actions = document.querySelector('.cv-admin-page-head .cv-action-row');
+        if (actions && !actions.querySelector('[data-event-delivery-health-action]')) {
+            const link = document.createElement('a');
+            link.dataset.eventDeliveryHealthAction = '1';
+            link.className = 'cv-button cv-button-soft';
+            link.href = `/admin/event-communication-delivery.php?event=${encodeURIComponent(eventRef)}`;
+            link.textContent = 'Delivery Health';
+            actions.prepend(link);
+        }
+    }
     if (location.pathname === '/admin/event-communications.php') return;
+
+    // Delivery Health renders its own reviewed workflow actions.
+    if (location.pathname === '/admin/event-communication-delivery.php') return;
 
     const actions = document.querySelector('.cv-admin-event-top-actions,.cv-admin-page-head .cv-action-row');
     if (actions && !actions.querySelector('[data-event-invitation-waves-action]')) {
@@ -76,6 +98,14 @@
         link.className = 'cv-button cv-button-soft';
         link.href = `/admin/event-communications.php?event=${encodeURIComponent(eventRef)}`;
         link.textContent = 'Communications';
+        actions.prepend(link);
+    }
+    if (actions && !actions.querySelector('[data-event-delivery-health-action]')) {
+        const link = document.createElement('a');
+        link.dataset.eventDeliveryHealthAction = '1';
+        link.className = 'cv-button cv-button-soft';
+        link.href = `/admin/event-communication-delivery.php?event=${encodeURIComponent(eventRef)}`;
+        link.textContent = 'Delivery Health';
         actions.prepend(link);
     }
 })();

@@ -11,6 +11,7 @@ require_once __DIR__ . '/event_results.php';
 require_once __DIR__ . '/member_relationships.php';
 require_once __DIR__ . '/event_invitation_waves.php';
 require_once __DIR__ . '/event_communications_agent.php';
+require_once __DIR__ . '/event_communication_delivery.php';
 
 /**
  * Read-only System Admin launch-health view.
@@ -23,9 +24,10 @@ require_once __DIR__ . '/event_communications_agent.php';
  *
  * Event Opportunity, Proposal / Playbook, Event Production, Host Command,
  * Event Results, aggregate Member Relationship summaries, aggregate Invitation
- * Wave / RSVP forecasts and aggregate Event Communications lifecycle state are
- * intentionally included here because the Admin Agent consumes this canonical
- * Operations summary on every reasoning/chat round.
+ * Wave / RSVP forecasts, aggregate Event Communications lifecycle state and
+ * aggregate Event communication delivery health are intentionally included here
+ * because the Admin Agent consumes this canonical Operations summary on every
+ * reasoning/chat round.
  *
  * @return array<string,mixed>
  */
@@ -155,27 +157,56 @@ function coveted_operations_snapshot(array $actor): array
         error_log('Operations Event Communications lifecycle unavailable: ' . $e->getMessage());
     }
 
+    try {
+        $eventCommunicationDelivery = coveted_event_communication_delivery_agent_context($actor, 12, $pdo);
+    } catch (Throwable $e) {
+        $eventCommunicationDelivery = ['available'=>false,'events'=>[],'recommendations'=>[],'attention'=>0,'unavailable'=>true];
+        error_log('Operations Event Communication Delivery Health unavailable: ' . $e->getMessage());
+    }
+
     $planningPipeline=(array)($eventPlanning['pipeline'] ?? []);
     $planningRecommendations=array_slice((array)($eventPlanning['recommendations'] ?? []),0,12);
     $hostRecommendations=array_slice((array)($hostCommand['recommendations'] ?? []),0,12);
     $relationshipRecommendations=array_slice((array)($memberRelationships['recommendations'] ?? []),0,8);
     $invitationWaveRecommendations=array_slice((array)($invitationWaves['recommendations'] ?? []),0,8);
     $communicationRecommendations=array_slice((array)($eventCommunications['recommendations'] ?? []),0,8);
-    // Relationship, invitation-wave and communications lifecycle intelligence are
-    // merged into the already promoted post-event recommendation stream so each
+    $communicationDeliveryRecommendations=array_slice((array)($eventCommunicationDelivery['recommendations'] ?? []),0,8);
+    // Relationship, invitation-wave, communications lifecycle and delivery-health
+    // intelligence are merged into the already promoted post-event stream so each
     // reaches the Admin Agent's canonical opportunity queue without a parallel
-    // Agent path. Priority sorting prevents urgent RSVP/waitlist work from being buried.
+    // Agent path. Delivery Health reuses event-communications-* keys, allowing the
+    // canonical Agent task upsert to update one Event communication task instead
+    // of creating competing delivery tasks.
     $resultRecommendations=array_merge(
         (array)($eventResults['recommendations'] ?? []),
         $relationshipRecommendations,
         $invitationWaveRecommendations,
-        $communicationRecommendations
+        $communicationRecommendations,
+        $communicationDeliveryRecommendations
     );
     usort($resultRecommendations, static function(array $a,array $b): int {
         $priority=((int)($a['priority']??3)) <=> ((int)($b['priority']??3));
-        return $priority!==0 ? $priority : strcmp((string)($a['key']??''),(string)($b['key']??''));
+        if ($priority!==0) return $priority;
+        $keyCompare=strcmp((string)($a['key']??''),(string)($b['key']??''));
+        if ($keyCompare!==0) return $keyCompare;
+        // When lifecycle and delivery health share the same Event communications
+        // source key at the same priority, surface the transport-health warning.
+        $aDelivery=str_contains((string)($a['href']??''),'#delivery-health');
+        $bDelivery=str_contains((string)($b['href']??''),'#delivery-health');
+        return ($aDelivery===$bDelivery) ? 0 : ($aDelivery ? -1 : 1);
     });
-    $resultRecommendations=array_slice($resultRecommendations,0,20);
+    // De-duplicate by canonical source key after priority ordering. This matters
+    // when lifecycle and delivery health both describe event-communications-<event>.
+    $dedupedRecommendations=[];$seenRecommendationKeys=[];
+    foreach ($resultRecommendations as $recommendation) {
+        $key=trim((string)($recommendation['key']??''));
+        if ($key!=='' && isset($seenRecommendationKeys[$key])) continue;
+        if ($key!=='') $seenRecommendationKeys[$key]=true;
+        $dedupedRecommendations[]=$recommendation;
+        if (count($dedupedRecommendations)>=20) break;
+    }
+    $resultRecommendations=$dedupedRecommendations;
+
     $summary['event_opportunity_count'] = (int)($eventOpportunities['total'] ?? 0);
     $summary['event_opportunity_high_priority'] = (int)($eventOpportunities['high_priority'] ?? 0);
     $summary['event_proposal_active']=(int)($planningPipeline['active'] ?? 0);
@@ -188,6 +219,7 @@ function coveted_operations_snapshot(array $actor): array
     $summary['member_relationship_attention'] = (int)($memberRelationships['attention'] ?? 0);
     $summary['invitation_wave_attention'] = (int)($invitationWaves['attention'] ?? 0);
     $summary['event_communications_attention'] = (int)($eventCommunications['attention'] ?? 0);
+    $summary['event_communication_delivery_attention'] = (int)($eventCommunicationDelivery['attention'] ?? 0);
     $summary['event_opportunities'] = array_slice((array)($eventOpportunities['recommendations'] ?? []), 0, 8);
     $summary['event_planning'] = [
         'available'=>!empty($eventPlanning['available']),
@@ -239,7 +271,18 @@ function coveted_operations_snapshot(array $actor): array
         'privacy' => (string)($eventCommunications['privacy'] ?? ''),
         'authority' => (string)($eventCommunications['authority'] ?? ''),
     ];
+    $summary['event_communication_delivery'] = [
+        'available' => !empty($eventCommunicationDelivery['available']),
+        'attention' => (int)($eventCommunicationDelivery['attention'] ?? 0),
+        'events' => array_slice((array)($eventCommunicationDelivery['events'] ?? []),0,12),
+        'recommendations' => $communicationDeliveryRecommendations,
+        'privacy' => (string)($eventCommunicationDelivery['privacy'] ?? ''),
+        'authority' => (string)($eventCommunicationDelivery['authority'] ?? ''),
+    ];
 
+    // Global stuck/permanent transport rows are already counted above. Keep
+    // Event delivery attention as a contextual drilldown and Agent recommendation
+    // rather than adding the same underlying failures to attention_count twice.
     $summary['attention_count'] = (int)$summary['pending_role_requests']
         + (int)$summary['overdue_events']
         + (int)$summary['upcoming_without_location']
@@ -416,6 +459,7 @@ function coveted_operations_snapshot(array $actor): array
         'member_relationships' => $memberRelationships,
         'invitation_waves' => $invitationWaves,
         'event_communications' => $eventCommunications,
+        'event_communication_delivery' => $eventCommunicationDelivery,
         'lifecycle_backlog' => $lifecycleBacklog,
         'overdue_events' => $overdueEvents,
         'location_attention' => $locationAttention,
