@@ -5,6 +5,7 @@ require_once __DIR__ . '/groups.php';
 require_once __DIR__ . '/system_sample_data.php';
 require_once __DIR__ . '/event_guest_mix.php';
 require_once __DIR__ . '/member_journey.php';
+require_once __DIR__ . '/member_journey_scan.php';
 
 /**
  * Member Relationship Intelligence is a read-only view over canonical group,
@@ -241,9 +242,9 @@ function coveted_member_relationship_agent_context(array $admin, int $limit = 20
 
     $memberJourney=['available'=>false,'summary'=>[],'recommendations'=>[],'attention'=>0];
     try{
-        $memberJourney=coveted_member_journey_agent_context($admin,40,$pdo);
+        $memberJourney=coveted_member_journey_agent_context_fast($admin,60,$pdo);
         $attention+=(int)($memberJourney['attention']??0);
-        foreach(array_slice((array)($memberJourney['recommendations']??[]),0,10) as $rec)$recommendations[]=$rec;
+        foreach(array_slice((array)($memberJourney['recommendations']??[]),0,8) as $rec)$recommendations[]=$rec;
     }catch(Throwable $e){
         error_log('Member Relationship Member Journey Agent bridge unavailable: '.$e->getMessage());
     }
@@ -252,7 +253,7 @@ function coveted_member_relationship_agent_context(array $admin, int $limit = 20
     return [
         'available'=>true,'groups'=>$groups,'recommendations'=>array_slice($recommendations,0,20),'attention'=>$attention,
         'guest_mix'=>['available'=>!empty($guestMix['available']),'events'=>array_slice((array)($guestMix['events']??[]),0,12),'privacy'=>(string)($guestMix['privacy']??''),'authority'=>(string)($guestMix['authority']??'')],
-        'member_journey'=>['available'=>!empty($memberJourney['available']),'scanned'=>(int)($memberJourney['scanned']??0),'summary'=>(array)($memberJourney['summary']??[]),'attention'=>(int)($memberJourney['attention']??0),'privacy'=>(string)($memberJourney['privacy']??''),'authority'=>(string)($memberJourney['authority']??'')],
+        'member_journey'=>['available'=>!empty($memberJourney['available']),'scanned'=>(int)($memberJourney['scanned']??0),'summary'=>(array)($memberJourney['summary']??[]),'attention'=>(int)($memberJourney['attention']??0),'privacy'=>(string)($memberJourney['privacy']??''),'authority'=>(string)($memberJourney['authority']??''),'performance'=>(string)($memberJourney['performance']??'')],
         'privacy'=>'Aggregate group/event/member-journey relationship and Guest Mix signals only. Member Journey recommendations use opaque member refs and exclude member names, emails, pair identities, Mutual Reconnect choices, contact details, private messages, personality inference, and public rankings.'
     ];
 }
