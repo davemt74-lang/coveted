@@ -44,6 +44,7 @@ if (
                 '/admin/crm.php' => 'crm',
                 '/admin/member-journeys.php',
                 '/admin/guest-conversions.php',
+                '/admin/network-growth.php',
                 '/admin/membership-lifecycle.php' => 'people',
                 '/admin/cities.php' => 'cities',
                 '/admin/loyalty.php' => 'loyalty',
@@ -133,6 +134,7 @@ function coveted_admin_nav_link(string $active, string $key, string $href, strin
         'users' => 'people',
         'member-journeys' => 'people',
         'guest-conversions' => 'people',
+        'network-growth' => 'people',
         'membership-lifecycle' => 'people',
         'requests' => 'requests',
         'cities' => 'cities',
@@ -224,6 +226,7 @@ function coveted_admin_ui_start(
                     <?php coveted_admin_nav_link($active, 'crm', '/admin/crm.php', 'Invite CRM', (int)($counts['invite_requests'] ?? 0)); ?>
                     <?php coveted_admin_nav_link($active, 'users', '/admin/?view=users', 'Users', (int)$counts['users']); ?>
                     <?php coveted_admin_nav_link($active, 'guest-conversions', '/admin/guest-conversions.php', 'Guest Conversion'); ?>
+                    <?php coveted_admin_nav_link($active, 'network-growth', '/admin/network-growth.php', 'Network Growth'); ?>
                     <?php coveted_admin_nav_link($active, 'member-journeys', '/admin/member-journeys.php', 'Member Journeys'); ?>
                     <?php coveted_admin_nav_link($active, 'membership-lifecycle', '/admin/membership-lifecycle.php', 'Membership Lifecycle'); ?>
                     <?php coveted_admin_nav_link($active, 'requests', '/admin/?view=requests', 'Role Requests', (int)$counts['pending_requests']); ?>
