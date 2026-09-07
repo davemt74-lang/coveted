@@ -82,7 +82,7 @@ $contains($js,"document.querySelector('[data-admin-agent]')",'shared shell must 
 $contains($js,"document.querySelector('.cv-app-topbar')",'member shell must only mount for signed-in account pages');
 $contains($js,"document.body.classList.contains('cv-admin-body')",'System Admin pages must receive the shared shell too');
 $contains($js,"root.dataset.accountAgentShell = '1'",'one shared account Agent shell marker is required');
-$contains($js,"'/api/account-agent-bootstrap.php",'shell must bootstrap from authenticated server context');
+$contains($js,'/api/account-agent-bootstrap.php','shell must bootstrap from authenticated server context');
 $contains($js,"'/api/account-agent-chat.php'",'composer must submit to account-safe chat endpoint');
 $contains($js,"localStorage.setItem(storageKey",'active thread must persist across account page navigation');
 $contains($js,'window.visualViewport','mobile keyboard viewport handling is required');
