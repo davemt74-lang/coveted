@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/member_relationships.php';
 require_once dirname(__DIR__) . '/app/membership_lifecycle.php';
+require_once dirname(__DIR__) . '/app/network_growth.php';
 
 $admin=coveted_require_system_admin();
 $pdo=coveted_db();
@@ -14,8 +15,10 @@ $selectedRef=trim((string)($_GET['group']??''));
 if($selectedRef==='' && $groups) $selectedRef=(string)$groups[0]['public_id'];
 $snapshot=$selectedRef!==''?coveted_member_relationship_group_snapshot($admin,$selectedRef,$pdo):null;
 $lifecycleGroup=['available'=>false,'summary'=>[],'held_members'=>[],'held_count'=>0];
+$networkGrowthGroup=null;
 if($snapshot){
     try{$lifecycleGroup=coveted_membership_lifecycle_group_context($admin,$selectedRef,$pdo);}catch(Throwable $e){error_log('Membership lifecycle relationship overlay unavailable: '.$e->getMessage());}
+    try{$networkGrowthGroup=coveted_network_growth_group_snapshot($admin,$selectedRef,$pdo);}catch(Throwable $e){error_log('Network Growth relationship overlay unavailable: '.$e->getMessage());}
     if(!empty($lifecycleGroup['available'])){
         $heldIds=[];
         foreach((array)$lifecycleGroup['held_members'] as $held)$heldIds[(int)$held['user_id']]=true;
@@ -65,7 +68,7 @@ coveted_admin_ui_start($admin,'member-relationships','Member Relationship Intell
 ?>
 <div class="cv-admin-page-head">
   <div><span class="cv-eyebrow">RELATIONSHIP INTELLIGENCE</span><h1>Strengthen the network between events.</h1><p>Private, Admin-side signals derived from active membership and verified Coveted attendance—not followers, popularity scores or private Mutual Reconnect choices.</p></div>
-  <div class="cv-action-row"><a class="cv-button cv-button-soft" href="/admin/membership-lifecycle.php">Membership Lifecycle</a><a class="cv-button cv-button-soft" href="/admin/event-learning.php">Event Learning</a><a class="cv-button cv-button-primary" href="/admin/event-opportunities.php">Event Opportunities</a></div>
+  <div class="cv-action-row"><a class="cv-button cv-button-soft" href="/admin/membership-lifecycle.php">Membership Lifecycle</a><a class="cv-button cv-button-soft" href="/admin/network-growth.php<?= $selectedRef!==''?'?group='.coveted_e(rawurlencode($selectedRef)):'' ?>">Network Growth</a><a class="cv-button cv-button-soft" href="/admin/event-learning.php">Event Learning</a><a class="cv-button cv-button-primary" href="/admin/event-opportunities.php">Event Opportunities</a></div>
 </div>
 
 <div class="cv-admin-metric-grid cv-admin-section-gap">
@@ -93,6 +96,22 @@ coveted_admin_ui_start($admin,'member-relationships','Member Relationship Intell
  </div><?php endif;?>
 </section>
 <?php endif;?>
+
+<?php if($networkGrowthGroup):$ng=(array)$networkGrowthGroup['counts'];?>
+<section class="cv-admin-panel cv-admin-section-gap">
+ <div class="cv-admin-panel-head"><div><span class="cv-eyebrow">NETWORK GROWTH</span><h2>Referral outcomes in relationship planning</h2></div><span class="cv-status"><?=coveted_e((string)$networkGrowthGroup['state_label'])?></span></div>
+ <p>Guest Pass introductions are measured by what happened next—not by how many invitations a member sent. Repeat participation and post-conversion attendance are treated as relationship evidence, never as a popularity score.</p>
+ <div class="cv-admin-metric-grid">
+  <div><span>Used introductions</span><strong><?= (int)$ng['introductions']?></strong><small>accepted Guest Pass paths</small></div>
+  <div><span>Verified participants</span><strong><?= (int)$ng['verified_participation']?></strong><small>completed Event evidence</small></div>
+  <div><span>Repeat participants</span><strong><?= (int)$ng['repeat_participation']?></strong><small>2+ verified Events</small></div>
+  <div><span>Converted + returned</span><strong><?= (int)$ng['post_conversion_participation']?></strong><small>verified after membership</small></div>
+ </div>
+ <?php foreach((array)$networkGrowthGroup['recommendations'] as $rec):?><div class="cv-alert cv-admin-section-gap"><strong><?=coveted_e((string)$rec['title'])?></strong><br><?=coveted_e((string)$rec['detail'])?><br><small><?=coveted_e((string)$rec['evidence'])?></small></div><?php endforeach;?>
+ <div class="cv-action-row"><a class="cv-button cv-button-soft" href="/admin/network-growth.php?group=<?=coveted_e(rawurlencode((string)$networkGrowthGroup['group']['public_id']))?>">Review referral evidence</a></div>
+</section>
+<?php endif;?>
+
 <div class="cv-admin-dashboard-grid cv-admin-section-gap">
 <section class="cv-admin-panel">
  <div class="cv-admin-panel-head"><div><span class="cv-eyebrow">GROUP HEALTH</span><h2>Community portfolio</h2></div></div>
@@ -173,6 +192,6 @@ coveted_admin_ui_start($admin,'member-relationships','Member Relationship Intell
 </section>
 </div>
 
-<section class="cv-admin-panel cv-admin-section-gap"><div class="cv-admin-panel-head"><div><span class="cv-eyebrow">PRIVACY BOUNDARY</span><h2>Relationship intelligence, not social scoring</h2></div></div><p><?=coveted_e((string)$snapshot['privacy'])?> Membership lifecycle state is private System Admin/member context and is used here only to honor explicit paused/alumni planning holds. Member and pair identities are visible only in this System Admin workspace; the broad Admin Agent context receives aggregate group-level signals.</p></section>
+<section class="cv-admin-panel cv-admin-section-gap"><div class="cv-admin-panel-head"><div><span class="cv-eyebrow">PRIVACY BOUNDARY</span><h2>Relationship intelligence, not social scoring</h2></div></div><p><?=coveted_e((string)$snapshot['privacy'])?> Membership lifecycle state is private System Admin/member context and is used here only to honor explicit paused/alumni planning holds. Network Growth contributes referral-outcome evidence without creating a referral rank. Member and pair identities are visible only in this System Admin workspace; the broad Admin Agent context receives aggregate group-level signals.</p></section>
 <?php endif; ?>
 <?php coveted_admin_ui_end(); coveted_page_end(); ?>
