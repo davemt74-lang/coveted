@@ -89,6 +89,7 @@ function coveted_event_guest_mix_snapshot(array $admin,string $eventRef,?PDO $pd
     $state=$pdo->prepare(
         "SELECT
           (SELECT COUNT(*) FROM event_invitations WHERE event_id=e.id AND status<>'revoked') AS invited,
+          (SELECT COUNT(*) FROM event_invitations WHERE event_id=e.id AND status='pending') AS pending_invites,
           (SELECT COUNT(*) FROM event_rsvps WHERE event_id=e.id AND response='attending') AS attending,
           (SELECT COUNT(*) FROM event_rsvps WHERE event_id=e.id AND response='waitlist') AS waitlist,
           (SELECT COUNT(*) FROM event_hosts WHERE event_id=e.id) AS hosts
@@ -100,6 +101,9 @@ function coveted_event_guest_mix_snapshot(array $admin,string $eventRef,?PDO $pd
 
     $capacity=(int)($event['capacity']??0);
     $openSeats=$capacity>0?max(0,$capacity-(int)$counts['attending']):20;
+    // Pending invitations reduce new invitation recommendations. This keeps the
+    // planning layer conservative without treating a pending invite as a seat.
+    $invitationSlots=$capacity>0?max(0,$openSeats-(int)$counts['pending_invites']):20;
     $smallEvent=$capacity>0 && $capacity<=18;
     $now=time();$ninety=$now-(90*86400);
     $candidates=[];$paced=0;
@@ -139,7 +143,7 @@ function coveted_event_guest_mix_snapshot(array $admin,string $eventRef,?PDO $pd
     usort($candidates,static fn(array $a,array $b):int=>((int)$b['fit_score']<=> (int)$a['fit_score']) ?: strcmp((string)$a['display_name'],(string)$b['display_name']));
 
     $eligible=array_values(array_filter($candidates,static fn(array $c):bool=>!$c['paced_out'] && (int)$c['fit_score']>=35));
-    $recommendedCount=min(count($eligible),max(0,$openSeats));
+    $recommendedCount=min(count($eligible),max(0,$invitationSlots));
     if($capacity===0)$recommendedCount=min(count($eligible),20);
     $recommended=array_slice($eligible,0,$recommendedCount);
     $segments=['reconnect'=>0,'widen_circle'=>0,'reliable_repeat'=>0,'small_format'=>0,'balanced'=>0,'pace'=>0];
@@ -150,7 +154,7 @@ function coveted_event_guest_mix_snapshot(array $admin,string $eventRef,?PDO $pd
             'id'=>(int)$event['id'],'public_id'=>(string)$event['public_id'],'title'=>(string)$event['title'],'status'=>(string)$event['status'],'event_type'=>(string)$event['event_type'],'starts_at'=>(string)$event['starts_at'],'capacity'=>$capacity,
             'group_id'=>(int)$event['group_id'],'group_ref'=>(string)$event['group_ref'],'group_name'=>(string)$event['group_name'],
         ],
-        'counts'=>$counts+['open_seats'=>$openSeats,'candidate_pool'=>count($candidates),'recommended_count'=>$recommendedCount,'paced_members'=>$paced],
+        'counts'=>$counts+['open_seats'=>$openSeats,'invitation_slots'=>$invitationSlots,'candidate_pool'=>count($candidates),'recommended_count'=>$recommendedCount,'paced_members'=>$paced],
         'segments'=>$segments,
         'candidates'=>$candidates,'recommended'=>$recommended,
         'privacy'=>'Fit scores are event-specific invitation recommendations, not member-worth or popularity scores. Broad Agent context contains aggregate segment/count evidence only; member identities remain in this System Admin workspace.',
@@ -172,11 +176,11 @@ function coveted_event_guest_mix_agent_context(array $admin,int $limit=12,?PDO $
         if(count($events)>=max(1,min(20,$limit)))break;
         try{$snap=coveted_event_guest_mix_snapshot($admin,(string)$row['public_id'],$pdo);}catch(Throwable){continue;}
         $event=(array)$snap['event'];$counts=(array)$snap['counts'];$segments=(array)$snap['segments'];
-        $needs=(int)$counts['open_seats']>0 && (int)$counts['recommended_count']>0;
+        $needs=(int)$counts['invitation_slots']>0 && (int)$counts['recommended_count']>0;
         if($needs)$attention++;
         $events[]=[
             'event_ref'=>(string)$event['public_id'],'title'=>(string)$event['title'],'group'=>(string)$event['group_name'],'status'=>(string)$event['status'],'starts_at'=>(string)$event['starts_at'],'capacity'=>(int)$event['capacity'],
-            'attending'=>(int)$counts['attending'],'invited'=>(int)$counts['invited'],'open_seats'=>(int)$counts['open_seats'],'candidate_pool'=>(int)$counts['candidate_pool'],'recommended_count'=>(int)$counts['recommended_count'],'paced_members'=>(int)$counts['paced_members'],
+            'attending'=>(int)$counts['attending'],'invited'=>(int)$counts['invited'],'pending_invites'=>(int)$counts['pending_invites'],'open_seats'=>(int)$counts['open_seats'],'invitation_slots'=>(int)$counts['invitation_slots'],'candidate_pool'=>(int)$counts['candidate_pool'],'recommended_count'=>(int)$counts['recommended_count'],'paced_members'=>(int)$counts['paced_members'],
             'segments'=>['reconnect'=>(int)($segments['reconnect']??0),'widen_circle'=>(int)($segments['widen_circle']??0),'reliable_repeat'=>(int)($segments['reliable_repeat']??0),'small_format'=>(int)($segments['small_format']??0)],
             'href'=>'/admin/event-guest-mix.php?event='.rawurlencode((string)$event['public_id']),
         ];
@@ -184,8 +188,8 @@ function coveted_event_guest_mix_agent_context(array $admin,int $limit=12,?PDO $
             $recommendations[]=[
                 'priority'=>(int)$counts['attending']===0?1:2,
                 'key'=>'guest-mix-'.(string)$event['public_id'],'category'=>'Invitations','title'=>'Review the guest mix for '.(string)$event['title'],
-                'detail'=>'The event has open capacity and eligible active group members. Review the event-specific mix before sending invitations through the canonical Event workspace.',
-                'evidence'=>(int)$counts['open_seats'].' open seats · '.(int)$counts['recommended_count'].' recommended candidates · '.(int)($segments['reconnect']??0).' reconnect · '.(int)($segments['widen_circle']??0).' participation-breadth candidates · '.(int)$counts['paced_members'].' members currently paced.',
+                'detail'=>'The event has invitation capacity and eligible active group members. Review the event-specific mix before sending invitations through the canonical Event workspace.',
+                'evidence'=>(int)$counts['open_seats'].' open seats · '.(int)$counts['pending_invites'].' pending invitations · '.(int)$counts['invitation_slots'].' new invitation slots · '.(int)$counts['recommended_count'].' recommended candidates · '.(int)($segments['reconnect']??0).' reconnect · '.(int)($segments['widen_circle']??0).' participation-breadth candidates · '.(int)$counts['paced_members'].' members currently paced.',
                 'href'=>'/admin/event-guest-mix.php?event='.rawurlencode((string)$event['public_id']),
             ];
         }
