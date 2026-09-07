@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/account_agent_context.php';
 require_once dirname(__DIR__) . '/app/member_onboarding_agent.php';
+require_once dirname(__DIR__) . '/app/member_concierge.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -50,6 +51,7 @@ try {
     $snapshot = coveted_account_agent_context_snapshot($user, '/', $pdo);
     $member = (array)($snapshot['member'] ?? []);
     $onboarding = null;
+    $concierge = null;
     $welcome = [
         'title'=>'How can I help?',
         'body'=>'Ask about your Coveted events, invitations, benefits, hosting responsibilities, or account context.',
@@ -57,13 +59,23 @@ try {
 
     if (!empty($caps['member']) && empty($caps['system_admin'])) {
         $onboarding = coveted_member_onboarding_agent_snapshot($user, $pdo);
+        $concierge = coveted_member_concierge_snapshot($user, $pdo);
+        $attentionCount = count((array)($concierge['attention'] ?? []));
         $welcome = [
-            'title'=>'Your Coveted guide',
-            'body'=>(string)($onboarding['headline'] ?? 'I can help you decide what to do next in Coveted.'),
+            'title'=>'Your Coveted Concierge',
+            'body'=>$attentionCount > 0
+                ? $attentionCount . ' item' . ($attentionCount === 1 ? '' : 's') . ' may need your attention. I can also help with Events, benefits, RSVPs and what to do next.'
+                : (string)($onboarding['headline'] ?? 'I can help you decide what to attend, use and do next in Coveted.'),
         ];
     }
 
     $starters = [];
+    if ($concierge !== null) {
+        foreach ((array)($concierge['starter_prompts'] ?? []) as $prompt) {
+            $prompt = trim((string)$prompt);
+            if ($prompt !== '') $starters[] = $prompt;
+        }
+    }
     if ($onboarding !== null) {
         foreach ((array)($onboarding['starter_prompts'] ?? []) as $prompt) {
             $prompt = trim((string)$prompt);
@@ -116,7 +128,8 @@ try {
         'starters'=>array_slice(array_values(array_unique($starters)), 0, 5),
         'welcome'=>$welcome,
         'onboarding'=>$onboarding,
-        'authority'=>'Chat does not elevate account permissions. Mutations remain behind canonical Coveted controls and approval boundaries.',
+        'concierge'=>$concierge,
+        'authority'=>'Chat does not elevate account permissions. The model remains read/advise only. Member RSVP mutations require an explicit server-owned confirmation and execute through canonical Coveted Event services.',
     ]);
 } catch (Throwable $e) {
     error_log('Account Agent bootstrap failed: ' . $e->getMessage());
