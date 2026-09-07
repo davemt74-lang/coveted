@@ -51,9 +51,10 @@ $contains($operations,'coveted_event_invitation_wave_agent_context($actor, 12, $
 $contains($operations,"\$summary['invitation_waves']",'Operations summary must expose wave forecasts');
 $contains($operations,"\$summary['invitation_wave_attention']",'wave attention must contribute to Operations');
 $contains($operations,'$invitationWaveRecommendations','Invitation Wave recommendations must enter promoted Agent stream');
+$contains($operations,'usort($resultRecommendations','promoted Agent stream must be priority-sorted before slicing');
 $contains($operations,"'invitation_waves' => \$invitationWaves",'Operations response must expose Invitation Waves context');
 
-$contains($nav,"'/admin/event-invitation-waves.php",'Event navigation must expose Invitation Waves');
+$contains($nav,'event-invitation-waves.php?event=','Event navigation must expose Invitation Waves');
 $contains($nav,"shell.dataset.systemSample === '1'",'navigation must stay isolated in Sample Mode');
 $contains($loader,'event-invitation-waves-nav-v1.js','canonical JS loader must load Invitation Waves navigation');
 
