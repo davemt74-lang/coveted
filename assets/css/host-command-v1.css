@@ -1,0 +1,317 @@
+.cv-host-command-shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 20px 88px;
+}
+
+.cv-host-command-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 18px;
+}
+
+.cv-host-command-head h1 {
+    margin: 6px 0 8px;
+    font-size: clamp(30px, 5vw, 52px);
+    line-height: 1;
+}
+
+.cv-host-command-head p {
+    max-width: 720px;
+    margin: 0;
+    color: var(--muted);
+}
+
+.cv-host-command-head-actions,
+.cv-host-command-task-actions,
+.cv-host-command-guest-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cv-host-command-event-strip {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(210px, 1fr);
+    gap: 10px;
+    overflow-x: auto;
+    padding: 2px 0 10px;
+    margin: 12px 0 18px;
+    scrollbar-width: thin;
+}
+
+.cv-host-command-event-strip a {
+    display: grid;
+    gap: 4px;
+    min-height: 72px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.cv-host-command-event-strip a.is-active {
+    border-color: var(--ink);
+    box-shadow: 0 0 0 1px var(--ink);
+}
+
+.cv-host-command-event-strip small,
+.cv-host-command-task-copy small,
+.cv-host-command-host-list small,
+.cv-host-command-guest small,
+.cv-host-command-note small {
+    color: var(--muted);
+}
+
+.cv-host-command-status {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.cv-host-command-status > div {
+    display: grid;
+    gap: 6px;
+    min-height: 84px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+}
+
+.cv-host-command-status span {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.cv-host-command-status strong {
+    font-size: 22px;
+}
+
+.cv-host-command-event-card,
+.cv-host-command-panel {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #fff;
+}
+
+.cv-host-command-event-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+    padding: 18px;
+    margin-bottom: 14px;
+}
+
+.cv-host-command-event-meta,
+.cv-host-command-location {
+    display: grid;
+    align-content: start;
+    gap: 7px;
+}
+
+.cv-host-command-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.cv-host-command-section-gap {
+    margin-top: 14px;
+}
+
+.cv-host-command-panel {
+    padding: 18px;
+}
+
+.cv-host-command-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.cv-host-command-panel-head h2 {
+    margin: 3px 0 0;
+    font-size: 21px;
+}
+
+.cv-host-command-host-list {
+    display: grid;
+    gap: 10px;
+}
+
+.cv-host-command-host-list > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.cv-host-command-host-list > div:last-child {
+    border-bottom: 0;
+}
+
+.cv-host-command-host-list > div > span:last-child {
+    display: grid;
+    gap: 2px;
+}
+
+.cv-host-command-task-list,
+.cv-host-command-guest-list {
+    display: grid;
+    gap: 9px;
+}
+
+.cv-host-command-task,
+.cv-host-command-guest {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 14px;
+    align-items: center;
+    padding: 13px;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+}
+
+.cv-host-command-task.is-mine {
+    border-style: solid;
+    border-color: var(--line-strong);
+}
+
+.cv-host-command-task.is-blocked {
+    box-shadow: inset 4px 0 0 var(--ink);
+}
+
+.cv-host-command-task-copy,
+.cv-host-command-guest > div:first-child {
+    display: grid;
+    gap: 3px;
+}
+
+.cv-host-command-task-copy > span:first-child {
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.cv-host-command-task-actions,
+.cv-host-command-guest-actions {
+    grid-column: 1 / -1;
+}
+
+.cv-host-command-task-actions button,
+.cv-host-command-guest-actions button {
+    min-height: 42px;
+    padding: 0 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.cv-host-command-note-form {
+    display: grid;
+    gap: 10px;
+}
+
+.cv-host-command-note-form textarea {
+    width: 100%;
+    min-height: 112px;
+    resize: vertical;
+}
+
+.cv-host-command-note {
+    display: grid;
+    gap: 5px;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-soft, #f8f8f8);
+}
+
+.cv-host-command-note.is-incident {
+    border-style: dashed;
+}
+
+.cv-host-command-authority {
+    margin-top: 14px;
+}
+
+@media (max-width: 920px) {
+    .cv-host-command-status {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .cv-host-command-shell {
+        padding: 18px 12px 92px;
+    }
+
+    .cv-host-command-head,
+    .cv-host-command-event-card,
+    .cv-host-command-grid {
+        grid-template-columns: 1fr;
+        display: grid;
+    }
+
+    .cv-host-command-head-actions {
+        width: 100%;
+    }
+
+    .cv-host-command-head-actions .cv-button {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    .cv-host-command-status {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cv-host-command-status > div {
+        min-height: 72px;
+        padding: 12px;
+    }
+
+    .cv-host-command-task,
+    .cv-host-command-guest {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .cv-host-command-task > .cv-status,
+    .cv-host-command-guest > .cv-status {
+        justify-self: start;
+    }
+
+    .cv-host-command-task-actions,
+    .cv-host-command-guest-actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .cv-host-command-task-actions button,
+    .cv-host-command-guest-actions button {
+        min-height: 48px;
+        padding: 0 8px;
+    }
+}
