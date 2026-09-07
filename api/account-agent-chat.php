@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/account_agent_context.php';
 require_once dirname(__DIR__) . '/app/member_onboarding_agent.php';
+require_once dirname(__DIR__) . '/app/member_concierge.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -148,6 +149,7 @@ try {
     $snapshot = coveted_account_agent_context_snapshot($user, $surface, $pdo);
     if (!empty($snapshot['capabilities']['member']) && empty($snapshot['capabilities']['system_admin'])) {
         $snapshot['onboarding'] = coveted_member_onboarding_agent_snapshot($user, $pdo);
+        $snapshot['concierge'] = coveted_member_concierge_snapshot($user, $pdo);
     }
     $providerResult = coveted_account_agent_chat($user, $provider, $dialogue, $snapshot, $pdo);
     coveted_account_agent_append_message(
@@ -162,6 +164,7 @@ try {
             'surface'=>$surface,
             'role'=>(string)$snapshot['role'],
             'onboarding_stage'=>(string)($snapshot['onboarding']['stage'] ?? ''),
+            'concierge_attention_count'=>count((array)($snapshot['concierge']['attention'] ?? [])),
         ],
         $pdo
     );
@@ -174,7 +177,7 @@ try {
         'model'=>(string)$providerResult['model'],
         'thread'=>['public_id'=>$threadRef,'title'=>(string)($thread['title'] ?? 'Chat')],
         'replayed'=>false,
-        'authority'=>'Read/advise only. Canonical Coveted controls retain action authority.',
+        'authority'=>'The model is read/advise only. Member actions execute only through explicit confirmation and canonical Coveted services.',
     ]);
 } catch (Throwable $e) {
     error_log('Account Agent chat failed: ' . $e->getMessage());
