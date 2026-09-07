@@ -58,6 +58,7 @@ coveted_admin_ui_start($admin,'member-journeys','Member Journeys');
     <div class="cv-action-row">
         <a class="cv-button cv-button-soft" href="/admin/membership-lifecycle.php<?= $memberRef!==''?'?member='.coveted_e(rawurlencode($memberRef)):'' ?>">Membership Lifecycle</a>
         <a class="cv-button cv-button-soft" href="/admin/guest-conversions.php">Guest Conversion</a>
+        <a class="cv-button cv-button-soft" href="/admin/network-growth.php">Network Growth</a>
         <a class="cv-button cv-button-soft" href="/admin/member-relationships.php">Relationship Intelligence</a>
         <a class="cv-button cv-button-soft" href="/admin/agent-tasks.php">Agent Tasks</a>
         <a class="cv-button cv-button-soft" href="/admin/?view=users">Users</a>
@@ -99,6 +100,7 @@ coveted_admin_ui_start($admin,'member-journeys','Member Journeys');
 <?php if($snapshot):
     $member=(array)$snapshot['member'];$metrics=(array)$snapshot['metrics'];$decision=(array)$snapshot['decision'];$prefs=(array)$snapshot['preferences'];
     $origin=is_array($snapshot['membership_origin']??null)?(array)$snapshot['membership_origin']:null;
+    $networkOrigin=is_array($snapshot['network_growth_origin']??null)?(array)$snapshot['network_growth_origin']:null;
 ?>
 <section class="cv-admin-panel cv-admin-section-gap">
     <div class="cv-admin-panel-head">
@@ -130,6 +132,25 @@ coveted_admin_ui_start($admin,'member-journeys','Member Journeys');
     </dl>
     <div class="cv-alert"><strong>Canonical outcome:</strong> The member conversion was recorded only after the guest accepted <code><?=coveted_e((string)$origin['invitation_ref'])?></code>.</div>
     <div class="cv-action-row"><a class="cv-button cv-button-soft" href="/admin/guest-conversions.php">Review Guest Conversion</a></div>
+</section>
+<?php endif;?>
+
+<?php if($networkOrigin):$networkReferrer=is_array($networkOrigin['referrer']??null)?(array)$networkOrigin['referrer']:null;?>
+<section class="cv-admin-panel cv-admin-section-gap">
+    <div class="cv-admin-panel-head">
+        <div><span class="cv-eyebrow">REFERRAL / NETWORK GROWTH</span><h2><?=coveted_e((string)$networkOrigin['outcome_label'])?></h2></div>
+        <span class="cv-status">Outcome evidence</span>
+    </div>
+    <p>The member’s original Guest Pass relationship is carried forward as historical network-growth evidence. This measures what happened after the introduction; it does not rank the member who referred them.</p>
+    <dl class="cv-admin-event-definition-list">
+        <div><dt>Introduced by</dt><dd><?= $networkReferrer?coveted_e((string)$networkReferrer['display_name']):'Not established' ?></dd></div>
+        <div><dt>Group</dt><dd><?=coveted_e((string)$networkOrigin['group_name'])?></dd></div>
+        <div><dt>Guest Pass used</dt><dd><?=coveted_e($fmtOrigin((string)$networkOrigin['introduced_at']))?></dd></div>
+        <div><dt>Verified before conversion</dt><dd><?= (int)$networkOrigin['pre_conversion_verified'] ?></dd></div>
+        <div><dt>Verified after conversion</dt><dd><?= (int)$networkOrigin['post_conversion_verified'] ?></dd></div>
+        <div><dt>Last verified participation</dt><dd><?=coveted_e($fmtOrigin((string)$networkOrigin['last_verified_at']))?></dd></div>
+    </dl>
+    <div class="cv-action-row"><a class="cv-button cv-button-soft" href="/admin/network-growth.php?group=<?=coveted_e(rawurlencode((string)$networkOrigin['group_ref']))?>">Review Network Growth</a></div>
 </section>
 <?php endif;?>
 
