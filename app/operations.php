@@ -5,6 +5,7 @@ require_once __DIR__ . '/admin.php';
 require_once __DIR__ . '/lifecycle.php';
 require_once __DIR__ . '/event_opportunities.php';
 require_once __DIR__ . '/event_production.php';
+require_once __DIR__ . '/event_proposals.php';
 
 /**
  * Read-only System Admin launch-health view.
@@ -14,9 +15,9 @@ require_once __DIR__ . '/event_production.php';
  * never exposes notification endpoints, push keys, provider error payloads,
  * private event feedback, or Mutual Reconnect choices.
  *
- * Event Opportunity and Event Production summaries are intentionally included
- * here because the Admin Agent already consumes this canonical Operations
- * summary on every reasoning/chat round.
+ * Event Opportunity, Proposal / Playbook and Event Production summaries are
+ * intentionally included here because the Admin Agent already consumes this
+ * canonical Operations summary on every reasoning/chat round.
  *
  * @return array<string,mixed>
  */
@@ -98,16 +99,37 @@ function coveted_operations_snapshot(array $actor): array
     }
 
     try {
+        $eventPlanning = coveted_event_proposal_agent_context($actor, $pdo);
+    } catch (Throwable $e) {
+        $eventPlanning = ['available'=>false,'unavailable'=>true,'pipeline'=>[],'playbooks'=>[],'proposals'=>[],'recommendations'=>[]];
+        error_log('Operations Event Proposal / Playbook context unavailable: ' . $e->getMessage());
+    }
+
+    try {
         $eventProduction = coveted_event_production_agent_context($actor, $pdo);
     } catch (Throwable $e) {
         $eventProduction = ['unavailable'=>true,'events'=>[],'attention'=>0];
         error_log('Operations Event Production context unavailable: ' . $e->getMessage());
     }
 
+    $planningPipeline=(array)($eventPlanning['pipeline'] ?? []);
+    $planningRecommendations=array_slice((array)($eventPlanning['recommendations'] ?? []),0,12);
     $summary['event_opportunity_count'] = (int)($eventOpportunities['total'] ?? 0);
     $summary['event_opportunity_high_priority'] = (int)($eventOpportunities['high_priority'] ?? 0);
+    $summary['event_proposal_active']=(int)($planningPipeline['active'] ?? 0);
+    $summary['event_proposal_approved']=(int)($planningPipeline['approved'] ?? 0);
+    $summary['event_proposal_negotiating']=(int)($planningPipeline['negotiating'] ?? 0);
+    $summary['event_proposal_stalled']=(int)($planningPipeline['stalled'] ?? 0);
     $summary['event_production_attention'] = (int)($eventProduction['attention'] ?? 0);
     $summary['event_opportunities'] = array_slice((array)($eventOpportunities['recommendations'] ?? []), 0, 8);
+    $summary['event_planning'] = [
+        'available'=>!empty($eventPlanning['available']),
+        'pipeline'=>$planningPipeline,
+        'playbooks'=>array_slice((array)($eventPlanning['playbooks'] ?? []),0,12),
+        'proposals'=>array_slice((array)($eventPlanning['proposals'] ?? []),0,16),
+        'recommendations'=>$planningRecommendations,
+        'authority'=>(string)($eventPlanning['authority'] ?? ''),
+    ];
     $summary['event_production'] = [
         'unavailable' => !empty($eventProduction['unavailable']),
         'attention' => (int)($eventProduction['attention'] ?? 0),
@@ -120,6 +142,8 @@ function coveted_operations_snapshot(array $actor): array
         + (int)$summary['permanent_failures_24h']
         + (int)$summary['stuck_deliveries']
         + (int)$summary['lifecycle_backlog']
+        + (int)$summary['event_proposal_approved']
+        + (int)$summary['event_proposal_stalled']
         + (int)$summary['event_production_attention'];
 
     $overdueEvents = $pdo->query(
@@ -276,6 +300,7 @@ function coveted_operations_snapshot(array $actor): array
     return [
         'summary' => $summary,
         'event_opportunities' => $eventOpportunities,
+        'event_planning' => $eventPlanning,
         'event_production' => $eventProduction,
         'lifecycle_backlog' => $lifecycleBacklog,
         'overdue_events' => $overdueEvents,

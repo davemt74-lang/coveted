@@ -26,6 +26,7 @@ $missing = static function (string $content, string $needle, string $label): voi
 $migration = $read('database/migrations/20260906_event_opportunity_production.sql');
 $opportunities = $read('app/event_opportunities.php');
 $production = $read('app/event_production.php');
+$proposalService = $read('app/event_proposals.php');
 $opportunityPage = $read('admin/event-opportunities.php');
 $productionPage = $read('admin/event-production.php');
 $operations = $read('app/operations.php');
@@ -44,8 +45,8 @@ $contains($opportunities, 'active_perks', 'Partner Perk evidence is required');
 $contains($opportunities, 'active_campaigns', 'campaign evidence is required');
 $contains($opportunities, "'suggested_draft'", 'recommendations must expose an explicit canonical draft recipe');
 $contains($opportunities, "'status' => 'draft'", 'recommendations must default to draft events');
-$contains($opportunities, 'coveted_event_create($admin', 'explicit Admin acceptance must use canonical event creation');
-$contains($opportunities, 'coveted_event_set_location($admin', 'accepted recommendation must use canonical event location service');
+$contains($opportunities, 'coveted_event_create($admin', 'canonical direct-acceptance service must still use event creation authority');
+$contains($opportunities, 'coveted_event_set_location($admin', 'canonical direct-acceptance service must still use event location service');
 $contains($opportunities, 'coveted_event_require_system_admin($admin)', 'event creation must remain System Admin authority');
 $missing($opportunities, 'CREATE TABLE', 'opportunity service must not create runtime schema');
 $missing($opportunities, 'ALTER TABLE', 'opportunity service must not alter runtime schema');
@@ -69,8 +70,10 @@ $missing($production, 'ALTER TABLE', 'production service must not alter runtime 
 
 $contains($opportunityPage, 'coveted_require_system_admin()', 'Event Opportunity workspace must be System Admin-only');
 $contains($opportunityPage, 'coveted_require_csrf()', 'opportunity acceptance must require CSRF');
-$contains($opportunityPage, 'Create Draft + Production Plan', 'opportunity workspace must hand accepted recommendations into production');
-$contains($opportunityPage, 'coveted_event_production_seed_defaults', 'accepted opportunity must preload production plan when migration is installed');
+$contains($opportunityPage, 'Create Proposal', 'opportunity workspace must hand accepted recommendations into the Proposal planning layer');
+$contains($opportunityPage, 'coveted_event_proposal_create_from_opportunity', 'opportunity workspace must use canonical Proposal service');
+$contains($proposalService, 'coveted_event_production_seed_defaults', 'approved Proposal conversion must preload production plan when migration is installed');
+$contains($proposalService, 'coveted_event_production_create_item', 'Playbook conversion must be able to extend production plan');
 $contains($productionPage, 'coveted_require_system_admin()', 'Event Production workspace must be System Admin-only');
 $contains($productionPage, 'coveted_require_csrf()', 'production mutations must require CSRF');
 $contains($productionPage, 'Admin plans. Hosts operate.', 'production workspace must preserve host/event authority boundary');
