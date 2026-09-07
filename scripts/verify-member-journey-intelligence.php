@@ -80,7 +80,7 @@ $missing($relationships,'coveted_member_journey_agent_context($admin','Operation
 
 $contains($operations,'$relationshipRecommendations=array_slice','Operations must continue consuming the canonical relationship recommendation stream');
 $contains($operations,'$resultRecommendations=array_merge(','Member Journey recommendations must remain in the Agent-promoted event-results stream');
-$contains($brain,"foreach (['event_planning','host_command','event_results'] as \$streamKey)",'Admin Agent brain must continue promoting that shared stream');
+$contains($brain,"foreach (['event_planning','host_command','event_results'",'Admin Agent brain must continue promoting the shared Event Results stream while permitting additive intelligence streams');
 $contains($tasks,'function coveted_admin_agent_tasks_sync_opportunities','proactive Agent tasks must use the canonical task queue');
 
 $contains($page,"require_once dirname(__DIR__) . '/app/member_journey_scan.php';",'System Admin journey workspace must load aggregate scan');
