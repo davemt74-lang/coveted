@@ -92,7 +92,8 @@ $contains($page,'JOURNEY TIMELINE','journey workspace must show canonical intera
 $contains($page,'Evidence, not personality inference','workspace must state the evidence boundary');
 $contains($page,"coveted_redirect('/admin/system-preview.php?view=people')",'Sample Mode must not expose live member identities');
 
-$contains($adminUi,"'/admin/member-journeys.php' => 'people'",'Admin shell must route Member Journeys safely in Sample Mode');
+$contains($adminUi,"'/admin/member-journeys.php'",'Admin shell must recognize Member Journeys in Sample Mode routing');
+$contains($adminUi,"'/admin/membership-lifecycle.php' => 'people'",'grouped People sample routes must resolve to the People preview');
 $contains($adminUi,"coveted_admin_nav_link(\$active, 'member-journeys', '/admin/member-journeys.php', 'Member Journeys')",'Member Journeys must be first-class People navigation');
 $missing($loader,'member-journeys-nav-v1.js','Member Journeys navigation must have one canonical static source, not a duplicate JS injector');
 
