@@ -50,7 +50,7 @@
     }
 
     // Communications renders its own reviewed workflow actions. Add only the
-    // delivery-health handoff there so the other shared buttons are not duplicated.
+    // delivery-health handoff before preserving the Phase 2 early-return guard.
     if (location.pathname === '/admin/event-communications.php') {
         const actions = document.querySelector('.cv-admin-page-head .cv-action-row');
         if (actions && !actions.querySelector('[data-event-delivery-health-action]')) {
@@ -61,8 +61,8 @@
             link.textContent = 'Delivery Health';
             actions.prepend(link);
         }
-        return;
     }
+    if (location.pathname === '/admin/event-communications.php') return;
 
     // Delivery Health renders its own reviewed workflow actions.
     if (location.pathname === '/admin/event-communication-delivery.php') return;
