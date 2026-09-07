@@ -74,6 +74,9 @@ jobs:
       - name: Verify Event Results + Post-Event Intelligence contract
         run: php scripts/verify-event-results-intelligence.php
 
+      - name: Verify Event Learning + Predictive Planning contract
+        run: php scripts/verify-event-learning-predictive-planning.php
+
       - name: Verify Event Results navigation JavaScript syntax
         run: node --check assets/js/event-results-nav-v1.js
 
