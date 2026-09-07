@@ -117,45 +117,65 @@ function coveted_member_journey_agent_context_fast(array $admin,int $limit=60,?P
     if(coveted_system_sample_mode($admin,$pdo))return ['available'=>false,'reason'=>'sample_mode','summary'=>[],'recommendations'=>[],'attention'=>0];
 
     $summary=['over_contacted'=>0,'recovery'=>0,'drifting'=>0,'unactivated'=>0,'post_event'=>0,'momentum'=>0,'value_engaged'=>0,'decline_pressure'=>0,'steady'=>0];
-    $individual=[];$attention=0;$scanned=0;
+    $attention=0;$scanned=0;
     foreach(coveted_member_journey_scan_rows($pdo,max(1,min(80,$limit))) as $metrics){
         $scanned++;
         $decision=coveted_member_journey_decision($metrics);
         $state=(string)$decision['state'];
         $summary[$state]=($summary[$state]??0)+1;
-        if((int)$decision['priority']<=2 && $state!=='steady'){
-            $attention++;
-            if(count($individual)<6){
-                $individual[]=[
-                    'priority'=>(int)$decision['priority'],
-                    'key'=>'member-journey-'.(string)$metrics['public_id'],
-                    'category'=>'Member Journey',
-                    'title'=>'Review a member journey next-best action',
-                    'detail'=>(string)$decision['detail'],
-                    'evidence'=>(string)$decision['evidence'].' · action '.(string)$decision['action'],
-                    'href'=>'/admin/member-journeys.php?member='.rawurlencode((string)$metrics['public_id']),
-                ];
-            }
-        }
+        if((int)$decision['priority']<=2 && $state!=='steady')$attention++;
     }
-    usort($individual,static fn(array $a,array $b):int=>((int)$a['priority']<=> (int)$b['priority']) ?: strcmp((string)$a['key'],(string)$b['key']));
 
     $recommendations=[];
-    if($attention>0){
-        $priority=((int)$summary['over_contacted']+(int)$summary['recovery']+(int)$summary['drifting'])>0?1:2;
+    $paced=(int)$summary['over_contacted']+(int)$summary['decline_pressure'];
+    if($paced>0){
         $recommendations[]=[
-            'priority'=>$priority,'key'=>'member-journey-review','category'=>'Member Journey',
-            'title'=>'Review the Member Journey attention queue',
-            'detail'=>'Member Journey Intelligence found evidence-based next-best actions across the active member base. Review pacing, reconnection, post-event and value opportunities before the next outreach cycle.',
-            'evidence'=>(int)$summary['over_contacted'].' paced · '.(int)$summary['recovery'].' recovery · '.(int)$summary['drifting'].' drifting · '.(int)$summary['post_event'].' post-event · '.(int)$summary['momentum'].' momentum · '.(int)$summary['unactivated'].' not activated.',
+            'priority'=>1,'key'=>'member-journey-pacing','category'=>'Member Journey',
+            'title'=>'Reduce member outreach pressure where evidence is elevated',
+            'detail'=>'Some active members are already receiving elevated invitation or communication pressure. Review the Member Journey queue before adding more outreach.',
+            'evidence'=>$paced.' journey'.($paced===1?'':'s').' currently need pacing review.',
             'href'=>'/admin/member-journeys.php',
         ];
     }
-    foreach($individual as $rec)$recommendations[]=$rec;
+
+    $reconnect=(int)$summary['recovery']+(int)$summary['drifting'];
+    if($reconnect>0){
+        $recommendations[]=[
+            'priority'=>1,'key'=>'member-journey-reconnect','category'=>'Member Journey',
+            'title'=>'Review member reconnection and recovery opportunities',
+            'detail'=>'Verified participation history shows members who are drifting or need a lower-pressure recovery path after missed Events.',
+            'evidence'=>$reconnect.' journey'.($reconnect===1?'':'s').' currently match reconnection/recovery evidence.',
+            'href'=>'/admin/member-journeys.php',
+        ];
+    }
+
+    $followup=(int)$summary['post_event']+(int)$summary['momentum']+(int)$summary['value_engaged'];
+    if($followup>0){
+        $recommendations[]=[
+            'priority'=>2,'key'=>'member-journey-followup','category'=>'Member Journey',
+            'title'=>'Review post-event and positive-momentum member follow-up',
+            'detail'=>'Recent verified attendance or proven value engagement indicates relationship follow-up opportunities that should be reviewed before the next Event cycle.',
+            'evidence'=>$followup.' journey'.($followup===1?'':'s').' currently match post-event, momentum or value-engagement evidence.',
+            'href'=>'/admin/member-journeys.php',
+        ];
+    }
+
+    $unactivated=(int)$summary['unactivated'];
+    if($unactivated>0){
+        $recommendations[]=[
+            'priority'=>2,'key'=>'member-journey-activation','category'=>'Member Journey',
+            'title'=>'Find first-event opportunities for unactivated members',
+            'detail'=>'Some active group members have no verified Coveted attendance in the measured year. Review fit before sending another broad invitation.',
+            'evidence'=>$unactivated.' active member journey'.($unactivated===1?' has':'s have').' no verified completed-event attendance in the measured year.',
+            'href'=>'/admin/member-journeys.php',
+        ];
+    }
+
+    usort($recommendations,static fn(array $a,array $b):int=>((int)$a['priority']<=> (int)$b['priority']) ?: strcmp((string)$a['key'],(string)$b['key']));
 
     return [
         'available'=>true,'scanned'=>$scanned,'summary'=>$summary,'recommendations'=>$recommendations,'attention'=>$attention,
-        'privacy'=>'Aggregate/opaque member journey signals only. Broad Agent context contains no member names, email addresses, contact details, private messages, personality inference, or public ranking.',
+        'privacy'=>'Aggregate Member Journey state/action counts only. Broad Agent context contains no member names, member refs, email addresses, contact details, private messages, personality inference, or public ranking.',
         'authority'=>'Read-only next-best-action intelligence. The Agent may recommend and track work, but System Admin explicitly performs any invitation, communication, reward or relationship action.',
         'performance'=>'One bounded aggregate member scan per Agent context build; no per-member metrics-query loop.',
     ];
