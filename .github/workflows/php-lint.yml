@@ -80,6 +80,9 @@ jobs:
       - name: Verify Member Relationship + Reconnection Intelligence contract
         run: php scripts/verify-member-relationship-intelligence.php
 
+      - name: Verify Member Journey Intelligence + Post-Event Follow-Up contract
+        run: php scripts/verify-member-journey-intelligence.php
+
       - name: Verify Member Relationship navigation JavaScript syntax
         run: node --check assets/js/member-relationships-nav-v1.js
 
