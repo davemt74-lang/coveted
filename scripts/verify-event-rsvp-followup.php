@@ -32,6 +32,9 @@ $contains($service, 'function coveted_event_rsvp_followup_snapshot', 'derived fo
 $contains($service, 'coveted_event_invitation_wave_snapshot($admin, $eventRef, $pdo)', 'follow-up must reuse canonical Invitation Wave / forecast intelligence');
 $contains($service, "ei.status = 'pending'", 'only canonical pending invitations may enter follow-up review');
 $contains($service, 'er.response IS NULL', 'members with an RSVP must not remain in follow-up candidates');
+$contains($service, "ae.event_type = 'event.user_invited'", 'follow-up age must use canonical invitation audit history');
+$contains($service, "JSON_UNQUOTE(JSON_EXTRACT(ae.metadata_json, '$.invitation_id')) = ei.public_id", 'latest invite audit must bind to the exact canonical invitation');
+$contains($service, '), ei.created_at) AS invited_at', 'legacy invitations must safely fall back to canonical created_at');
 $contains($service, "'hold'", 'hold classification required');
 $contains($service, "'nudge_ready'", 'nudge-ready classification required');
 $contains($service, "'stop_contact'", 'stop-contact classification required');
