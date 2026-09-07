@@ -18,10 +18,6 @@ function coveted_account_agent_surface(string $surface): string
     if ($path === '' || !str_starts_with($path, '/') || str_starts_with($path, '//')) {
         return '/';
     }
-    $query = is_array($parts) ? trim((string)($parts['query'] ?? '')) : '';
-    if ($query !== '' && strlen($query) <= 300) {
-        return $path . '?' . $query;
-    }
     return $path;
 }
 
