@@ -77,6 +77,7 @@ $contains($js,"const conciergePanel = el('section', 'cv-account-agent-concierge'
 $contains($js,"confirm.dataset.conciergeConfirm = '1'",'mutation controls must render a separate confirmation state');
 $contains($js,"body.set('confirmed', '1')",'only the explicit confirmation path may call the mutation endpoint');
 $contains($js,"'/api/account-agent-action.php'",'confirmed action must use the server-owned Concierge endpoint');
+$contains($js,"Chat history could not be saved for this action.",'confirmed action result must remain visible when durable chat persistence is unavailable');
 $contains($js,"body.set('surface', window.location.pathname);",'Concierge must preserve pathname-only page context hardening');
 $contains($js,'safeInternalPath','Concierge links must be restricted to internal paths');
 $contains($js,'body.textContent = content','Agent response rendering must remain text only');
