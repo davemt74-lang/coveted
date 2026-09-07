@@ -22,8 +22,8 @@ function coveted_member_journey_scan_rows(PDO $pdo,int $limit=80): array
                 COALESCE(att.small_format_365d,0) AS small_format_365d,
                 COALESCE(att.no_shows_180d,0) AS no_shows_180d,
                 COALESCE(rsp.declines_180d,0) AS declines_180d,
-                COALESCE(inv.invitations_30d,0) AS invitations_30d,
-                COALESCE(inv.invitations_60d,0) AS invitations_60d,
+                COALESCE(contacts.invitations_30d,0) AS invitations_30d,
+                COALESCE(contacts.invitations_60d,0) AS invitations_60d,
                 COALESCE(inv.pending_invitations,0) AS pending_invitations,
                 COALESCE(inv.future_invitations,0) AS future_invitations,
                 COALESCE(msg.event_messages_30d,0) AS event_messages_30d,
@@ -54,9 +54,30 @@ function coveted_member_journey_scan_rows(PDO $pdo,int $limit=80): array
              GROUP BY er.user_id
          ) rsp ON rsp.user_id=u.id
          LEFT JOIN (
+             SELECT cycles.user_id,
+                    SUM(cycles.contact_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 30 DAY)) AS invitations_30d,
+                    SUM(cycles.contact_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 60 DAY)) AS invitations_60d
+             FROM (
+                 SELECT ei.user_id,ae.created_at AS contact_at
+                 FROM audit_events ae
+                 JOIN event_invitations ei
+                   ON JSON_UNQUOTE(JSON_EXTRACT(ae.metadata_json,'$.invitation_id'))=ei.public_id
+                 JOIN events e ON e.id=ei.event_id AND ae.entity_id=e.public_id
+                 WHERE ae.event_type='event.user_invited' AND ae.entity_type='event'
+                 UNION ALL
+                 SELECT ei.user_id,ei.created_at AS contact_at
+                 FROM event_invitations ei
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM audit_events ae
+                     WHERE ae.event_type='event.user_invited'
+                       AND ae.entity_type='event'
+                       AND JSON_UNQUOTE(JSON_EXTRACT(ae.metadata_json,'$.invitation_id'))=ei.public_id
+                 )
+             ) cycles
+             GROUP BY cycles.user_id
+         ) contacts ON contacts.user_id=u.id
+         LEFT JOIN (
              SELECT ei.user_id,
-                    SUM(CASE WHEN ei.status<>'revoked' AND ei.created_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS invitations_30d,
-                    SUM(CASE WHEN ei.status<>'revoked' AND ei.created_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 60 DAY) THEN 1 ELSE 0 END) AS invitations_60d,
                     SUM(CASE WHEN ei.status='pending' AND e.starts_at>UTC_TIMESTAMP() THEN 1 ELSE 0 END) AS pending_invitations,
                     SUM(CASE WHEN ei.status<>'revoked' AND e.starts_at>UTC_TIMESTAMP() THEN 1 ELSE 0 END) AS future_invitations
              FROM event_invitations ei JOIN events e ON e.id=ei.event_id
