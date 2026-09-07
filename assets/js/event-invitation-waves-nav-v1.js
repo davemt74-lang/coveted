@@ -49,9 +49,23 @@
         tabs.appendChild(link);
     }
 
-    // Communications and Delivery Health render their own reviewed workflow
-    // actions. Do not prepend the shared shortcut set a second time there.
-    if (['/admin/event-communications.php','/admin/event-communication-delivery.php'].includes(location.pathname)) return;
+    // Communications renders its own reviewed workflow actions. Add only the
+    // delivery-health handoff there so the other shared buttons are not duplicated.
+    if (location.pathname === '/admin/event-communications.php') {
+        const actions = document.querySelector('.cv-admin-page-head .cv-action-row');
+        if (actions && !actions.querySelector('[data-event-delivery-health-action]')) {
+            const link = document.createElement('a');
+            link.dataset.eventDeliveryHealthAction = '1';
+            link.className = 'cv-button cv-button-soft';
+            link.href = `/admin/event-communication-delivery.php?event=${encodeURIComponent(eventRef)}`;
+            link.textContent = 'Delivery Health';
+            actions.prepend(link);
+        }
+        return;
+    }
+
+    // Delivery Health renders its own reviewed workflow actions.
+    if (location.pathname === '/admin/event-communication-delivery.php') return;
 
     const actions = document.querySelector('.cv-admin-event-top-actions,.cv-admin-page-head .cv-action-row');
     if (actions && !actions.querySelector('[data-event-invitation-waves-action]')) {
