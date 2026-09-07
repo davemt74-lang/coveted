@@ -8,6 +8,7 @@ require_once __DIR__ . '/event_production.php';
 require_once __DIR__ . '/event_proposals.php';
 require_once __DIR__ . '/host_command.php';
 require_once __DIR__ . '/event_results.php';
+require_once __DIR__ . '/member_relationships.php';
 
 /**
  * Read-only System Admin launch-health view.
@@ -17,9 +18,10 @@ require_once __DIR__ . '/event_results.php';
  * never exposes notification endpoints, push keys, provider error payloads,
  * private event feedback, attendee identities, or Mutual Reconnect choices.
  *
- * Event Opportunity, Proposal / Playbook, Event Production, Host Command and
- * Event Results summaries are intentionally included here because the Admin
- * Agent consumes this canonical Operations summary on every reasoning/chat round.
+ * Event Opportunity, Proposal / Playbook, Event Production, Host Command,
+ * Event Results and aggregate Member Relationship summaries are intentionally
+ * included here because the Admin Agent consumes this canonical Operations
+ * summary on every reasoning/chat round.
  *
  * @return array<string,mixed>
  */
@@ -128,10 +130,21 @@ function coveted_operations_snapshot(array $actor): array
         error_log('Operations Event Results context unavailable: ' . $e->getMessage());
     }
 
+    try {
+        $memberRelationships = coveted_member_relationship_agent_context($actor, 20, $pdo);
+    } catch (Throwable $e) {
+        $memberRelationships = ['available'=>false,'groups'=>[],'recommendations'=>[],'attention'=>0,'unavailable'=>true];
+        error_log('Operations Member Relationship context unavailable: ' . $e->getMessage());
+    }
+
     $planningPipeline=(array)($eventPlanning['pipeline'] ?? []);
     $planningRecommendations=array_slice((array)($eventPlanning['recommendations'] ?? []),0,12);
     $hostRecommendations=array_slice((array)($hostCommand['recommendations'] ?? []),0,12);
-    $resultRecommendations=array_slice((array)($eventResults['recommendations'] ?? []),0,12);
+    $relationshipRecommendations=array_slice((array)($memberRelationships['recommendations'] ?? []),0,8);
+    // Relationship intelligence is post-event-derived and is merged into the
+    // already promoted post-event recommendation stream so it reaches the
+    // Admin Agent's canonical opportunity queue without a parallel Agent path.
+    $resultRecommendations=array_slice(array_merge((array)($eventResults['recommendations'] ?? []),$relationshipRecommendations),0,12);
     $summary['event_opportunity_count'] = (int)($eventOpportunities['total'] ?? 0);
     $summary['event_opportunity_high_priority'] = (int)($eventOpportunities['high_priority'] ?? 0);
     $summary['event_proposal_active']=(int)($planningPipeline['active'] ?? 0);
@@ -141,6 +154,7 @@ function coveted_operations_snapshot(array $actor): array
     $summary['event_production_attention'] = (int)($eventProduction['attention'] ?? 0);
     $summary['host_command_attention'] = (int)($hostCommand['attention'] ?? 0);
     $summary['event_results_attention'] = (int)($eventResults['attention'] ?? 0);
+    $summary['member_relationship_attention'] = (int)($memberRelationships['attention'] ?? 0);
     $summary['event_opportunities'] = array_slice((array)($eventOpportunities['recommendations'] ?? []), 0, 8);
     $summary['event_planning'] = [
         'available'=>!empty($eventPlanning['available']),
@@ -169,6 +183,13 @@ function coveted_operations_snapshot(array $actor): array
         'recommendations' => $resultRecommendations,
         'privacy' => (string)($eventResults['privacy'] ?? ''),
     ];
+    $summary['member_relationships'] = [
+        'available' => !empty($memberRelationships['available']),
+        'attention' => (int)($memberRelationships['attention'] ?? 0),
+        'groups' => array_slice((array)($memberRelationships['groups'] ?? []),0,20),
+        'recommendations' => $relationshipRecommendations,
+        'privacy' => (string)($memberRelationships['privacy'] ?? ''),
+    ];
 
     $summary['attention_count'] = (int)$summary['pending_role_requests']
         + (int)$summary['overdue_events']
@@ -180,7 +201,8 @@ function coveted_operations_snapshot(array $actor): array
         + (int)$summary['event_proposal_stalled']
         + (int)$summary['event_production_attention']
         + (int)$summary['host_command_attention']
-        + (int)$summary['event_results_attention'];
+        + (int)$summary['event_results_attention']
+        + (int)$summary['member_relationship_attention'];
 
     $overdueEvents = $pdo->query(
         "SELECT
@@ -340,6 +362,7 @@ function coveted_operations_snapshot(array $actor): array
         'event_production' => $eventProduction,
         'host_command' => $hostCommand,
         'event_results' => $eventResults,
+        'member_relationships' => $memberRelationships,
         'lifecycle_backlog' => $lifecycleBacklog,
         'overdue_events' => $overdueEvents,
         'location_attention' => $locationAttention,
