@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/events.php';
 require_once __DIR__ . '/event_management.php';
+require_once __DIR__ . '/system_sample_data.php';
 
 /**
  * Event opportunities are a deterministic read model built from canonical
@@ -77,9 +78,7 @@ function coveted_event_opportunity_suggested_start(string $timezone, int $minimu
     $candidate = new DateTimeImmutable('now', $zone);
     $candidate = $candidate->modify('+' . max(7, $minimumDays) . ' days')->setTime(19, 0);
     $day = (int)$candidate->format('N');
-    if ($day < 4) {
-        $candidate = $candidate->modify('next Thursday');
-    } elseif ($day > 6) {
+    if ($day < 4 || $day > 6) {
         $candidate = $candidate->modify('next Thursday');
     }
 
@@ -94,6 +93,13 @@ function coveted_event_opportunities(array $admin, ?PDO $pdo = null): array
     }
 
     $pdo ??= coveted_db();
+    if (coveted_system_sample_mode($admin, $pdo)) {
+        return [];
+    }
+
+    // Start from real canonical event/location history, then LEFT JOIN the
+    // stored CRM relationship. This mirrors Venue Relationships: a completed
+    // event creates an inferred Event Venue even before someone saves a CRM row.
     $rows = $pdo->query(
         "SELECT
             g.id AS group_id,
@@ -109,7 +115,7 @@ function coveted_event_opportunities(array $admin, ?PDO $pdo = null): array
             b.id AS business_id,
             b.public_id AS business_ref,
             b.name AS business_name,
-            vr.relationship_status,
+            vr.relationship_status AS stored_relationship_status,
             COALESCE(vr.benefits_enabled, 0) AS benefits_enabled,
             COALESCE(vr.mystery_events_enabled, 0) AS mystery_events_enabled,
             vr.partner_since,
@@ -145,11 +151,29 @@ function coveted_event_opportunities(array $admin, ?PDO $pdo = null): array
              JOIN events ae2 ON ae2.id = ea2.event_id AND ae2.group_id = g.id AND ae2.status = 'completed'
              JOIN event_locations ael2 ON ael2.event_id = ae2.id AND ael2.location_id = l.id
              WHERE ea2.status IN ('checked_in','attended','left_early')) AS unique_attendees
-         FROM venue_relationships vr
-         JOIN social_groups g ON g.id = vr.group_id AND g.status = 'active'
-         JOIN locations l ON l.id = vr.location_id AND l.status = 'active'
+         FROM (
+            SELECT DISTINCT e.group_id, el.location_id
+            FROM events e
+            JOIN event_locations el ON el.event_id = e.id AND el.location_id IS NOT NULL
+            WHERE e.status IN ('published','closed','completed')
+         ) rel
+         JOIN social_groups g ON g.id = rel.group_id AND g.status = 'active'
+         JOIN locations l ON l.id = rel.location_id AND l.status = 'active'
          JOIN businesses b ON b.id = l.business_id AND b.status = 'active'
-         WHERE vr.relationship_status IN ('event_venue','partner','preferred_partner','home_venue')
+         LEFT JOIN venue_relationships vr
+           ON vr.group_id = rel.group_id
+          AND vr.location_id = rel.location_id
+         WHERE
+            vr.relationship_status IN ('event_venue','partner','preferred_partner','home_venue')
+            OR (
+                vr.id IS NULL
+                AND EXISTS (
+                    SELECT 1
+                    FROM events ce
+                    JOIN event_locations cel ON cel.event_id = ce.id AND cel.location_id = rel.location_id
+                    WHERE ce.group_id = rel.group_id AND ce.status = 'completed'
+                )
+            )
          ORDER BY g.name, l.name"
     )->fetchAll();
 
@@ -174,6 +198,10 @@ function coveted_event_opportunities(array $admin, ?PDO $pdo = null): array
         $activeMembers = (int)$row['active_members'];
         $perks = (int)($activePerks[$relationshipKey] ?? 0);
         $campaigns = (int)($activeCampaigns[$relationshipKey] ?? 0);
+        $relationshipStatus = trim((string)($row['stored_relationship_status'] ?? ''));
+        if ($relationshipStatus === '') {
+            $relationshipStatus = $completedEvents > 0 ? 'event_venue' : 'new';
+        }
 
         $daysSince = 60;
         if (!empty($row['last_completed_at'])) {
@@ -185,15 +213,13 @@ function coveted_event_opportunities(array $admin, ?PDO $pdo = null): array
             }
         }
 
-        // Do not recommend another gathering while this group already has a
-        // future canonical event. The engine should reduce noise, not create it.
         if ($upcomingForGroup > 0) {
             continue;
         }
 
         $score = 24;
         $score += min(28, max(0, $daysSince - 7));
-        $score += (int)($statusWeight[(string)$row['relationship_status']] ?? 0);
+        $score += (int)($statusWeight[$relationshipStatus] ?? 0);
         $score += !empty($row['benefits_enabled']) ? 7 : 0;
         $score += $perks > 0 ? 6 : 0;
         $score += $campaigns > 0 ? 4 : 0;
@@ -223,7 +249,7 @@ function coveted_event_opportunities(array $admin, ?PDO $pdo = null): array
 
         $evidenceParts = [
             $daysSince . ' days since the last completed event here',
-            ucfirst(str_replace('_', ' ', (string)$row['relationship_status'])) . ' relationship',
+            ucfirst(str_replace('_', ' ', $relationshipStatus)) . ' relationship',
             $verifiedVisits . ' verified visits',
             $activeMembers . ' active group members',
         ];
@@ -256,7 +282,7 @@ function coveted_event_opportunities(array $admin, ?PDO $pdo = null): array
                 'business_name' => (string)$row['business_name'],
                 'location_ref' => $locationRef,
                 'location_name' => (string)$row['location_name'],
-                'relationship_status' => (string)$row['relationship_status'],
+                'relationship_status' => $relationshipStatus,
             ],
             'signals' => [
                 'days_since_last_event' => $daysSince,
@@ -316,6 +342,9 @@ function coveted_event_opportunity_create_draft(array $admin, string $key, ?PDO 
 {
     coveted_event_require_system_admin($admin);
     $pdo ??= coveted_db();
+    if (coveted_system_sample_mode($admin, $pdo)) {
+        throw new InvalidArgumentException('Full System Sample Mode is read-only. Turn it off before creating an event.');
+    }
     $item = coveted_event_opportunity_by_key($admin, $key, $pdo);
     if (!$item || empty($item['execution_ready']) || !is_array($item['suggested_draft'] ?? null)) {
         throw new InvalidArgumentException('That event opportunity is no longer available. Refresh the opportunity list.');
@@ -326,9 +355,6 @@ function coveted_event_opportunity_create_draft(array $admin, string $key, ?PDO 
     try {
         coveted_event_set_location($admin, (string)$created['public_id'], (int)$draft['location_id']);
     } catch (Throwable $e) {
-        // A draft without a venue is safer than rolling back a canonical event
-        // creation after its own transaction already committed. Surface the
-        // location failure clearly so Admin can fix it in Event Workspace.
         error_log('Event opportunity draft location assignment failed: ' . $e->getMessage());
     }
 
@@ -345,10 +371,7 @@ function coveted_event_opportunity_create_draft(array $admin, string $key, ?PDO 
         (int)$admin['id']
     );
 
-    return [
-        'event' => $created,
-        'opportunity' => $item,
-    ];
+    return ['event' => $created, 'opportunity' => $item];
 }
 
 /** @return array<string,mixed> */
