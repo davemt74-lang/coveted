@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/admin.php';
 require_once __DIR__ . '/lifecycle.php';
+require_once __DIR__ . '/event_opportunities.php';
+require_once __DIR__ . '/event_production.php';
 
 /**
  * Read-only System Admin launch-health view.
@@ -11,6 +13,10 @@ require_once __DIR__ . '/lifecycle.php';
  * tables. It deliberately does not create a second lifecycle/state machine and
  * never exposes notification endpoints, push keys, provider error payloads,
  * private event feedback, or Mutual Reconnect choices.
+ *
+ * Event Opportunity and Event Production summaries are intentionally included
+ * here because the Admin Agent already consumes this canonical Operations
+ * summary on every reasoning/chat round.
  *
  * @return array<string,mixed>
  */
@@ -83,12 +89,38 @@ function coveted_operations_snapshot(array $actor): array
 
     $lifecycleBacklog = coveted_lifecycle_backlog();
     $summary['lifecycle_backlog'] = (int)$lifecycleBacklog['total'];
+
+    try {
+        $eventOpportunities = coveted_event_opportunity_agent_context($actor, $pdo);
+    } catch (Throwable $e) {
+        $eventOpportunities = ['total'=>0,'high_priority'=>0,'recommendations'=>[],'unavailable'=>true];
+        error_log('Operations Event Opportunity context unavailable: ' . $e->getMessage());
+    }
+
+    try {
+        $eventProduction = coveted_event_production_agent_context($actor, $pdo);
+    } catch (Throwable $e) {
+        $eventProduction = ['unavailable'=>true,'events'=>[],'attention'=>0];
+        error_log('Operations Event Production context unavailable: ' . $e->getMessage());
+    }
+
+    $summary['event_opportunity_count'] = (int)($eventOpportunities['total'] ?? 0);
+    $summary['event_opportunity_high_priority'] = (int)($eventOpportunities['high_priority'] ?? 0);
+    $summary['event_production_attention'] = (int)($eventProduction['attention'] ?? 0);
+    $summary['event_opportunities'] = array_slice((array)($eventOpportunities['recommendations'] ?? []), 0, 8);
+    $summary['event_production'] = [
+        'unavailable' => !empty($eventProduction['unavailable']),
+        'attention' => (int)($eventProduction['attention'] ?? 0),
+        'events' => array_slice((array)($eventProduction['events'] ?? []), 0, 10),
+    ];
+
     $summary['attention_count'] = (int)$summary['pending_role_requests']
         + (int)$summary['overdue_events']
         + (int)$summary['upcoming_without_location']
         + (int)$summary['permanent_failures_24h']
         + (int)$summary['stuck_deliveries']
-        + (int)$summary['lifecycle_backlog'];
+        + (int)$summary['lifecycle_backlog']
+        + (int)$summary['event_production_attention'];
 
     $overdueEvents = $pdo->query(
         "SELECT
@@ -243,6 +275,8 @@ function coveted_operations_snapshot(array $actor): array
 
     return [
         'summary' => $summary,
+        'event_opportunities' => $eventOpportunities,
+        'event_production' => $eventProduction,
         'lifecycle_backlog' => $lifecycleBacklog,
         'overdue_events' => $overdueEvents,
         'location_attention' => $locationAttention,
