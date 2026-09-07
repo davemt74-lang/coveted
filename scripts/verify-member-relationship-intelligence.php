@@ -29,7 +29,7 @@ $contains($service,"'under_engaged'",'under-engaged health state required');
 $contains($service,"small_format_events",'small-format behavioral evidence required');
 $contains($service,'No Mutual Reconnect choices','service must explicitly exclude private Mutual Reconnect choices');
 $contains($service,"Broad Agent context intentionally contains no member identities or pair identities.",'Agent privacy boundary must be explicit');
-$contains($service,"'privacy'=>'Aggregate group-level relationship signals only.",'Agent payload must document aggregate privacy');
+$contains($service,"'privacy'=>'Aggregate group/event-level relationship and Guest Mix signals only.",'Agent payload must document aggregate group/event privacy');
 $missing($service,'CREATE TABLE','relationship intelligence must not create a social-graph table');
 $missing($service,'ALTER TABLE','relationship intelligence must not alter schema');
 $missing($service,'INSERT INTO','relationship intelligence service must remain read-only');
