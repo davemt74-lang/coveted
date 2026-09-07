@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/system_sample_data.php';
+require_once __DIR__ . '/guest_member_conversion.php';
 
 /**
  * Member Journey Intelligence is a read-only System Admin view over canonical
@@ -370,6 +371,7 @@ function coveted_member_journey_snapshot(array $admin,string $memberRef,?PDO $pd
         'groups'=>coveted_member_journey_groups($pdo,(int)$metrics['id']),
         'preferences'=>coveted_member_journey_preferences($pdo,(int)$metrics['id']),
         'timeline'=>coveted_member_journey_timeline($pdo,(int)$metrics['id']),
+        'membership_origin'=>coveted_guest_conversion_member_origin((int)$metrics['id'],$pdo),
         'privacy'=>'Member Journey Intelligence is System Admin-only and evidence-based. It does not create a public popularity score, infer personality, read private messages, or use Mutual Reconnect choices.',
         'authority'=>'The Agent may recommend and track a next-best action, but member outreach, rewards and invitations remain explicit System Admin actions through existing canonical workflows.',
     ];
