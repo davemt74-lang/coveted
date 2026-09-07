@@ -165,6 +165,7 @@ function coveted_admin_agent_capabilities(): array
     return [
         ['key' => 'people', 'label' => 'People & access', 'href' => '/admin/?view=users', 'can' => ['create users', 'grant or revoke platform roles', 'suspend or reactivate accounts', 'reset passwords']],
         ['key' => 'crm', 'label' => 'Invite CRM', 'href' => '/admin/crm.php', 'can' => ['review invite requests', 'qualify prospects', 'convert approved prospects into member accounts']],
+        ['key' => 'guest_conversion', 'label' => 'Guest → Member conversion', 'href' => '/admin/guest-conversions.php', 'can' => ['review conversion-ready Guest evidence', 'review best-fit group and known referral path', 'recommend an explicit System Admin Invite-to-Stay review without automatic enrollment']],
         ['key' => 'membership_lifecycle', 'label' => 'Membership lifecycle', 'href' => '/admin/membership-lifecycle.php', 'can' => ['review invited, applicant, active, engaged, drifting, paused and alumni CRM state', 'review renewal and re-engagement evidence', 'persist System Admin-authorized lifecycle transitions']],
         ['key' => 'businesses', 'label' => 'Businesses', 'href' => '/admin/?view=businesses', 'can' => ['create partner businesses', 'assign Business Admins', 'open business workspaces for locations, rewards and campaigns']],
         ['key' => 'groups', 'label' => 'Groups', 'href' => '/admin/?view=groups', 'can' => ['create private communities', 'manage status', 'open group membership and host workflows']],
@@ -174,7 +175,7 @@ function coveted_admin_agent_capabilities(): array
         ['key' => 'distribution', 'label' => 'Distribution', 'href' => '/admin/?view=distribution', 'can' => ['preview eligible recipients', 'distribute event campaigns', 'send manual campaign rewards']],
         ['key' => 'cities', 'label' => 'Cities', 'href' => '/admin/cities.php', 'can' => ['manage supported city records used by acquisition and CRM']],
         ['key' => 'landing', 'label' => 'Landing page', 'href' => '/admin/landing.php', 'can' => ['control public upcoming-event visibility', 'switch synthetic landing preview events']],
-        ['key' => 'operations', 'label' => 'Operations', 'href' => '/admin/operations.php', 'can' => ['inspect event lifecycle backlog', 'find location gaps', 'review Host Command escalations', 'review post-event result signals', 'review delivery failures', 'review claims and audit history']],
+        ['key' => 'operations', 'label' => 'Operations', 'href' => '/admin/operations.php', 'can' => ['inspect event lifecycle backlog', 'find location gaps', 'review Host Command escalations', 'review post-event result signals', 'review aggregate Guest Conversion attention', 'review delivery failures', 'review claims and audit history']],
         ['key' => 'pwa', 'label' => 'PWA & notifications', 'href' => '/admin/?view=pwa', 'can' => ['upload install artwork', 'inspect notification delivery', 'create test notifications']],
         ['key' => 'ai', 'label' => 'AI providers', 'href' => '/admin/ai-settings.php', 'can' => ['configure OpenAI and Anthropic chat providers', 'store ElevenLabs credentials for voice services']],
     ];
@@ -255,7 +256,7 @@ function coveted_admin_agent_opportunities(
         $add(1, 'delivery-health', 'Operations', 'Review notification delivery failures', 'Push delivery has permanent failures or records stuck in the canonical queue.', '/admin/operations.php', $count . ' delivery item' . ($count === 1 ? '' : 's') . ' need attention.');
     }
 
-    foreach (['event_planning','host_command','event_results'] as $streamKey) {
+    foreach (['event_planning','host_command','event_results','guest_conversion'] as $streamKey) {
         $stream = (array)($summary[$streamKey] ?? []);
         foreach (array_slice((array)($stream['recommendations'] ?? []), 0, 6) as $recommendation) {
             if (!is_array($recommendation)) continue;
@@ -268,7 +269,7 @@ function coveted_admin_agent_opportunities(
                 $key,
                 trim((string)($recommendation['category'] ?? 'Events')) ?: 'Events',
                 $title,
-                trim((string)($recommendation['detail'] ?? 'Review the current canonical event operating/result state.')),
+                trim((string)($recommendation['detail'] ?? 'Review the current canonical operating state.')),
                 $href,
                 trim((string)($recommendation['evidence'] ?? ''))
             );
