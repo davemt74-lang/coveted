@@ -59,7 +59,12 @@ try {
         if (!in_array($decision,['accepted','declined'],true)) {
             throw new InvalidArgumentException('Choose Accept or Maybe later.');
         }
-        $response=coveted_event_respond_invitation($user,$targetRef,$decision,$decision==='accepted'?$guestCount:0);
+        $response=coveted_event_respond_invitation(
+            $user,
+            $targetRef,
+            $decision,
+            $decision==='accepted'?$guestCount:0
+        );
         $message=match($response){
             'attending'=>$guestCount===1?'Confirmed. You and your guest are attending.':'Confirmed. You are attending.',
             'waitlist'=>'Confirmed. The Event is currently full, so you are on the waitlist.',
@@ -69,7 +74,12 @@ try {
         if (!in_array($decision,['attending','declined'],true)) {
             throw new InvalidArgumentException('Choose an RSVP response.');
         }
-        $response=coveted_event_set_rsvp($user,$targetRef,$decision,$decision==='attending'?$guestCount:0);
+        $response=coveted_event_set_rsvp(
+            $user,
+            $targetRef,
+            $decision,
+            $decision==='attending'?$guestCount:0
+        );
         $message=match($response){
             'attending'=>$guestCount===1?'Confirmed. You and your guest are attending.':'Confirmed. Your RSVP is attending.',
             'waitlist'=>'Confirmed. The Event is currently full, so you are on the waitlist.',
@@ -77,13 +87,21 @@ try {
         };
     }
 
+    $threadPayload=null;
     $threadRef=trim((string)($_POST['thread_ref'] ?? ''));
-    if ($threadRef!=='') {
-        try {
-            $pdo=coveted_db();
-            $thread=coveted_account_agent_thread_by_ref($user,$threadRef,$pdo);
-            if ($thread && $thread['status']==='active') {
-                coveted_account_agent_append_message(
+    try {
+        $pdo=coveted_db();
+        if (coveted_account_agent_storage_available($pdo)) {
+            $thread=null;
+            if ($threadRef!=='') {
+                $thread=coveted_account_agent_thread_by_ref($user,$threadRef,$pdo);
+            }
+            if (!$thread) {
+                $thread=coveted_account_agent_thread_create($user,'Concierge action',$pdo);
+                $threadRef=(string)$thread['public_id'];
+            }
+            if ($thread['status']==='active') {
+                $saved=coveted_account_agent_append_message(
                     $user,
                     $threadRef,
                     'assistant',
@@ -94,10 +112,14 @@ try {
                     ['source'=>'member_concierge_action','action'=>$action,'target_ref'=>$targetRef,'result'=>$response],
                     $pdo
                 );
+                $threadPayload=[
+                    'public_id'=>$threadRef,
+                    'title'=>(string)($saved['thread_title'] ?? $thread['title'] ?? 'Concierge action'),
+                ];
             }
-        } catch (Throwable $persistError) {
-            error_log('Member Concierge action result could not be persisted: '.$persistError->getMessage());
         }
+    } catch (Throwable $persistError) {
+        error_log('Member Concierge action result could not be persisted: '.$persistError->getMessage());
     }
 
     coveted_audit(
@@ -115,6 +137,7 @@ try {
         'message'=>$message,
         'result'=>$response,
         'action'=>$action,
+        'thread'=>$threadPayload,
         'replayed'=>false,
         'refresh'=>true,
     ];
