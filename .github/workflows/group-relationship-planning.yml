@@ -31,6 +31,7 @@ jobs:
       - name: Lint Group Relationship Planning PHP
         run: |
           php -l app/group_relationship_planning.php
+          php -l app/group_relationship_planning_guard.php
           php -l admin/group-relationship-planning.php
           php -l app/event_opportunities.php
           php -l scripts/verify-group-relationship-planning.php
