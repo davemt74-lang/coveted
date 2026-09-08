@@ -1,0 +1,73 @@
+name: Build Deploy Package
+
+on:
+  push:
+    branches:
+      - ops/deploy-package-61d890e
+
+permissions:
+  contents: read
+
+env:
+  TARGET_SHA: 61d890e0564c2edddbe0aca5694be9aa83a5301c
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact verified release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+
+      - name: Setup PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl, mbstring, openssl, pdo_mysql
+          coverage: none
+
+      - name: Verify exact release SHA
+        run: test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+
+      - name: Install production dependencies
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: Build web-root deploy ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f config.php
+          rm -rf .git .github tests uploads
+          find . -name '.DS_Store' -delete
+          printf '%s\n' "$TARGET_SHA" > DEPLOY-SHA.txt
+          cat > DEPLOY-INSTRUCTIONS.txt <<'EOF'
+          Coveted production deploy package
+
+          1. Preserve the existing production config.php.
+          2. Apply database/migrations/20260908_member_relationship_actions.sql if it has not already been imported.
+          3. Extract this ZIP directly into the existing Coveted web root.
+          4. Do not delete existing runtime uploads.
+          5. Optional after upload: php scripts/preflight.php --upgrade --production
+          EOF
+          zip -qr /tmp/coveted-deploy.zip .
+          zipinfo -1 /tmp/coveted-deploy.zip | grep -qx 'vendor/autoload.php'
+          zipinfo -1 /tmp/coveted-deploy.zip | grep -qx 'database/migrations/20260908_member_relationship_actions.sql'
+          zipinfo -1 /tmp/coveted-deploy.zip | grep -qx 'DEPLOY-SHA.txt'
+          if zipinfo -1 /tmp/coveted-deploy.zip | grep -qx 'config.php'; then
+            echo 'config.php must not be included in deploy package' >&2
+            exit 1
+          fi
+          if zipinfo -1 /tmp/coveted-deploy.zip | grep -q '^uploads/'; then
+            echo 'runtime uploads must not be included in deploy package' >&2
+            exit 1
+          fi
+
+      - name: Upload deploy ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: coveted-deploy
+          path: /tmp/coveted-deploy.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
