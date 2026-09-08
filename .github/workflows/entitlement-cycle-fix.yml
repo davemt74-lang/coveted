@@ -1,0 +1,40 @@
+name: Entitlement Dependency Fix
+
+on:
+  push:
+    branches:
+      - feature/entitlement-enforcement-upgrade-ux
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Bootstrap entitlement dependency fix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/entitlement-enforcement-upgrade-ux
+          fetch-depth: 0
+      - name: Remove business service dependency cycle
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          p = Path('app/businesses.php')
+          s = p.read_text()
+          s = s.replace("require_once __DIR__ . '/bootstrap.php';\nrequire_once __DIR__ . '/entitlement_access.php';\n", "require_once __DIR__ . '/bootstrap.php';\n", 1)
+          old = "    if (!coveted_business_actor_can_manage($actor, $businessId)) {\n        throw new InvalidArgumentException('You cannot manage this business.');\n    }\n    coveted_entitlement_require_business(\n        $actor,\n        $businessId,\n        'partner.workspace',\n        'Complete Partner setup or choose a package before changing this business.'\n    );\n\n    $stmt = coveted_db()->prepare('SELECT * FROM businesses WHERE id = ? LIMIT 1');"
+          new = "    if (!coveted_business_actor_can_manage($actor, $businessId)) {\n        throw new InvalidArgumentException('You cannot manage this business.');\n    }\n\n    $stmt = coveted_db()->prepare('SELECT * FROM businesses WHERE id = ? LIMIT 1');"
+          if s.count(old) != 1:
+              raise SystemExit(f'Expected mutable gate anchor once, found {s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          Path('.github/workflows/entitlement-cycle-fix.yml').unlink()
+          PY
+      - name: Commit dependency fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/businesses.php .github/workflows/entitlement-cycle-fix.yml
+          git commit -m "Avoid service package dependency cycle"
+          git push origin HEAD:feature/entitlement-enforcement-upgrade-ux
