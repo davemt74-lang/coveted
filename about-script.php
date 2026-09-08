@@ -3,8 +3,42 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/app/bootstrap.php';
 
-coveted_page_start('About Script');
+$user = coveted_current_user();
+$appConfig = coveted_config('app');
+$appName = (string)($appConfig['name'] ?? 'Coveted');
+$baseUrl = rtrim((string)($appConfig['base_url'] ?? ''), '/');
+$cssVersion = coveted_asset_version('assets/css/coveted.css');
+$footerJsVersion = coveted_asset_version('assets/js/legal-footer.js');
 ?>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#10110f">
+    <title>About Script · <?= coveted_e($appName) ?></title>
+    <meta name="description" content="See how the Coveted script connects membership, events, relationships, local partners, benefits and AI-powered social concierge and admin intelligence.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="About Script · Coveted">
+    <meta property="og:description" content="The intelligence layer behind real-world connection: social concierge, partner value, event operations and permissioned AI.">
+    <?php if ($baseUrl !== ''): ?><meta property="og:url" content="<?= coveted_e($baseUrl . '/about-script.php') ?>"><?php endif; ?>
+    <link rel="stylesheet" href="/assets/css/coveted.css?v=<?= coveted_e($cssVersion) ?>">
+</head>
+<body class="cv-about-public">
+<header class="cv-header">
+    <a class="cv-brand" href="/">Coveted</a>
+    <nav class="cv-nav" aria-label="Primary"></nav>
+    <div class="cv-header-actions">
+        <?php if ($user): ?>
+            <a href="/">Open Coveted</a>
+        <?php else: ?>
+            <a href="/auth.php?action=login">Sign in</a>
+            <a class="cv-button" href="/auth.php?action=register">Request an Invite</a>
+        <?php endif; ?>
+    </div>
+</header>
+<main class="cv-main">
 <div class="cv-about-script">
     <section class="cv-about-hero" aria-labelledby="cv-about-title">
         <div class="cv-about-hero-copy">
@@ -254,4 +288,7 @@ coveted_page_start('About Script');
         </div>
     </section>
 </div>
-<?php coveted_page_end(); ?>
+</main>
+<script src="/assets/js/legal-footer.js?v=<?= coveted_e($footerJsVersion) ?>" defer></script>
+</body>
+</html>
