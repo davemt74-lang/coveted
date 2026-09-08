@@ -48,6 +48,10 @@
         const shouldOpen = Boolean(open && mobileQuery.matches);
         const wasOpen = document.body.classList.contains('cv-member-nav-open');
 
+        if (shouldOpen) {
+            appTopbar.querySelectorAll('details[open]').forEach((details) => details.removeAttribute('open'));
+        }
+
         document.body.classList.toggle('cv-member-nav-open', shouldOpen);
         toggle.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
         toggle.setAttribute('aria-label', shouldOpen ? 'Close navigation' : 'Open navigation');
