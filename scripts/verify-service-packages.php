@@ -36,7 +36,7 @@ $contains($migration, "scope_type ENUM('user','business','user_role')", 'assignm
 $contains($migration, "role_key ENUM('attendee','attendee_host','artist_partner','system_admin')", 'user-type assignments must use canonical platform roles');
 $contains($migration, 'provider VARCHAR(40) NOT NULL', 'subscriptions must remain provider-neutral');
 $contains($migration, 'revoked_at DATETIME NULL', 'Admin grants must preserve revocation history');
-$contains($migration, 'billing_bypass', 'migration should document the Admin bypass model');
+$contains($migration, 'Admin billing bypass', 'migration should document the Admin bypass model');
 
 $contains($service, "return ['attendee', 'attendee_host', 'artist_partner', 'system_admin'];", 'service user types must match canonical user_roles');
 $contains($service, "'user_override'", 'user override source must be explicit');
