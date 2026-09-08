@@ -2,7 +2,6 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
-require_once __DIR__ . '/entitlement_access.php';
 
 function coveted_business_by_ref(string $ref): ?array
 {
@@ -93,12 +92,6 @@ function coveted_business_require_mutable(array $actor, int $businessId): array
     if (!coveted_business_actor_can_manage($actor, $businessId)) {
         throw new InvalidArgumentException('You cannot manage this business.');
     }
-    coveted_entitlement_require_business(
-        $actor,
-        $businessId,
-        'partner.workspace',
-        'Complete Partner setup or choose a package before changing this business.'
-    );
 
     $stmt = coveted_db()->prepare('SELECT * FROM businesses WHERE id = ? LIMIT 1');
     $stmt->execute([$businessId]);
