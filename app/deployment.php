@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Deployment/preflight helpers intentionally do not require app/bootstrap.php.
- * They must be usable before the first database install and before a web request
+ * They must be usable before a database install/upgrade and before a web request
  * can safely bootstrap the application.
  */
 
@@ -12,11 +12,80 @@ function coveted_deployment_required_extensions(): array
     return ['curl', 'json', 'mbstring', 'openssl', 'PDO', 'pdo_mysql'];
 }
 
+/** @return array{required_migrations:array<int,string>,required_tables:array<int,string>} */
+function coveted_deployment_release_requirements(): array
+{
+    return [
+        // Keep this list intentionally small: it represents schema prerequisites
+        // for the code currently on main, not a second migration history.
+        'required_migrations' => ['20260908_member_relationship_actions.sql'],
+        'required_tables' => ['member_relationship_actions'],
+    ];
+}
+
+/** @return array<int,string> */
+function coveted_deployment_migration_files(string $migrationDir): array
+{
+    if (!is_dir($migrationDir)) {
+        return [];
+    }
+    $files = [];
+    foreach (scandir($migrationDir) ?: [] as $name) {
+        if ($name === '.' || $name === '..') {
+            continue;
+        }
+        $path = $migrationDir . '/' . $name;
+        if (is_file($path)) {
+            $files[] = $name;
+        }
+    }
+    sort($files, SORT_STRING);
+    return $files;
+}
+
+function coveted_deployment_migration_inventory_issues(string $migrationDir): array
+{
+    $errors = [];
+    $warnings = [];
+    if (!is_dir($migrationDir)) {
+        $errors[] = 'Migration directory is missing: database/migrations.';
+        return ['errors' => $errors, 'warnings' => $warnings];
+    }
+
+    $files = coveted_deployment_migration_files($migrationDir);
+    foreach ($files as $name) {
+        if (!preg_match('/^\d{8}_[a-z0-9_]+\.sql$/', $name)) {
+            $errors[] = 'Migration filename is not deployment-safe: ' . $name . '.';
+            continue;
+        }
+        $path = $migrationDir . '/' . $name;
+        $sql = @file_get_contents($path);
+        if ($sql === false || trim($sql) === '') {
+            $errors[] = 'Migration file is unreadable or empty: database/migrations/' . $name . '.';
+        }
+    }
+
+    $requirements = coveted_deployment_release_requirements();
+    foreach ($requirements['required_migrations'] as $name) {
+        if (!in_array($name, $files, true)) {
+            $errors[] = 'Required release migration is missing from the deploy package: database/migrations/' . $name . '.';
+        }
+    }
+
+    if ($files === []) {
+        $warnings[] = 'No additive migrations are present. This is unusual after Coveted\'s first production deployment.';
+    }
+
+    return ['errors' => $errors, 'warnings' => $warnings];
+}
+
 function coveted_deployment_runtime_issues(string $root): array
 {
     $errors = [];
     $warnings = [];
 
+    // Composer is the deploy-runtime source of truth. PHP 8.1 remains covered by
+    // source-compatibility CI, while production dependencies require PHP 8.2+.
     if (version_compare(PHP_VERSION, '8.2.0', '<')) {
         $errors[] = 'PHP 8.2 or newer is required; found ' . PHP_VERSION . '.';
     }
@@ -30,6 +99,7 @@ function coveted_deployment_runtime_issues(string $root): array
     $requiredFiles = [
         'composer.json',
         'database/schema.sql',
+        'database/migrations/20260908_member_relationship_actions.sql',
         'scripts/reconcile-lifecycle.php',
         'scripts/dispatch-push.php',
         'app/bootstrap.php',
@@ -41,16 +111,9 @@ function coveted_deployment_runtime_issues(string $root): array
         }
     }
 
-    $migrationDir = $root . '/database/migrations';
-    if (is_dir($migrationDir)) {
-        $migrationFiles = array_values(array_filter(
-            scandir($migrationDir) ?: [],
-            static fn(string $name): bool => $name !== '.' && $name !== '..'
-        ));
-        if ($migrationFiles !== []) {
-            $errors[] = 'First install must use database/schema.sql only; database/migrations is not empty.';
-        }
-    }
+    $migrationIssues = coveted_deployment_migration_inventory_issues($root . '/database/migrations');
+    $errors = array_merge($errors, $migrationIssues['errors']);
+    $warnings = array_merge($warnings, $migrationIssues['warnings']);
 
     $autoload = $root . '/vendor/autoload.php';
     if (!is_file($autoload)) {
@@ -220,12 +283,21 @@ function coveted_deployment_mysql_issue(PDO $pdo): ?string
         return 'Unable to determine the database server version.';
     }
     if (stripos($version, 'mariadb') !== false) {
-        return 'Coveted V1 is validated against MySQL 8; MariaDB is not an approved first-install target.';
+        return 'Coveted V1 is validated against MySQL 8; MariaDB is not an approved deployment target.';
     }
     if (!preg_match('/^(\d+)\.(\d+)/', $version, $matches) || (int)$matches[1] < 8) {
         return 'MySQL 8 or newer is required; found ' . $version . '.';
     }
     return null;
+}
+
+/** @return array<int,string> */
+function coveted_deployment_sql_tables(string $sql): array
+{
+    preg_match_all('/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([A-Za-z0-9_]+)`?/i', $sql, $matches);
+    $tables = array_values(array_unique(array_map('strtolower', $matches[1] ?? [])));
+    sort($tables);
+    return $tables;
 }
 
 function coveted_deployment_schema_tables(string $schemaFile): array
@@ -234,13 +306,40 @@ function coveted_deployment_schema_tables(string $schemaFile): array
     if ($sql === false || trim($sql) === '') {
         throw new RuntimeException('Unable to read database/schema.sql.');
     }
-
-    preg_match_all('/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+`?([A-Za-z0-9_]+)`?/i', $sql, $matches);
-    $tables = array_values(array_unique(array_map('strtolower', $matches[1] ?? [])));
-    sort($tables);
+    $tables = coveted_deployment_sql_tables($sql);
     if ($tables === []) {
         throw new RuntimeException('No canonical tables were found in database/schema.sql.');
     }
+    return $tables;
+}
+
+/** @return array<int,string> */
+function coveted_deployment_migration_tables(string $migrationDir): array
+{
+    $tables = [];
+    foreach (coveted_deployment_migration_files($migrationDir) as $name) {
+        $sql = @file_get_contents($migrationDir . '/' . $name);
+        if ($sql === false) {
+            continue;
+        }
+        $tables = array_merge($tables, coveted_deployment_sql_tables($sql));
+    }
+    $tables = array_values(array_unique(array_map('strtolower', $tables)));
+    sort($tables);
+    return $tables;
+}
+
+/** @return array<int,string> */
+function coveted_deployment_expected_tables(string $schemaFile, ?string $migrationDir = null): array
+{
+    $tables = coveted_deployment_schema_tables($schemaFile);
+    if ($migrationDir !== null) {
+        $tables = array_merge($tables, coveted_deployment_migration_tables($migrationDir));
+    }
+    $requirements = coveted_deployment_release_requirements();
+    $tables = array_merge($tables, $requirements['required_tables']);
+    $tables = array_values(array_unique(array_map('strtolower', $tables)));
+    sort($tables);
     return $tables;
 }
 
@@ -260,9 +359,9 @@ function coveted_deployment_database_tables(PDO $pdo): array
     return $tables;
 }
 
-function coveted_deployment_schema_state(PDO $pdo, string $schemaFile): array
+function coveted_deployment_schema_state(PDO $pdo, string $schemaFile, ?string $migrationDir = null): array
 {
-    $expected = coveted_deployment_schema_tables($schemaFile);
+    $expected = coveted_deployment_expected_tables($schemaFile, $migrationDir);
     $actual = coveted_deployment_database_tables($pdo);
     $missing = array_values(array_diff($expected, $actual));
     $extra = array_values(array_diff($actual, $expected));
@@ -277,6 +376,8 @@ function coveted_deployment_schema_state(PDO $pdo, string $schemaFile): array
         'actual_count' => count($actual),
         'missing' => $missing,
         'extra' => $extra,
+        'baseline_count' => count(coveted_deployment_schema_tables($schemaFile)),
+        'migration_table_count' => $migrationDir === null ? 0 : count(coveted_deployment_migration_tables($migrationDir)),
     ];
 }
 
@@ -287,14 +388,15 @@ function coveted_deployment_schema_expectation_issues(array $state, string $expe
     $actualState = (string)($state['state'] ?? 'partial');
 
     if ($actualState === 'partial') {
-        $errors[] = 'The database contains a partial Coveted schema. Missing: ' . implode(', ', (array)($state['missing'] ?? [])) . '.';
+        $missing = (array)($state['missing'] ?? []);
+        $errors[] = 'The database is missing required Coveted schema objects: ' . implode(', ', $missing) . '. Apply the corresponding additive migration(s) before deploying code.';
         return ['errors' => $errors, 'warnings' => $warnings];
     }
 
     if ($expect === 'empty' && $actualState !== 'empty') {
-        $errors[] = 'First-install preflight expected an empty database, but tables already exist.';
+        $errors[] = 'Fresh-install preflight expected an empty database, but tables already exist.';
     } elseif ($expect === 'installed' && $actualState !== 'installed') {
-        $errors[] = 'Post-install preflight expected the canonical Coveted schema to be installed.';
+        $errors[] = 'Upgrade preflight expected the current Coveted schema and migration-created tables to be installed.';
     }
 
     if ($actualState === 'installed' && ($state['extra'] ?? []) !== []) {
