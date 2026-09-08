@@ -34,7 +34,9 @@ $contains($page,'coveted_require_system_admin()','billing operations must requir
 $contains($page,'coveted_require_csrf()','billing repair mutations must require CSRF');
 $contains($page,'$action !== \'resync_subscription\'','Admin page must allowlist the resync action');
 $contains($page,'coveted_billing_ops_resync_subscription($admin,$ref,$pdo)','Admin repair must use the audited reconciliation service');
-$contains($page,'only <code>trialing</code> and <code>active</code> subscriptions','current entitlement policy must be visible to Admin');
+$contains($page,'<code>past_due</code> can retain access only during','grace-aware entitlement policy must be visible to Admin');
+$contains($page,'Past due · grace','grace-state health must be visible');
+$contains($page,'Past due · paused','expired-grace health must be visible');
 $contains($page,'Webhook failures','webhook failure health must be visible');
 $contains($page,'Recent failed checkouts','checkout failures must be visible');
 $contains($page,'Recent payment history','invoice history must be visible');
@@ -55,8 +57,9 @@ $missing($ops,'/refunds','billing operations service must not create refunds');
 $missing($ops,'/charges','billing operations service must not create charges');
 $missing($ops,'/subscription_items','billing operations service must not alter subscription prices');
 
-// Local authorization remains unchanged and provider-neutral.
-$contains($service,"s.status IN ('trialing','active')",'canonical entitlement resolver must continue to define paid active states');
+// Local authorization is grace-aware and provider-neutral.
+$contains($service,"s.status IN ('trialing','active','past_due')",'canonical resolver candidates must include past-due subscriptions');
+$contains($service,'coveted_subscription_lifecycle_allows_access($row, $pdo)','canonical resolver must apply lifecycle access policy');
 $missing($service,"provider='stripe'",'service package authorization must not be hard-coded to Stripe');
 $contains($stripe,'function coveted_stripe_sync_subscription','billing operations must reuse the existing Stripe sync implementation');
 
