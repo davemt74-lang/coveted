@@ -36,28 +36,28 @@ if (!coveted_is_system_admin($user)) {
 $effective = null;
 $packages = [];
 $subscriptions = [];
+$subjectSubscriptions = [];
 $adminOverride = null;
 $stripeCustomer = null;
+$billingSubjectType = $business ? 'business' : 'user';
+$billingSubjectId = $business ? (int)$business['id'] : (int)$user['id'];
 if ($schemaReady && $error === '') {
     try {
         $effective = coveted_service_effective_package($user,$business ? (int)$business['id'] : null,$pdo);
         $packages = coveted_service_packages(true,$pdo);
-        $subscriptions = coveted_service_subscriptions_for_subject('user',(int)$user['id'],false,$pdo);
+        $subjectSubscriptions = coveted_service_subscriptions_for_subject($billingSubjectType,$billingSubjectId,false,$pdo);
+        $subscriptions = $subjectSubscriptions;
         if ($business) {
             $subscriptions = array_merge(
-                coveted_service_subscriptions_for_subject('business',(int)$business['id'],false,$pdo),
-                $subscriptions
+                $subjectSubscriptions,
+                coveted_service_subscriptions_for_subject('user',(int)$user['id'],false,$pdo)
             );
         }
         if (in_array((string)($effective['source'] ?? ''),['user_override','partner_override','user_type_override'],true)) {
             $adminOverride = $effective['assignment'];
         }
         if ($stripeSchemaReady) {
-            $stripeCustomer = coveted_stripe_customer_for_subject(
-                $business ? 'business' : 'user',
-                $business ? (int)$business['id'] : (int)$user['id'],
-                $pdo
-            );
+            $stripeCustomer = coveted_stripe_customer_for_subject($billingSubjectType,$billingSubjectId,$pdo);
         }
     } catch (Throwable $e) {
         error_log('Billing & Plan unavailable: ' . $e->getMessage());
@@ -72,9 +72,9 @@ $sourceLabels = [
     'subscription' => 'Paid subscription',
     'default' => 'Default package',
 ];
-$activeSubscriptions = array_values(array_filter($subscriptions,static fn(array $row): bool => in_array((string)$row['status'],['trialing','active'],true)));
-$activeStripeSubscriptions = array_values(array_filter($activeSubscriptions,static fn(array $row): bool => (string)$row['provider']==='stripe'));
-$hasOverrideAndPaid = $adminOverride !== null && $activeSubscriptions !== [];
+$activeSubjectSubscriptions = array_values(array_filter($subjectSubscriptions,static fn(array $row): bool => in_array((string)$row['status'],['trialing','active'],true)));
+$activeStripeSubscriptions = array_values(array_filter($activeSubjectSubscriptions,static fn(array $row): bool => (string)$row['provider']==='stripe'));
+$hasOverrideAndPaid = $adminOverride !== null && $activeSubjectSubscriptions !== [];
 $checkoutCancelled = (string)($_GET['checkout'] ?? '') === 'cancelled';
 
 coveted_page_start('Billing & Plan','');
@@ -139,7 +139,7 @@ coveted_page_start('Billing & Plan','');
         </div>
 
         <?php if ($hasOverrideAndPaid): ?>
-            <div class="cv-alert cv-alert-error"><strong>Admin package override + active subscription.</strong> Your Admin-granted package governs access, but an active/trial subscription also exists. The override does not automatically cancel provider billing. Use Manage billing to review the paid subscription.</div>
+            <div class="cv-alert cv-alert-error"><strong>Admin package override + active subscription.</strong> Your Admin-granted package governs access, but this billing subject also has an active/trial subscription. The override does not automatically cancel provider billing. Use Manage billing to review the paid subscription.</div>
         <?php elseif ($adminOverride !== null): ?>
             <div class="cv-alert"><strong>Payment bypass active.</strong> A System Admin assigned this package directly. Paid checkout is disabled while the assignment remains active.</div>
         <?php endif; ?>
@@ -192,7 +192,7 @@ coveted_page_start('Billing & Plan','');
                     $included = coveted_service_entitlements_for_package((int)$package['id'],$pdo);
                     $isCurrent = (int)$package['id'] === (int)$current['id'];
                     $isPaid = $package['monthly_price_cents'] !== null && (int)$package['monthly_price_cents'] > 0;
-                    $canCheckout = $isPaid && $stripeReady && $adminOverride === null && !$activeStripeSubscriptions;
+                    $canCheckout = $isPaid && $stripeReady && $adminOverride === null && !$activeSubjectSubscriptions;
                 ?>
                     <div class="cv-admin-list-row">
                         <span class="cv-admin-list-copy">
@@ -213,8 +213,8 @@ coveted_page_start('Billing & Plan','');
                             <span class="cv-status">Active</span>
                         <?php elseif ($isPaid && $adminOverride !== null): ?>
                             <span class="cv-status">Admin access</span>
-                        <?php elseif ($isPaid && $activeStripeSubscriptions): ?>
-                            <span class="cv-status">Manage billing</span>
+                        <?php elseif ($isPaid && $activeSubjectSubscriptions): ?>
+                            <span class="cv-status"><?= $activeStripeSubscriptions ? 'Manage billing' : 'Active subscription' ?></span>
                         <?php elseif ($isPaid && !$stripeReady): ?>
                             <span class="cv-status">Not configured</span>
                         <?php else: ?>
