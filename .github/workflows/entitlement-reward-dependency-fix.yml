@@ -1,0 +1,39 @@
+name: Reward Entitlement Dependency Fix
+
+on:
+  push:
+    branches:
+      - feature/entitlement-enforcement-upgrade-ux
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Bootstrap reward entitlement dependency fix'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/entitlement-enforcement-upgrade-ux
+          fetch-depth: 0
+      - name: Load entitlement helper after business services
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          p = Path('app/rewards.php')
+          s = p.read_text()
+          old = "require_once __DIR__ . '/bootstrap.php';\nrequire_once __DIR__ . '/businesses.php';\n"
+          new = "require_once __DIR__ . '/bootstrap.php';\nrequire_once __DIR__ . '/businesses.php';\nrequire_once __DIR__ . '/entitlement_access.php';\n"
+          if s.count(old) != 1:
+              raise SystemExit(f'rewards dependency anchor count={s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          Path('.github/workflows/entitlement-reward-dependency-fix.yml').unlink()
+          PY
+      - name: Commit dependency fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/rewards.php .github/workflows/entitlement-reward-dependency-fix.yml
+          git commit -m "Load entitlement helper from reward service"
+          git push origin HEAD:feature/entitlement-enforcement-upgrade-ux
