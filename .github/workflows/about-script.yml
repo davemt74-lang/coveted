@@ -1,0 +1,47 @@
+name: Public About Script
+
+on:
+  push:
+    paths:
+      - 'about-script.php'
+      - 'assets/css/about-script-v1.css'
+      - 'assets/css/coveted.css'
+      - 'assets/js/legal-footer.js'
+      - 'app/member_concierge.php'
+      - 'app/business_host_workspace.php'
+      - 'scripts/verify-about-script.php'
+      - '.github/workflows/about-script.yml'
+  pull_request:
+    paths:
+      - 'about-script.php'
+      - 'assets/css/about-script-v1.css'
+      - 'assets/css/coveted.css'
+      - 'assets/js/legal-footer.js'
+      - 'app/member_concierge.php'
+      - 'app/business_host_workspace.php'
+      - 'scripts/verify-about-script.php'
+      - '.github/workflows/about-script.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Lint public About Script page
+        run: php -l about-script.php
+      - name: Lint About Script contract
+        run: php -l scripts/verify-about-script.php
+      - name: Verify public About Script contract
+        run: php scripts/verify-about-script.php
+      - name: Verify shared footer JavaScript syntax
+        run: node --check assets/js/legal-footer.js

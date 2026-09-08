@@ -2,6 +2,7 @@
     'use strict';
 
     const links = [
+        ['/about-script.php', 'About Script'],
         ['/privacy.php', 'Privacy'],
         ['/terms.php', 'Terms'],
     ];
@@ -26,7 +27,7 @@
 
     const footer = document.createElement('footer');
     footer.className = 'cv-legal-footer';
-    footer.innerHTML = '<span>© Coveted</span><nav aria-label="Legal"></nav>';
+    footer.innerHTML = '<span>© Coveted</span><nav aria-label="Footer"></nav>';
     const nav = footer.querySelector('nav');
     links.forEach(([href, label]) => {
         const link = document.createElement('a');
