@@ -16,6 +16,7 @@ $missing=static function(string $content,string $needle,string $label):void{
 $migration=$read('database/migrations/20260908_member_relationship_actions.sql');
 $service=$read('app/member_relationship_actions.php');
 $workspace=$read('admin/member-actions.php');
+$adminUi=$read('app/admin_ui.php');
 $journey=$read('app/member_journey.php');
 $notifications=$read('app/notifications.php');
 $eventManagement=$read('app/event_management.php');
@@ -35,7 +36,10 @@ $contains($service,"require_once __DIR__ . '/notifications.php';",'service must 
 $contains($service,"require_once __DIR__ . '/event_management.php';",'service must use canonical Event invitation service');
 $contains($service,'function coveted_member_relationship_actions_sync_recommendations','bounded recommendation sync is required');
 $contains($service,'coveted_member_journey_scan_rows($pdo','recommendations must derive from bounded Member Journey scan');
-$contains($service,"'pause_invitations' => 'hold'",'pacing recommendations must default to no-contact holds');
+$contains($service,'function coveted_member_relationship_action_lifecycle_holds','lifecycle holds must be loaded in one bounded set');
+$contains($service,'function coveted_member_relationship_action_human_open_map','reviewed/approved actions must block duplicate open recommendations');
+$contains($service,"status IN ('reviewed','approved')",'human-authorized open action states must be protected');
+$contains($service,"'pause_invitations'=>'hold'",'pacing recommendations must default to no-contact holds');
 $contains($service,"if ((string)\$action['action_type'] === 'pause_invitations' && \$executionType !== 'hold')",'pacing holds must not be editable into outreach');
 $contains($service,'function coveted_member_relationship_action_review','explicit review step is required');
 $contains($service,'function coveted_member_relationship_action_approve','explicit approval step is required');
@@ -44,8 +48,10 @@ $contains($service,'function coveted_member_relationship_action_execute','explic
 $contains($service,"(string)\$action['status'] !== 'approved'",'execution must require approved state');
 $contains($service,'coveted_member_journey_metrics_row($pdo','execution must revalidate live Member Journey state');
 $contains($service,"(string)\$liveDecision['action'] === 'pause_invitations'",'live pacing must block stale outreach approval');
+$contains($service,'function coveted_member_relationship_action_recent_contact','recent relationship contact guard is required');
+$contains($service,'within the last 48 hours','separate approved actions must still respect direct contact pacing');
 $contains($service,"'event.relationship_followup'",'relationship messages must feed existing event communication-pressure evidence');
-$contains($service,"'member-relationship-action:' . (string)\$action['public_id']",'notification execution must have durable dedupe key');
+$contains($service,"'member-relationship-action:'.(string)\$action['public_id']",'notification execution must have durable dedupe key');
 $contains($service,'coveted_notification_create(','message execution must use canonical notification service');
 $contains($service,'coveted_event_invite_user(','Event execution must use canonical invitation service');
 $contains($service,"'require_active_group_member'=>true",'Event execution must revalidate active group membership');
@@ -58,7 +64,7 @@ $contains($service,'function coveted_member_relationship_action_agent_context','
 $contains($service,'aggregate Member Action counts and outcomes only','broad Agent context must remain identity-free');
 $contains($service,'coveted_admin_agent_tasks_sync_opportunities(','Member Action attention must feed the existing proactive task queue');
 $contains($service,"'member-action-queue-' . \$maxId",'proactive queue task generations must avoid per-member identity exposure');
-$contains($service,"in_array(\$state, ['paused','alumni'], true)",'membership lifecycle holds must block new relationship action recommendations');
+$contains($service,"in_array(\$state, ['paused','alumni'], true)",'membership lifecycle holds must block contact execution');
 $missing($service,'CREATE TABLE','runtime schema creation is forbidden');
 $missing($service,'ALTER TABLE','runtime schema mutation is forbidden');
 $missing($service,'INSERT INTO notifications','Member Action service must not bypass canonical notification service');
@@ -81,6 +87,9 @@ $contains($workspace,'Open Member Journey','workspace must link action evidence 
 $missing($workspace,'INSERT INTO member_relationship_actions','workspace must never bypass canonical action service');
 $missing($workspace,'UPDATE member_relationship_actions','workspace must never bypass canonical action service');
 
+$contains($adminUi,"'/admin/member-actions.php',",'Sample Mode must intercept direct Member Action bookmarks');
+$contains($adminUi,"'member-actions' => 'people'",'Member Actions must map to read-only People sample view');
+$contains($adminUi,"coveted_admin_nav_link(\$active, 'member-actions', '/admin/member-actions.php', 'Member Actions')",'Member Actions must be first-class People navigation');
 $contains($journey,"notification_type LIKE 'event.%'",'Member Journey communication pressure must include canonical relationship follow-up notifications');
 $contains($notifications,'function coveted_notification_create(','canonical notification service must remain available');
 $contains($eventManagement,'function coveted_event_invite_user(','canonical Event invitation service must remain available');
