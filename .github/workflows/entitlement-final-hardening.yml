@@ -1,0 +1,52 @@
+name: Entitlement Final Hardening
+
+on:
+  push:
+    branches:
+      - feature/entitlement-enforcement-upgrade-ux
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message == 'Bootstrap final entitlement hardening'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/entitlement-enforcement-upgrade-ux
+          fetch-depth: 0
+      - name: Harden refund and package scope boundaries
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          # Deep-gate business claim refunds so alternate callers cannot bypass business.php.
+          p = Path('app/rewards.php')
+          s = p.read_text()
+          old = "        if (\n            $claim['business_id'] === null\n            || (int)$claim['business_id'] !== (int)$claim['location_business_id']\n            || !coveted_business_actor_can_manage($actor, (int)$claim['business_id'])\n        ) {\n            throw new InvalidArgumentException('Only a Business Admin or System Admin can refund this claim.');\n        }\n\n        $pdo->prepare("
+          new = "        if (\n            $claim['business_id'] === null\n            || (int)$claim['business_id'] !== (int)$claim['location_business_id']\n            || !coveted_business_actor_can_manage($actor, (int)$claim['business_id'])\n        ) {\n            throw new InvalidArgumentException('Only a Business Admin or System Admin can refund this claim.');\n        }\n        coveted_entitlement_require_business(\n            $actor,\n            (int)$claim['business_id'],\n            'partner.offers',\n            'Your current partner package does not include business offer management.'\n        );\n\n        $pdo->prepare("
+          if s.count(old) != 1:
+              raise SystemExit(f'refund gate anchor count={s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+
+          # Respect explicit package billing subjects for Admin assignments while
+          # preserving legacy/custom packages that have no billing.subject metadata.
+          p = Path('app/service_packages.php')
+          s = p.read_text()
+          old = "    $packageEntitlements = coveted_service_entitlements_for_package($packageId, $pdo);\n    $partnerWorkspaceValue = strtolower(trim((string)($packageEntitlements['partner.workspace'] ?? '')));\n    $packageActivatesPartner = $scope['scope_type'] === 'business'\n        && !in_array($partnerWorkspaceValue, ['', '0', 'false', 'off', 'no'], true);\n    $start = $startsAt !== null"
+          new = "    $packageEntitlements = coveted_service_entitlements_for_package($packageId, $pdo);\n    $packageSubject = strtolower(trim((string)($packageEntitlements['billing.subject'] ?? '')));\n    if ($packageSubject === 'business' && $scope['scope_type'] !== 'business') {\n        throw new InvalidArgumentException('Business service packages must be assigned to a Partner business.');\n    }\n    if ($packageSubject === 'user' && $scope['scope_type'] === 'business') {\n        throw new InvalidArgumentException('Member service packages must be assigned to a user or user type.');\n    }\n    $partnerWorkspaceValue = strtolower(trim((string)($packageEntitlements['partner.workspace'] ?? '')));\n    $packageActivatesPartner = $scope['scope_type'] === 'business'\n        && !in_array($partnerWorkspaceValue, ['', '0', 'false', 'off', 'no'], true);\n    $start = $startsAt !== null"
+          if s.count(old) != 1:
+              raise SystemExit(f'package subject anchor count={s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+
+          Path('.github/workflows/entitlement-final-hardening.yml').unlink()
+          PY
+      - name: Commit hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/rewards.php app/service_packages.php .github/workflows/entitlement-final-hardening.yml
+          git commit -m "Close entitlement mutation bypasses"
+          git push origin HEAD:feature/entitlement-enforcement-upgrade-ux
