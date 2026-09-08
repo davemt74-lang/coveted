@@ -32,24 +32,6 @@ function coveted_subscription_lifecycle_set_grace_days(array $admin, int $days, 
     coveted_site_setting_set(COVETED_SETTING_BILLING_GRACE_DAYS, (string)$days, $admin, $pdo);
 }
 
-/** @return array<string,mixed> */
-function coveted_subscription_lifecycle_provider_metadata(array $subscription): array
-{
-    $raw = $subscription['provider_metadata_json'] ?? null;
-    if (is_array($raw)) {
-        return $raw;
-    }
-    if (!is_string($raw) || trim($raw) === '') {
-        return [];
-    }
-    try {
-        $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-        return is_array($decoded) ? $decoded : [];
-    } catch (Throwable) {
-        return [];
-    }
-}
-
 function coveted_subscription_lifecycle_sql_time(mixed $value): ?DateTimeImmutable
 {
     $value = trim((string)$value);
@@ -64,9 +46,73 @@ function coveted_subscription_lifecycle_sql_time(mixed $value): ?DateTimeImmutab
 }
 
 /**
- * Provider-neutral paid-access state. Payment providers synchronize status and
- * optional dunning timestamps into billing_subscriptions; authorization reads
- * only the canonical local record and the Admin-configured grace policy.
+ * Return the first unresolved payment-failure timestamp for this canonical
+ * subscription. Recovery events close the preceding failure episode, so
+ * repeated provider syncs cannot extend a grace period.
+ */
+function coveted_subscription_lifecycle_failure_since(array $subscription, ?PDO $pdo = null): ?DateTimeImmutable
+{
+    $pdo ??= coveted_db();
+    $publicId = trim((string)($subscription['public_id'] ?? ''));
+    if ($publicId === '') {
+        return null;
+    }
+    try {
+        $recovery = $pdo->prepare(
+            "SELECT MAX(created_at) FROM audit_events
+             WHERE entity_type='billing_subscription' AND entity_id=?
+               AND event_type='billing.payment_recovered'"
+        );
+        $recovery->execute([$publicId]);
+        $recoveredAt = trim((string)$recovery->fetchColumn());
+
+        $sql = "SELECT MIN(created_at) FROM audit_events
+                WHERE entity_type='billing_subscription' AND entity_id=?
+                  AND event_type='billing.payment_failed'";
+        $params = [$publicId];
+        if ($recoveredAt !== '') {
+            $sql .= ' AND created_at > ?';
+            $params[] = $recoveredAt;
+        }
+        $failed = $pdo->prepare($sql);
+        $failed->execute($params);
+        return coveted_subscription_lifecycle_sql_time($failed->fetchColumn());
+    } catch (Throwable $e) {
+        error_log('Billing lifecycle audit read failed: ' . $e->getMessage());
+        return null;
+    }
+}
+
+function coveted_subscription_lifecycle_record_failure(
+    array $subscription,
+    array $metadata = [],
+    ?PDO $pdo = null
+): void {
+    $pdo ??= coveted_db();
+    $publicId = trim((string)($subscription['public_id'] ?? ''));
+    if ($publicId === '' || coveted_subscription_lifecycle_failure_since($subscription, $pdo) !== null) {
+        return;
+    }
+    coveted_audit('billing.payment_failed', 'billing_subscription', $publicId, $metadata, 0);
+}
+
+function coveted_subscription_lifecycle_record_recovery(
+    array $subscription,
+    array $metadata = [],
+    ?PDO $pdo = null
+): void {
+    $pdo ??= coveted_db();
+    $publicId = trim((string)($subscription['public_id'] ?? ''));
+    if ($publicId === '' || coveted_subscription_lifecycle_failure_since($subscription, $pdo) === null) {
+        return;
+    }
+    coveted_audit('billing.payment_recovered', 'billing_subscription', $publicId, $metadata, 0);
+}
+
+/**
+ * Provider-neutral paid-access state. Providers synchronize status into the
+ * canonical billing record; authorization uses only local status, canonical
+ * billing lifecycle events and the Admin-configured grace policy.
  *
  * @return array{access:bool,state:string,label:string,grace_days:int,past_due_since:?string,grace_until:?string,days_remaining:int}
  */
@@ -79,8 +125,6 @@ function coveted_subscription_lifecycle_access_state(
     $now ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
     $status = strtolower(trim((string)($subscription['status'] ?? '')));
     $graceDays = coveted_subscription_lifecycle_grace_days($pdo);
-    $metadata = coveted_subscription_lifecycle_provider_metadata($subscription);
-    $dunning = is_array($metadata['dunning'] ?? null) ? (array)$metadata['dunning'] : [];
 
     $base = [
         'access' => false,
@@ -108,7 +152,7 @@ function coveted_subscription_lifecycle_access_state(
         return $base;
     }
 
-    $since = coveted_subscription_lifecycle_sql_time($dunning['past_due_since'] ?? null)
+    $since = coveted_subscription_lifecycle_failure_since($subscription, $pdo)
         ?? coveted_subscription_lifecycle_sql_time($subscription['updated_at'] ?? null);
     if ($since === null || $graceDays === 0) {
         $base['state'] = 'past_due_expired';
@@ -182,4 +226,25 @@ function coveted_subscription_lifecycle_customer_message(array $subscription, ?P
         'message' => '',
         'action_label' => 'Manage billing',
     ];
+}
+
+/** @return array{past_due_grace:int,past_due_expired:int} */
+function coveted_subscription_lifecycle_past_due_counts(?PDO $pdo = null): array
+{
+    $pdo ??= coveted_db();
+    $result = ['past_due_grace' => 0, 'past_due_expired' => 0];
+    try {
+        $rows = $pdo->query("SELECT * FROM billing_subscriptions WHERE status='past_due' ORDER BY id")->fetchAll();
+        foreach ($rows as $row) {
+            $state = coveted_subscription_lifecycle_access_state($row, $pdo);
+            if ($state['state'] === 'past_due_grace') {
+                $result['past_due_grace']++;
+            } else {
+                $result['past_due_expired']++;
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('Billing lifecycle counts unavailable: ' . $e->getMessage());
+    }
+    return $result;
 }
