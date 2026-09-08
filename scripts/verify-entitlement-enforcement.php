@@ -67,6 +67,7 @@ $missing($businesses, 'coveted_entitlement_require_business(', 'business base se
 $contains($rewards, "require_once __DIR__ . '/entitlement_access.php';", 'reward service must explicitly load entitlement enforcement after business services');
 $contains($rewards, "$ownerType === 'business'", 'business reward branches must be explicit');
 $contains($rewards, "$actor, $ownerId, 'partner.offers'", 'business reward creation/mutation must require partner offers');
+$contains($rewards, "(int)$claim['business_id'],\n            'partner.offers'", 'business claim refunds must require partner offers at the shared service boundary');
 $contains($campaigns, "$actor, $ownerId, 'partner.campaigns'", 'business campaign creation/mutation must require partner campaigns');
 $missing($rewards, 'partner_pro', 'reward service must not know package keys');
 $missing($campaigns, 'partner_pro', 'campaign service must not know package keys');
@@ -74,6 +75,9 @@ $missing($campaigns, 'partner_pro', 'campaign service must not know package keys
 // A current System Admin business package grant that includes partner.workspace
 // must activate a self-created prospective partner, matching paid/trial billing.
 $contains($servicePackages, 'coveted_service_entitlements_for_package($packageId, $pdo)', 'Admin assignment must inspect canonical package entitlements');
+$contains($servicePackages, "$packageEntitlements['billing.subject']", 'Admin assignment must respect explicit package billing subjects');
+$contains($servicePackages, "$packageSubject === 'business' && $scope['scope_type'] !== 'business'", 'business packages must not be assigned to users/user types');
+$contains($servicePackages, "$packageSubject === 'user' && $scope['scope_type'] === 'business'", 'member packages must not be assigned to business scope');
 $contains($servicePackages, "$packageEntitlements['partner.workspace']", 'partner activation must depend on the workspace entitlement');
 $contains($servicePackages, "$scope['scope_type'] === 'business'", 'Admin package activation must be limited to business assignments');
 $contains($servicePackages, '$assignmentActiveNow = ($start === null || strtotime($start) <= time())', 'future-dated assignments must not activate a partner early');
