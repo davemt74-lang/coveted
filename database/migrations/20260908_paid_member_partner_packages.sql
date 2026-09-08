@@ -13,7 +13,7 @@ WHERE package_key = 'free';
 
 UPDATE service_packages
 SET name = 'Member+',
-    description = 'Paid member service with advanced concierge, travel planning and eligible guided/group destination experiences.',
+    description = 'Paid member service with advanced concierge and room for future premium experience features.',
     sort_order = 20,
     is_active = 1
 WHERE package_key = 'plus';
@@ -84,15 +84,18 @@ ON DUPLICATE KEY UPDATE entitlement_value=VALUES(entitlement_value),enabled=1;
 INSERT INTO service_package_entitlements (package_id,entitlement_key,entitlement_value,enabled)
 SELECT id,'member.concierge.advanced','1',1 FROM service_packages WHERE package_key='plus'
 ON DUPLICATE KEY UPDATE entitlement_value=VALUES(entitlement_value),enabled=1;
+
+-- Future premium member capability hooks. They exist now so later travel/destination
+-- work can be enabled by package configuration without another billing redesign.
 INSERT INTO service_package_entitlements (package_id,entitlement_key,entitlement_value,enabled)
-SELECT id,'travel.planning','1',1 FROM service_packages WHERE package_key='plus'
-ON DUPLICATE KEY UPDATE entitlement_value=VALUES(entitlement_value),enabled=1;
+SELECT id,'travel.planning','0',0 FROM service_packages WHERE package_key='plus'
+ON DUPLICATE KEY UPDATE entitlement_value='0',enabled=0;
 INSERT INTO service_package_entitlements (package_id,entitlement_key,entitlement_value,enabled)
-SELECT id,'travel.destination_events','1',1 FROM service_packages WHERE package_key='plus'
-ON DUPLICATE KEY UPDATE entitlement_value=VALUES(entitlement_value),enabled=1;
+SELECT id,'travel.destination_events','0',0 FROM service_packages WHERE package_key='plus'
+ON DUPLICATE KEY UPDATE entitlement_value='0',enabled=0;
 INSERT INTO service_package_entitlements (package_id,entitlement_key,entitlement_value,enabled)
-SELECT id,'travel.guided_groups','1',1 FROM service_packages WHERE package_key='plus'
-ON DUPLICATE KEY UPDATE entitlement_value=VALUES(entitlement_value),enabled=1;
+SELECT id,'travel.guided_groups','0',0 FROM service_packages WHERE package_key='plus'
+ON DUPLICATE KEY UPDATE entitlement_value='0',enabled=0;
 
 INSERT INTO service_package_entitlements (package_id,entitlement_key,entitlement_value,enabled)
 SELECT id,'billing.subject','business',1 FROM service_packages WHERE package_key='partner'
