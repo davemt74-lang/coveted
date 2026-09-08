@@ -43,6 +43,7 @@ if (
             $covetedAdminSampleView = match ($covetedAdminRequestPath) {
                 '/admin/crm.php' => 'crm',
                 '/admin/member-journeys.php',
+                '/admin/member-actions.php',
                 '/admin/guest-conversions.php',
                 '/admin/network-growth.php',
                 '/admin/membership-lifecycle.php' => 'people',
@@ -133,6 +134,7 @@ function coveted_admin_nav_link(string $active, string $key, string $href, strin
         'crm' => 'crm',
         'users' => 'people',
         'member-journeys' => 'people',
+        'member-actions' => 'people',
         'guest-conversions' => 'people',
         'network-growth' => 'people',
         'membership-lifecycle' => 'people',
@@ -228,6 +230,7 @@ function coveted_admin_ui_start(
                     <?php coveted_admin_nav_link($active, 'guest-conversions', '/admin/guest-conversions.php', 'Guest Conversion'); ?>
                     <?php coveted_admin_nav_link($active, 'network-growth', '/admin/network-growth.php', 'Network Growth'); ?>
                     <?php coveted_admin_nav_link($active, 'member-journeys', '/admin/member-journeys.php', 'Member Journeys'); ?>
+                    <?php coveted_admin_nav_link($active, 'member-actions', '/admin/member-actions.php', 'Member Actions'); ?>
                     <?php coveted_admin_nav_link($active, 'membership-lifecycle', '/admin/membership-lifecycle.php', 'Membership Lifecycle'); ?>
                     <?php coveted_admin_nav_link($active, 'requests', '/admin/?view=requests', 'Role Requests', (int)$counts['pending_requests']); ?>
                 </div>
