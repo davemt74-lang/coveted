@@ -1,0 +1,58 @@
+name: Subscription Lifecycle & Dunning
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/subscription_lifecycle.php'
+      - 'app/stripe_dunning.php'
+      - 'app/service_packages.php'
+      - 'api/stripe-webhook.php'
+      - 'billing.php'
+      - 'billing-action.php'
+      - 'admin/subscription-lifecycle.php'
+      - 'admin/billing-operations.php'
+      - 'scripts/verify-subscription-lifecycle.php'
+      - '.github/workflows/subscription-lifecycle.yml'
+  pull_request:
+    paths:
+      - 'app/subscription_lifecycle.php'
+      - 'app/stripe_dunning.php'
+      - 'app/service_packages.php'
+      - 'api/stripe-webhook.php'
+      - 'billing.php'
+      - 'billing-action.php'
+      - 'admin/subscription-lifecycle.php'
+      - 'admin/billing-operations.php'
+      - 'scripts/verify-subscription-lifecycle.php'
+      - '.github/workflows/subscription-lifecycle.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1','8.2']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, pdo_mysql, curl
+      - name: Lint lifecycle PHP
+        run: |
+          php -l app/subscription_lifecycle.php
+          php -l app/stripe_dunning.php
+          php -l app/service_packages.php
+          php -l api/stripe-webhook.php
+          php -l billing.php
+          php -l billing-action.php
+          php -l admin/subscription-lifecycle.php
+          php -l admin/billing-operations.php
+          php -l scripts/verify-subscription-lifecycle.php
+      - name: Verify lifecycle contract
+        run: php scripts/verify-subscription-lifecycle.php

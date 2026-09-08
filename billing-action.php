@@ -29,12 +29,22 @@ try {
         }
 
         $billingSubject = $business !== null ? 'business' : 'user';
+        $billingSubjectId = $business !== null ? (int)$business['id'] : (int)$user['id'];
         if (!coveted_service_package_available_to_subject($packageId,$billingSubject,$pdo)) {
             throw new InvalidArgumentException(
                 $billingSubject === 'business'
                     ? 'Choose a package available for partner businesses.'
                     : 'Choose a package available for member accounts.'
             );
+        }
+
+        $existingSubscriptions = coveted_service_subscriptions_for_subject($billingSubject,$billingSubjectId,false,$pdo);
+        $openSubscriptions = array_values(array_filter(
+            $existingSubscriptions,
+            static fn(array $row): bool => coveted_subscription_lifecycle_is_open($row)
+        ));
+        if ($openSubscriptions) {
+            throw new InvalidArgumentException('An existing subscription still requires billing management. Use Manage billing instead of creating a second subscription.');
         }
 
         $subjectKey = $business !== null

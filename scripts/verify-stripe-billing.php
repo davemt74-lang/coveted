@@ -57,7 +57,7 @@ $contains($adapter, "'coveted_subject_type'", 'Stripe metadata must preserve can
 $contains($adapter, "'coveted_subject_ref'", 'Stripe metadata must preserve canonical subject reference');
 $contains($adapter, "'coveted_package_key'", 'Stripe metadata must preserve package identity');
 $contains($adapter, "['user_override','partner_override','user_type_override']", 'Admin billing bypass must block paid checkout');
-$contains($adapter, 'An active subscription already exists for this billing account.', 'duplicate active subscriptions must be blocked');
+$contains($adapter, 'An active subscription already exists for this billing account.', 'adapter must retain its active-access duplicate guard');
 $contains($adapter, "'/billing_portal/sessions'", 'Stripe Billing Portal support is required');
 $contains($adapter, "'trialing' => 'trialing'", 'trialing subscription state must sync');
 $contains($adapter, "'active' => 'active'", 'active subscription state must sync');
@@ -85,6 +85,9 @@ $missing($adapter, 'ALTER TABLE', 'runtime Stripe schema mutation is forbidden')
 
 $contains($action, "\$_SERVER['REQUEST_METHOD'] !== 'POST'", 'billing actions must be POST-only');
 $contains($action, 'coveted_require_csrf();', 'billing actions must require CSRF');
+$contains($action, 'coveted_service_subscriptions_for_subject($billingSubject,$billingSubjectId,false,$pdo)', 'checkout must inspect all subscriptions for the exact billing subject');
+$contains($action, 'coveted_subscription_lifecycle_is_open($row)', 'checkout must block trialing, active, past-due and paused subscriptions requiring management');
+$contains($action, 'Use Manage billing instead of creating a second subscription.', 'duplicate-subscription recovery path must be explicit');
 $contains($action, 'SELECT GET_LOCK(?,25)', 'concurrent checkout creation must be serialized per billing subject/package');
 $contains($action, 'SELECT RELEASE_LOCK(?)', 'checkout serialization lock must be explicitly released');
 $contains($action, "coveted_stripe_safe_redirect((string)\$result['session']['url'],['checkout.stripe.com'])", 'Checkout redirect must be host allowlisted');
@@ -112,8 +115,8 @@ $contains($billing, 'database/migrations/20260908_stripe_billing.sql', 'Billing 
 $contains($billing, 'name="action" value="checkout"', 'Billing UI must expose hosted subscription checkout');
 $contains($billing, 'name="action" value="portal"', 'Billing UI must expose Stripe Billing Portal');
 $contains($billing, '$subjectSubscriptions = coveted_service_subscriptions_for_subject($billingSubjectType,$billingSubjectId,false,$pdo);', 'checkout availability must be scoped to the exact billing subject');
-$contains($billing, '$hasOverrideAndPaid = $adminOverride !== null && $activeSubjectSubscriptions !== [];', 'billing-overlap warning must be scoped to the exact billing subject');
-$contains($billing, '$canCheckout = $isPaid && $stripeReady && $adminOverride === null && !$activeSubjectSubscriptions;', 'any active subscription must prevent duplicate checkout for that subject');
+$contains($billing, '$hasOverrideAndPaid = $adminOverride !== null && $openSubjectSubscriptions !== [];', 'billing-overlap warning must include any open subscription for the exact billing subject');
+$contains($billing, '$canCheckout = $isPaid && $stripeReady && $adminOverride === null && !$openSubjectSubscriptions;', 'any open subscription must prevent duplicate checkout for that subject');
 $contains($billing, 'Paid checkout is disabled while the assignment remains active.', 'Admin bypass must disable duplicate paid checkout');
 $contains($billing, 'without exposing payment-card data to Coveted', 'hosted payment boundary must be explicit');
 $missing($billing, 'INSERT INTO billing_subscriptions', 'Billing UI must not write subscription state directly');

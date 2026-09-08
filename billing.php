@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/app/stripe_billing.php';
+require_once __DIR__ . '/app/public_packages.php';
 
 $user = coveted_require_user();
 $pdo = coveted_db();
@@ -44,7 +45,10 @@ $billingSubjectId = $business ? (int)$business['id'] : (int)$user['id'];
 if ($schemaReady && $error === '') {
     try {
         $effective = coveted_service_effective_package($user,$business ? (int)$business['id'] : null,$pdo);
-        $packages = coveted_service_packages(true,$pdo);
+        $packages = array_values(array_filter(
+            coveted_service_packages(true,$pdo),
+            static fn(array $package): bool => coveted_service_package_available_to_subject((int)$package['id'],$billingSubjectType,$pdo)
+        ));
         $subjectSubscriptions = coveted_service_subscriptions_for_subject($billingSubjectType,$billingSubjectId,false,$pdo);
         $subscriptions = $subjectSubscriptions;
         if ($business) {
@@ -72,10 +76,31 @@ $sourceLabels = [
     'subscription' => 'Paid subscription',
     'default' => 'Default package',
 ];
-$activeSubjectSubscriptions = array_values(array_filter($subjectSubscriptions,static fn(array $row): bool => in_array((string)$row['status'],['trialing','active'],true)));
-$activeStripeSubscriptions = array_values(array_filter($activeSubjectSubscriptions,static fn(array $row): bool => (string)$row['provider']==='stripe'));
-$hasOverrideAndPaid = $adminOverride !== null && $activeSubjectSubscriptions !== [];
+$accessSubjectSubscriptions = array_values(array_filter(
+    $subjectSubscriptions,
+    static fn(array $row): bool => coveted_subscription_lifecycle_allows_access($row,$pdo)
+));
+$openSubjectSubscriptions = array_values(array_filter(
+    $subjectSubscriptions,
+    static fn(array $row): bool => coveted_subscription_lifecycle_is_open($row)
+));
+$openStripeSubscriptions = array_values(array_filter(
+    $openSubjectSubscriptions,
+    static fn(array $row): bool => (string)$row['provider'] === 'stripe'
+));
+$hasOverrideAndPaid = $adminOverride !== null && $openSubjectSubscriptions !== [];
 $checkoutCancelled = (string)($_GET['checkout'] ?? '') === 'cancelled';
+
+$attentionSubscription = null;
+foreach ($subjectSubscriptions as $row) {
+    $message = coveted_subscription_lifecycle_customer_message($row,$pdo);
+    if ($message['title'] !== '') {
+        $attentionSubscription = ['subscription'=>$row,'message'=>$message,'state'=>coveted_subscription_lifecycle_access_state($row,$pdo)];
+        if (str_starts_with((string)$message['state'],'past_due')) {
+            break;
+        }
+    }
+}
 
 coveted_page_start('Billing & Plan','');
 ?>
@@ -84,7 +109,7 @@ coveted_page_start('Billing & Plan','');
         <div>
             <span class="cv-eyebrow">ACCOUNT · SERVICE</span>
             <h1>Billing & Plan</h1>
-            <p>See the package governing your Coveted access, subscribe through hosted Stripe Checkout, and manage an existing billing account without exposing payment-card data to Coveted.</p>
+            <p>See the package governing your Coveted access, resolve payment issues, subscribe through hosted Stripe Checkout, and manage billing without exposing payment-card data to Coveted.</p>
         </div>
         <div class="cv-action-row">
             <?php if ($stripeCustomer !== null && $stripeReady): ?>
@@ -92,11 +117,12 @@ coveted_page_start('Billing & Plan','');
                     <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
                     <input type="hidden" name="action" value="portal">
                     <input type="hidden" name="business_ref" value="<?= coveted_e((string)($business['public_id'] ?? '')) ?>">
-                    <button class="cv-button cv-button-primary" type="submit">Manage billing</button>
+                    <button class="cv-button cv-button-primary" type="submit"><?= $attentionSubscription && str_starts_with((string)$attentionSubscription['message']['state'],'past_due') ? 'Resolve billing' : 'Manage billing' ?></button>
                 </form>
             <?php endif; ?>
             <?php if (coveted_is_system_admin($user)): ?>
                 <a class="cv-button cv-button-soft" href="/admin/service-packages.php">Manage service packages</a>
+                <a class="cv-button cv-button-soft" href="/admin/billing-operations.php">Billing operations</a>
             <?php endif; ?>
         </div>
     </div>
@@ -106,11 +132,22 @@ coveted_page_start('Billing & Plan','');
     <?php elseif (!$stripeSchemaReady): ?>
         <div class="cv-alert cv-alert-error"><strong>Stripe Billing migration required.</strong> Import <code>database/migrations/20260908_stripe_billing.sql</code> before enabling payments.</div>
     <?php elseif (!$stripeReady): ?>
-        <div class="cv-alert"><strong>Stripe is not live yet.</strong> Add <code>billing.stripe.secret_key</code> and <code>billing.stripe.webhook_secret</code> to the private production <code>config.php</code>, enable Stripe, and register <code>/api/stripe-webhook.php</code> in Stripe.</div>
+        <div class="cv-alert"><strong>Stripe is not live yet.</strong> Add the private Stripe keys to production <code>config.php</code>, enable Stripe, and register <code>/api/stripe-webhook.php</code>.</div>
     <?php endif; ?>
     <?php if ($checkoutCancelled): ?><div class="cv-alert">Checkout was cancelled. No Coveted package or subscription state was changed.</div><?php endif; ?>
     <?php if ($error !== ''): ?><div class="cv-alert cv-alert-error"><?= coveted_e($error) ?></div><?php endif; ?>
     <?php if ($notice !== ''): ?><div class="cv-alert"><?= coveted_e($notice) ?></div><?php endif; ?>
+
+    <?php if ($attentionSubscription):
+        $attentionMessage = (array)$attentionSubscription['message'];
+        $attentionState = (array)$attentionSubscription['state'];
+    ?>
+        <div class="cv-alert <?= $attentionMessage['state'] === 'past_due_expired' ? 'cv-alert-error' : '' ?>">
+            <strong><?= coveted_e((string)$attentionMessage['title']) ?>.</strong>
+            <?= coveted_e((string)$attentionMessage['message']) ?>
+            <?php if (!empty($attentionState['grace_until'])): ?> Grace ends <?= coveted_e((string)$attentionState['grace_until']) ?> UTC.<?php endif; ?>
+        </div>
+    <?php endif; ?>
 
     <?php if ($businesses): ?>
         <section class="cv-panel">
@@ -130,16 +167,17 @@ coveted_page_start('Billing & Plan','');
         $current = (array)$effective['package'];
         $entitlements = (array)$effective['entitlements'];
         $source = (string)$effective['source'];
+        $effectiveSubscriptionState = is_array($effective['subscription_state'] ?? null) ? (array)$effective['subscription_state'] : null;
     ?>
         <div class="cv-admin-metric-grid cv-admin-section-gap">
             <div><span>Current package</span><strong><?= coveted_e((string)$current['name']) ?></strong><small><?= coveted_e(coveted_service_format_price($current['monthly_price_cents'] !== null ? (int)$current['monthly_price_cents'] : null,(string)$current['currency'])) ?></small></div>
-            <div><span>Access source</span><strong><?= coveted_e($sourceLabels[$source] ?? ucwords(str_replace('_',' ',$source))) ?></strong><small><?= $source === 'subscription' ? 'payment-backed access' : ($source === 'default' ? 'platform default' : 'billing bypass set by System Admin') ?></small></div>
+            <div><span>Access source</span><strong><?= coveted_e($sourceLabels[$source] ?? ucwords(str_replace('_',' ',$source))) ?></strong><small><?= $effectiveSubscriptionState ? coveted_e((string)$effectiveSubscriptionState['label']) : ($source === 'default' ? 'platform default' : 'billing bypass set by System Admin') ?></small></div>
             <div><span>Entitlements</span><strong><?= count($entitlements) ?></strong><small>package capabilities</small></div>
             <div><span>Billing subject</span><strong><?= coveted_e($business ? (string)$business['name'] : 'My account') ?></strong><small><?= $business ? 'partner context' : 'personal context' ?></small></div>
         </div>
 
         <?php if ($hasOverrideAndPaid): ?>
-            <div class="cv-alert cv-alert-error"><strong>Admin package override + active subscription.</strong> Your Admin-granted package governs access, but this billing subject also has an active/trial subscription. The override does not automatically cancel provider billing. Use Manage billing to review the paid subscription.</div>
+            <div class="cv-alert cv-alert-error"><strong>Admin package override + open subscription.</strong> Your Admin-granted package governs access, but this billing subject still has a provider subscription requiring billing management. The override does not cancel provider billing.</div>
         <?php elseif ($adminOverride !== null): ?>
             <div class="cv-alert"><strong>Payment bypass active.</strong> A System Admin assigned this package directly. Paid checkout is disabled while the assignment remains active.</div>
         <?php endif; ?>
@@ -161,24 +199,27 @@ coveted_page_start('Billing & Plan','');
                         <?php endforeach; ?>
                     </div>
                 <?php else: ?>
-                    <div class="cv-admin-empty"><strong>No explicit entitlements.</strong><span>Existing Coveted features remain unchanged until they intentionally adopt entitlement gating.</span></div>
+                    <div class="cv-admin-empty"><strong>No explicit entitlements.</strong><span>This package currently has no explicit premium feature gates.</span></div>
                 <?php endif; ?>
             </section>
 
             <section class="cv-panel">
                 <span class="cv-eyebrow">SUBSCRIPTION HISTORY</span>
                 <h2>Payment records</h2>
-                <p>Stripe state is synchronized into Coveted's provider-neutral subscription record. Authorization still resolves through the canonical package service.</p>
+                <p>Provider state is synchronized into Coveted's canonical subscription record. Payment failure can retain paid access only during the configured grace window.</p>
                 <div class="cv-admin-list">
                     <?php if (!$subscriptions): ?><div class="cv-admin-empty"><strong>No subscription records.</strong><span>Your package may be the default or an Admin assignment.</span></div><?php endif; ?>
-                    <?php foreach ($subscriptions as $row): ?>
+                    <?php foreach ($subscriptions as $row):
+                        $rowState = coveted_subscription_lifecycle_access_state($row,$pdo);
+                    ?>
                         <div class="cv-admin-list-row">
                             <span class="cv-admin-list-copy">
                                 <strong><?= coveted_e((string)$row['package_name']) ?></strong>
-                                <small><?= coveted_e(ucwords(str_replace('_',' ',(string)$row['status']))) ?> · <?= coveted_e(ucfirst((string)$row['provider'])) ?></small>
-                                <?php if (!empty($row['current_period_end'])): ?><small>Current period ends <?= coveted_e((string)$row['current_period_end']) ?> UTC<?= !empty($row['cancel_at_period_end']) ? ' · cancels at period end' : '' ?></small><?php endif; ?>
+                                <small><?= coveted_e((string)$rowState['label']) ?> · <?= coveted_e(ucfirst((string)$row['provider'])) ?></small>
+                                <?php if (!empty($rowState['grace_until'])): ?><small>Grace ends <?= coveted_e((string)$rowState['grace_until']) ?> UTC</small><?php endif; ?>
+                                <?php if (!empty($row['current_period_end'])): ?><small>Billing period ends <?= coveted_e((string)$row['current_period_end']) ?> UTC<?= !empty($row['cancel_at_period_end']) ? ' · cancellation scheduled' : '' ?></small><?php endif; ?>
                             </span>
-                            <span class="cv-status"><?= coveted_e((string)$row['status']) ?></span>
+                            <span class="cv-status"><?= coveted_e((string)$rowState['state']) ?></span>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -192,7 +233,7 @@ coveted_page_start('Billing & Plan','');
                     $included = coveted_service_entitlements_for_package((int)$package['id'],$pdo);
                     $isCurrent = (int)$package['id'] === (int)$current['id'];
                     $isPaid = $package['monthly_price_cents'] !== null && (int)$package['monthly_price_cents'] > 0;
-                    $canCheckout = $isPaid && $stripeReady && $adminOverride === null && !$activeSubjectSubscriptions;
+                    $canCheckout = $isPaid && $stripeReady && $adminOverride === null && !$openSubjectSubscriptions;
                 ?>
                     <div class="cv-admin-list-row">
                         <span class="cv-admin-list-copy">
@@ -209,12 +250,12 @@ coveted_page_start('Billing & Plan','');
                                 <input type="hidden" name="business_ref" value="<?= coveted_e((string)($business['public_id'] ?? '')) ?>">
                                 <button class="cv-button cv-button-primary" type="submit">Subscribe</button>
                             </form>
-                        <?php elseif ($isCurrent): ?>
-                            <span class="cv-status">Active</span>
+                        <?php elseif ($isCurrent && $accessSubjectSubscriptions): ?>
+                            <span class="cv-status">Active access</span>
                         <?php elseif ($isPaid && $adminOverride !== null): ?>
                             <span class="cv-status">Admin access</span>
-                        <?php elseif ($isPaid && $activeSubjectSubscriptions): ?>
-                            <span class="cv-status"><?= $activeStripeSubscriptions ? 'Manage billing' : 'Active subscription' ?></span>
+                        <?php elseif ($isPaid && $openSubjectSubscriptions): ?>
+                            <span class="cv-status"><?= $openStripeSubscriptions ? 'Manage billing' : 'Existing subscription' ?></span>
                         <?php elseif ($isPaid && !$stripeReady): ?>
                             <span class="cv-status">Not configured</span>
                         <?php else: ?>
@@ -223,7 +264,7 @@ coveted_page_start('Billing & Plan','');
                     </div>
                 <?php endforeach; ?>
             </div>
-            <p><small>Checkout is hosted by Stripe. Webhooks synchronize subscription status, renewals, payment failures and cancellations into <code>billing_subscriptions</code>. System Admin package assignments still resolve before payment state.</small></p>
+            <p><small>Checkout is hosted by Stripe. Webhooks synchronize subscription status and payment recovery into Coveted. System Admin package assignments still resolve before payment state.</small></p>
         </section>
     <?php endif; ?>
 </section>

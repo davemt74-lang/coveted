@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/businesses.php';
+require_once __DIR__ . '/subscription_lifecycle.php';
 
 /** @return list<string> */
 function coveted_service_user_types(): array
@@ -117,12 +118,19 @@ function coveted_service_subscriptions_for_subject(
             JOIN service_packages p ON p.id = s.package_id
             WHERE s.subject_type = ? AND {$column} = ?";
     if ($currentOnly) {
-        $sql .= " AND s.status IN ('trialing','active') AND (s.current_period_end IS NULL OR s.current_period_end > NOW())";
+        $sql .= " AND s.status IN ('trialing','active','past_due')";
     }
     $sql .= ' ORDER BY s.updated_at DESC, s.id DESC';
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$subjectType, $subjectId]);
-    return $stmt->fetchAll();
+    $rows = $stmt->fetchAll();
+    if (!$currentOnly) {
+        return $rows;
+    }
+    return array_values(array_filter(
+        $rows,
+        static fn(array $row): bool => coveted_subscription_lifecycle_allows_access($row, $pdo)
+    ));
 }
 
 function coveted_service_best_subscription(array $subjects, ?PDO $pdo = null): ?array
@@ -147,7 +155,7 @@ function coveted_service_best_subscription(array $subjects, ?PDO $pdo = null): ?
 /**
  * Resolve the package used for authorization. Precedence is deliberate:
  * user Admin override > business/partner Admin override > user-type Admin
- * override > paid/trial subscription > active default package.
+ * override > paid/trial/grace-eligible subscription > active default package.
  *
  * @return array<string,mixed>
  */
@@ -232,6 +240,7 @@ function coveted_service_effective_package(array $user, ?int $businessId = null,
         'source' => $source,
         'assignment' => $source !== 'subscription' && $source !== 'default' ? $assignment : null,
         'subscription' => $subscription,
+        'subscription_state' => $subscription ? coveted_subscription_lifecycle_access_state($subscription, $pdo) : null,
         'entitlements' => coveted_service_entitlements_for_package($packageId, $pdo),
         'business_id' => $businessId,
     ];

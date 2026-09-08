@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/stripe_billing.php';
+require_once dirname(__DIR__) . '/app/stripe_dunning.php';
 require_once dirname(__DIR__) . '/app/partner_accounts.php';
 
 header('Content-Type: application/json; charset=utf-8');
@@ -54,6 +55,16 @@ try {
     }
 
     $result = coveted_stripe_process_webhook($event,$payload,$pdo);
+    if (empty($result['duplicate'])) {
+        try {
+            coveted_stripe_dunning_record_event($event,$pdo);
+        } catch (Throwable $dunningError) {
+            // Canonical subscription sync has already succeeded. Keep the
+            // provider webhook acknowledged; the lifecycle layer falls back to
+            // the local subscription update time until Admin reconciliation.
+            error_log('Stripe dunning lifecycle recording failed: ' . $dunningError->getMessage());
+        }
+    }
     http_response_code(200);
     echo coveted_json(['ok'=>true,'duplicate'=>(bool)($result['duplicate'] ?? false)]);
 } catch (InvalidArgumentException $e) {
