@@ -12,6 +12,11 @@ $partnerPackages = coveted_service_packages_schema_available($pdo)
     ? coveted_service_public_packages('business',$pdo)
     : [];
 $selectedPackageKey = strtolower(trim((string)($_GET['package'] ?? $_POST['package_key'] ?? '')));
+$selectedPackage = $selectedPackageKey !== '' ? coveted_service_package($selectedPackageKey,$pdo) : null;
+if ($selectedPackage && !coveted_service_package_available_to_subject((int)$selectedPackage['id'],'business',$pdo)) {
+    $selectedPackage = null;
+    $selectedPackageKey = '';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     coveted_require_csrf();
@@ -24,14 +29,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
 
         $packageKey = strtolower(trim((string)($_POST['package_key'] ?? '')));
-        $path = '/billing.php?business=' . rawurlencode((string)$business['public_id']) . '&partner=created';
         if ($packageKey !== '') {
             $package = coveted_service_package($packageKey,$pdo);
-            if ($package && coveted_service_package_available_to_subject((int)$package['id'],'business',$pdo)) {
-                $path .= '&package=' . rawurlencode((string)$package['package_key']);
+            if (!$package || !coveted_service_package_available_to_subject((int)$package['id'],'business',$pdo)) {
+                throw new InvalidArgumentException('Choose a package currently available for partner businesses.');
             }
+            coveted_redirect(
+                '/subscribe.php?business=' . rawurlencode((string)$business['public_id'])
+                . '&package=' . rawurlencode((string)$package['package_key'])
+            );
         }
-        coveted_redirect($path);
+
+        coveted_redirect('/billing.php?business=' . rawurlencode((string)$business['public_id']) . '&partner=created');
     } catch (InvalidArgumentException|RuntimeException $e) {
         $error = $e->getMessage();
     } catch (Throwable $e) {
@@ -58,9 +67,16 @@ coveted_page_start('Become a Partner');
         <section class="cv-panel cv-admin-section-gap">
             <span class="cv-eyebrow">YOUR PARTNERS</span>
             <h2>Already managing a business?</h2>
+            <p><?= $selectedPackage ? 'Choose the selected package for an existing partner, or create another partner below.' : 'Open billing for an existing partner, or create another partner below.' ?></p>
             <div class="cv-action-row">
-                <?php foreach ($businesses as $business): ?>
-                    <a class="cv-button cv-button-soft" href="/billing.php?business=<?= coveted_e(rawurlencode((string)$business['public_id'])) ?>"><?= coveted_e((string)$business['name']) ?> · Billing</a>
+                <?php foreach ($businesses as $business):
+                    $existingHref = $selectedPackage
+                        ? '/subscribe.php?business=' . rawurlencode((string)$business['public_id']) . '&package=' . rawurlencode((string)$selectedPackage['package_key'])
+                        : '/billing.php?business=' . rawurlencode((string)$business['public_id']);
+                ?>
+                    <a class="cv-button cv-button-soft" href="<?= coveted_e($existingHref) ?>">
+                        <?= coveted_e((string)$business['name']) ?> · <?= $selectedPackage ? coveted_e((string)$selectedPackage['name']) : 'Billing' ?>
+                    </a>
                 <?php endforeach; ?>
             </div>
         </section>
@@ -87,7 +103,7 @@ coveted_page_start('Become a Partner');
                     <?php endforeach; ?>
                 </select>
             </label>
-            <button class="cv-button cv-button-primary" type="submit">Create partner & continue</button>
+            <button class="cv-button cv-button-primary" type="submit">Create partner &amp; continue</button>
             <p><small>Creating a partner does not change your global Coveted user role. You become the first resource-scoped Business Admin for this business.</small></p>
         </form>
 
@@ -97,8 +113,9 @@ coveted_page_start('Become a Partner');
             <div class="cv-admin-list">
                 <div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong>1. Create the partner</strong><small>Coveted creates a prospective business and makes you its first Business Admin.</small></span></div>
                 <div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong>2. Choose a live package</strong><small>The choices come directly from System Admin's active Service Packages catalog.</small></span></div>
-                <div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong>3. Pay securely through Stripe</strong><small>The Stripe customer and subscription belong to the business billing subject.</small></span></div>
-                <div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong>4. Share administration</strong><small>Other authorized Coveted users can later manage the same business without creating another subscription.</small></span></div>
+                <div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong>3. Confirm the billing subject</strong><small>Coveted clearly shows which business is purchasing the package before Stripe opens.</small></span></div>
+                <div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong>4. Pay securely through Stripe</strong><small>The Stripe customer and subscription belong to the business billing subject.</small></span></div>
+                <div class="cv-admin-list-row"><span class="cv-admin-list-copy"><strong>5. Share administration</strong><small>Other authorized Coveted users can later manage the same business without creating another subscription.</small></span></div>
             </div>
         </section>
     </div>
