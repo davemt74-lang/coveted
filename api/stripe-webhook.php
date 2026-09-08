@@ -47,8 +47,13 @@ try {
         throw new InvalidArgumentException('Stripe event mode does not match the configured secret key.');
     }
 
+    $eventType = (string)($event['type'] ?? '');
+    $eventObject = (array)($event['data']['object'] ?? []);
+    if (str_starts_with($eventType,'customer.subscription.')) {
+        coveted_partner_activate_from_stripe_subscription_payload($eventObject,$pdo);
+    }
+
     $result = coveted_stripe_process_webhook($event,$payload,$pdo);
-    coveted_partner_activate_from_billing_result($result,$pdo);
     http_response_code(200);
     echo coveted_json(['ok'=>true,'duplicate'=>(bool)($result['duplicate'] ?? false)]);
 } catch (InvalidArgumentException $e) {
