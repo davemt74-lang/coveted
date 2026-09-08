@@ -33,6 +33,7 @@ jobs:
           php -l app/entitlement_access.php
           php -l app/rewards.php
           php -l app/campaigns.php
+          php -l app/service_packages.php
           php -l business.php
           php -l scripts/verify-entitlement-enforcement.php
 
