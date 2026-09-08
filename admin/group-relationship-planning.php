@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
-require_once dirname(__DIR__) . '/app/group_relationship_planning.php';
+require_once dirname(__DIR__) . '/app/group_relationship_planning_guard.php';
 require_once dirname(__DIR__) . '/app/event_proposals.php';
 
 $admin=coveted_require_system_admin();
@@ -13,7 +13,7 @@ $groupRef=trim((string)($_GET['group']??$_POST['group_ref']??''));
 $groups=coveted_member_relationship_groups($admin,$pdo);
 if($groupRef==='' && $groups)$groupRef=(string)$groups[0]['public_id'];
 $plan=null;
-try{if($groupRef!=='')$plan=coveted_group_relationship_plan($admin,$groupRef,$pdo);}catch(Throwable $e){error_log('Group Relationship Planning workspace unavailable: '.$e->getMessage());$error='Unable to build that group relationship plan right now.';}
+try{if($groupRef!=='')$plan=coveted_group_relationship_plan_guarded($admin,$groupRef,$pdo);}catch(Throwable $e){error_log('Group Relationship Planning workspace unavailable: '.$e->getMessage());$error='Unable to build that group relationship plan right now.';}
 $playbooks=coveted_event_proposal_schema_available($pdo)?coveted_event_playbooks($admin,false,$pdo):[];
 $recommendedPlaybook=null;
 if($plan){
@@ -31,7 +31,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     try{
         if((string)($_POST['action']??'')!=='create_proposal')throw new InvalidArgumentException('Unsupported Group Relationship Planning action.');
         $groupRef=trim((string)($_POST['group_ref']??''));
-        $plan=coveted_group_relationship_plan($admin,$groupRef,$pdo);
+        $plan=coveted_group_relationship_plan_guarded($admin,$groupRef,$pdo);
         if(empty($plan['event']['recommended']))throw new InvalidArgumentException('This group does not currently have a recommendation for another Event.');
         $opportunityKey=(string)$plan['event']['opportunity_key'];
         if($opportunityKey==='' || !coveted_event_opportunity_by_key($admin,$opportunityKey,$pdo))throw new InvalidArgumentException('The recommended venue is not currently proposal-ready. Review Event Opportunities or the partner relationship first.');
@@ -111,7 +111,7 @@ coveted_admin_ui_start($admin,'member-relationships','Group Relationship Plannin
         <div><dt>Capacity</dt><dd><?= (int)$event['capacity'] ?></dd></div>
         <div><dt>Suggested timing</dt><dd><?=coveted_e($fmt((string)$event['suggested_start_at']))?></dd></div>
         <div><dt>Participation breadth</dt><dd><?=number_format((float)$metrics['participation_breadth'],1)?>%</dd></div>
-        <div><dt>Invitation pacing</dt><dd><?= (int)$plan['paced_members'] ?> paced · <?= (int)$plan['lifecycle_holds'] ?> lifecycle holds</dd></div>
+        <div><dt>Invitation pacing</dt><dd><?= (int)$plan['paced_members'] ?> paced · <?= (int)$plan['lifecycle_holds'] ?> lifecycle holds · <?= (int)($plan['unknown_journey_holds']??0) ?> Journey-data holds</dd></div>
     </dl>
     <?php if((int)$plan['future_events']>0):?><div class="cv-alert"><strong>Existing Event cadence.</strong> <?= (int)$plan['future_events'] ?> future Event<?= (int)$plan['future_events']===1?' is':'s are' ?> already scheduled, so Group Planning will not recommend another proposal.</div><?php endif;?>
     <?php if(!empty($event['recommended']) && $opportunity && $recommendedPlaybook):?>
@@ -141,7 +141,7 @@ coveted_admin_ui_start($admin,'member-relationships','Group Relationship Plannin
     <div class="cv-admin-metric-grid">
         <?php foreach((array)$plan['target_mix'] as $segment=>$count):?><div><span><?=coveted_e($segmentLabel((string)$segment))?></span><strong><?= (int)$count ?></strong><small>target seats</small></div><?php endforeach;?>
     </div>
-    <p class="cv-form-help">Targets are relationship-planning counts, not member scores. Paced and lifecycle-hold members are excluded from the target mix.</p>
+    <p class="cv-form-help">Targets are relationship-planning counts, not member scores. Paced, lifecycle-hold and unknown-Journey members are excluded from the target mix.</p>
     <div class="cv-admin-list cv-admin-section-gap">
         <?php foreach(array_slice((array)$plan['invite_candidates'],0,40) as $candidate):?>
         <div class="cv-admin-list-row">
