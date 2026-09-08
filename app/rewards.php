@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/businesses.php';
+require_once __DIR__ . '/entitlement_access.php';
 
 function coveted_reward_owner_columns(string $ownerType, int $ownerId): array
 {
