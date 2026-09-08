@@ -94,6 +94,61 @@ function coveted_partner_create_self_service(array $user, string $name, string $
     }
 }
 
+function coveted_partner_activate_business(int $businessId, string $businessRef, string $billingStatus, ?PDO $pdo = null): bool
+{
+    $pdo ??= coveted_db();
+    $billingStatus = strtolower(trim($billingStatus));
+    if ($businessId < 1 || !in_array($billingStatus,['active','trialing'],true)) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare("UPDATE businesses SET status='active',updated_at=NOW() WHERE id=? AND status='prospective'");
+    $stmt->execute([$businessId]);
+    if ($stmt->rowCount() !== 1) {
+        return false;
+    }
+
+    coveted_audit(
+        'partner.activated_by_subscription',
+        'business',
+        $businessRef !== '' ? $businessRef : (string)$businessId,
+        ['billing_status'=>$billingStatus],
+        0
+    );
+    return true;
+}
+
+/**
+ * Run before a signed Stripe subscription webhook is marked processed. This
+ * keeps activation retry-safe even if the later provider-neutral sync fails.
+ */
+function coveted_partner_activate_from_stripe_subscription_payload(array $subscription, ?PDO $pdo = null): bool
+{
+    $pdo ??= coveted_db();
+    $status = strtolower(trim((string)($subscription['status'] ?? '')));
+    if (!in_array($status,['active','trialing'],true)) {
+        return false;
+    }
+
+    $metadata = (array)($subscription['metadata'] ?? []);
+    if (strtolower(trim((string)($metadata['coveted_subject_type'] ?? ''))) !== 'business') {
+        return false;
+    }
+    $businessRef = trim((string)($metadata['coveted_subject_ref'] ?? ''));
+    if ($businessRef === '') {
+        return false;
+    }
+
+    $stmt = $pdo->prepare("SELECT id FROM businesses WHERE public_id=? AND status<>'archived' LIMIT 1");
+    $stmt->execute([$businessRef]);
+    $businessId = (int)$stmt->fetchColumn();
+    if ($businessId < 1) {
+        throw new RuntimeException('Stripe subscription references an unavailable Coveted partner.');
+    }
+
+    return coveted_partner_activate_business($businessId,$businessRef,$status,$pdo);
+}
+
 /**
  * Paid/trial business subscriptions promote self-created prospective partners
  * to active. Cancellation does not archive or delete partner data; package
@@ -110,22 +165,15 @@ function coveted_partner_activate_from_billing_result(array $result, ?PDO $pdo =
         }
         $subject = isset($value['subject']) && is_array($value['subject']) ? $value['subject'] : null;
         $status = strtolower(trim((string)($value['status'] ?? '')));
-        if ($subject && (string)($subject['type'] ?? '') === 'business'
-            && in_array($status,['active','trialing'],true)) {
+        if ($subject && (string)($subject['type'] ?? '') === 'business') {
             $businessId = (int)($subject['id'] ?? 0);
-            if ($businessId > 0) {
-                $stmt = $pdo->prepare("UPDATE businesses SET status='active',updated_at=NOW() WHERE id=? AND status='prospective'");
-                $stmt->execute([$businessId]);
-                if ($stmt->rowCount() === 1) {
-                    coveted_audit(
-                        'partner.activated_by_subscription',
-                        'business',
-                        (string)($subject['ref'] ?? $businessId),
-                        ['billing_status'=>$status],
-                        0
-                    );
-                    $activated = true;
-                }
+            if ($businessId > 0 && coveted_partner_activate_business(
+                $businessId,
+                (string)($subject['ref'] ?? ''),
+                $status,
+                $pdo
+            )) {
+                $activated = true;
             }
         }
         foreach ($value as $nested) {
