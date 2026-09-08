@@ -370,9 +370,13 @@ function coveted_stripe_create_checkout(array $user, int $packageId, ?array $bus
         throw new InvalidArgumentException('This account currently has an Admin-granted package. Remove the payment bypass before starting a paid subscription.');
     }
 
-    $current = coveted_service_subscriptions_for_subject((string)$subject['type'],(int)$subject['id'],true,$pdo);
-    if ($current) {
-        throw new InvalidArgumentException('An active subscription already exists for this billing account. Use Manage billing instead of creating a second subscription.');
+    $subjectSubscriptions = coveted_service_subscriptions_for_subject((string)$subject['type'],(int)$subject['id'],false,$pdo);
+    $openSubscriptions = array_values(array_filter(
+        $subjectSubscriptions,
+        static fn(array $row): bool => coveted_subscription_lifecycle_is_open($row)
+    ));
+    if ($openSubscriptions) {
+        throw new InvalidArgumentException('An existing subscription still requires billing management. Use Manage billing instead of creating a second subscription.');
     }
 
     $checkout = coveted_stripe_checkout_row_for_subject($subject,$packageId,$pdo);
@@ -560,20 +564,13 @@ function coveted_stripe_subscription_subject(array $subscription, ?PDO $pdo = nu
             $ref = (string)$stmt->fetchColumn();
         }
     }
-    if ($packageKey === '' && $existing) {
-        $package = coveted_service_package((int)$existing['package_id'],$pdo);
-        $packageKey = (string)($package['package_key'] ?? '');
-    }
 
-    if (!in_array($type,['user','business'],true) || $ref === '' || $packageKey === '') {
-        throw new RuntimeException('Stripe subscription is missing Coveted ownership metadata.');
+    if ($type === '' || $ref === '') {
+        throw new InvalidArgumentException('Stripe subscription is missing Coveted subject metadata.');
     }
     $subject = coveted_stripe_subject_by_ref($type,$ref,$pdo);
-    $package = coveted_service_package($packageKey,$pdo);
-    if (!$package) {
-        throw new RuntimeException('Stripe subscription references an unknown Coveted package.');
-    }
-    return ['subject'=>$subject,'package'=>$package,'existing'=>$existing];
+    $subject['package_key'] = $packageKey;
+    return $subject;
 }
 
 function coveted_stripe_sync_subscription(array $subscription, ?PDO $pdo = null): array
@@ -581,156 +578,88 @@ function coveted_stripe_sync_subscription(array $subscription, ?PDO $pdo = null)
     $pdo ??= coveted_db();
     $subscriptionRef = coveted_stripe_object_id($subscription['id'] ?? '');
     if ($subscriptionRef === '' || !str_starts_with($subscriptionRef,'sub_')) {
-        throw new InvalidArgumentException('Invalid Stripe subscription payload.');
+        throw new InvalidArgumentException('Stripe subscription reference is invalid.');
     }
-    $resolved = coveted_stripe_subscription_subject($subscription,$pdo);
-    $subject = (array)$resolved['subject'];
-    $package = (array)$resolved['package'];
-    $existing = $resolved['existing'];
+    $subject = coveted_stripe_subscription_subject($subscription,$pdo);
+    $packageKey = (string)$subject['package_key'];
+    $package = $packageKey !== '' ? coveted_service_package($packageKey,$pdo) : null;
+
+    $existingStmt = $pdo->prepare("SELECT * FROM billing_subscriptions WHERE provider='stripe' AND provider_subscription_ref=? LIMIT 1");
+    $existingStmt->execute([$subscriptionRef]);
+    $existing = $existingStmt->fetch() ?: null;
+    if (!$package && $existing) {
+        $package = coveted_service_package((int)$existing['package_id'],$pdo);
+    }
+    if (!$package) {
+        throw new InvalidArgumentException('Stripe subscription package is not recognized.');
+    }
+
     $customerRef = coveted_stripe_object_id($subscription['customer'] ?? '');
     $status = coveted_stripe_local_status((string)($subscription['status'] ?? ''));
-    $items = (array)($subscription['items']['data'] ?? []);
-    $firstItem = $items ? (array)$items[0] : [];
-    $periodStart = coveted_stripe_sql_datetime($firstItem['current_period_start'] ?? ($subscription['current_period_start'] ?? null));
-    $periodEnd = coveted_stripe_sql_datetime($firstItem['current_period_end'] ?? ($subscription['current_period_end'] ?? null));
+    $firstItem = (array)($subscription['items']['data'][0] ?? []);
+    $periodStart = coveted_stripe_sql_datetime($subscription['current_period_start'] ?? $firstItem['current_period_start'] ?? null);
+    $periodEnd = coveted_stripe_sql_datetime($subscription['current_period_end'] ?? $firstItem['current_period_end'] ?? null);
     $cancelAtPeriodEnd = !empty($subscription['cancel_at_period_end']) ? 1 : 0;
     $cancelledAt = coveted_stripe_sql_datetime($subscription['canceled_at'] ?? null);
-    $price = (array)($firstItem['price'] ?? []);
-    $subscriptionMetadata = (array)($subscription['metadata'] ?? []);
-    $providerMetadata = [
-        'livemode'=>!empty($subscription['livemode']),
-        'stripe_status'=>(string)($subscription['status'] ?? ''),
-        'price_ref'=>(string)($price['id'] ?? ''),
-        'product_ref'=>coveted_stripe_object_id($price['product'] ?? ''),
-        'latest_invoice_ref'=>coveted_stripe_object_id($subscription['latest_invoice'] ?? ''),
-        'checkout_ref'=>(string)($subscriptionMetadata['coveted_checkout_ref'] ?? ''),
-    ];
 
-    $pdo->beginTransaction();
-    try {
-        if ($customerRef !== '') {
-            coveted_stripe_upsert_customer($subject,$customerRef,$pdo);
-        }
-        if ($existing) {
-            $pdo->prepare(
-                'UPDATE billing_subscriptions
-                 SET subject_type=?,user_id=?,business_id=?,package_id=?,provider_customer_ref=?,status=?,
-                     current_period_start=?,current_period_end=?,cancel_at_period_end=?,cancelled_at=?,provider_metadata_json=?,updated_at=NOW()
-                 WHERE id=?'
-            )->execute([
-                $subject['type'],
-                $subject['type']==='user'?(int)$subject['id']:null,
-                $subject['type']==='business'?(int)$subject['id']:null,
-                (int)$package['id'],
-                $customerRef!==''?$customerRef:null,
-                $status,$periodStart,$periodEnd,$cancelAtPeriodEnd,$cancelledAt,
-                coveted_json($providerMetadata),(int)$existing['id'],
-            ]);
-            $publicId = (string)$existing['public_id'];
-        } else {
-            $publicId = coveted_uuid('bilsub');
-            $pdo->prepare(
-                'INSERT INTO billing_subscriptions
-                    (public_id,subject_type,user_id,business_id,package_id,provider,provider_customer_ref,provider_subscription_ref,status,
-                     current_period_start,current_period_end,cancel_at_period_end,cancelled_at,provider_metadata_json)
-                 VALUES (?,?,?,?,?,\'stripe\',?,?,?,?,?,?,?,?)'
-            )->execute([
-                $publicId,$subject['type'],
-                $subject['type']==='user'?(int)$subject['id']:null,
-                $subject['type']==='business'?(int)$subject['id']:null,
-                (int)$package['id'],$customerRef!==''?$customerRef:null,$subscriptionRef,$status,
-                $periodStart,$periodEnd,$cancelAtPeriodEnd,$cancelledAt,coveted_json($providerMetadata),
-            ]);
-        }
-        coveted_audit(
-            'billing.subscription_synced',
-            'billing_subscription',
-            $publicId,
-            ['provider'=>'stripe','provider_subscription_ref'=>$subscriptionRef,'status'=>$status,'package_key'=>(string)$package['package_key'],'subject_type'=>$subject['type'],'subject_ref'=>$subject['ref']],
-            0
-        );
-        $pdo->commit();
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        throw $e;
-    }
-
-    return ['public_id'=>$publicId,'status'=>$status,'subject'=>$subject,'package'=>$package,'provider_subscription_ref'=>$subscriptionRef];
-}
-
-function coveted_stripe_sync_checkout_session(array $session, ?PDO $pdo = null): array
-{
-    $pdo ??= coveted_db();
-    $sessionRef = coveted_stripe_object_id($session['id'] ?? '');
-    if ($sessionRef === '' || !str_starts_with($sessionRef,'cs_')) {
-        throw new InvalidArgumentException('Invalid Stripe Checkout Session.');
-    }
-    $metadata = (array)($session['metadata'] ?? []);
-    $type = strtolower(trim((string)($metadata['coveted_subject_type'] ?? '')));
-    $ref = trim((string)($metadata['coveted_subject_ref'] ?? ''));
-    $checkoutRef = trim((string)($metadata['coveted_checkout_ref'] ?? ''));
-    $subject = coveted_stripe_subject_by_ref($type,$ref,$pdo);
-    $customerRef = coveted_stripe_object_id($session['customer'] ?? '');
     if ($customerRef !== '') {
         coveted_stripe_upsert_customer($subject,$customerRef,$pdo);
     }
 
-    $status = (string)($session['status'] ?? '') === 'complete' ? 'completed' : ((string)($session['status'] ?? '') === 'expired' ? 'expired' : 'open');
-    if ($checkoutRef !== '') {
+    if ($existing) {
+        $sameSubject = (string)$existing['subject_type'] === (string)$subject['type']
+            && (($subject['type'] === 'user' && (int)$existing['user_id'] === (int)$subject['id'])
+                || ($subject['type'] === 'business' && (int)$existing['business_id'] === (int)$subject['id']));
+        if (!$sameSubject) {
+            throw new RuntimeException('Stripe subscription is already linked to another Coveted billing subject.');
+        }
         $pdo->prepare(
-            'UPDATE billing_checkout_sessions
-             SET provider_session_ref=?,status=?,expires_at=?,last_error=NULL,updated_at=NOW()
-             WHERE public_id=? AND provider=\'stripe\''
-        )->execute([$sessionRef,$status,coveted_stripe_sql_datetime($session['expires_at'] ?? null),$checkoutRef]);
+            'UPDATE billing_subscriptions
+             SET package_id=?,provider_customer_ref=?,status=?,current_period_start=?,current_period_end=?,cancel_at_period_end=?,cancelled_at=?,updated_at=NOW()
+             WHERE id=?'
+        )->execute([
+            (int)$package['id'],$customerRef !== '' ? $customerRef : null,$status,$periodStart,$periodEnd,$cancelAtPeriodEnd,$cancelledAt,(int)$existing['id'],
+        ]);
+        $id = (int)$existing['id'];
     } else {
-        $pdo->prepare("UPDATE billing_checkout_sessions SET status=?,updated_at=NOW() WHERE provider='stripe' AND provider_session_ref=?")
-            ->execute([$status,$sessionRef]);
+        $pdo->prepare(
+            'INSERT INTO billing_subscriptions
+                (public_id,subject_type,user_id,business_id,package_id,provider,provider_customer_ref,provider_subscription_ref,status,current_period_start,current_period_end,cancel_at_period_end,cancelled_at)
+             VALUES (?,?,?,?,?,\'stripe\',?,?,?,?,?,?,?)'
+        )->execute([
+            coveted_uuid('bilsub'),$subject['type'],$subject['type'] === 'user' ? (int)$subject['id'] : null,$subject['type'] === 'business' ? (int)$subject['id'] : null,
+            (int)$package['id'],$customerRef !== '' ? $customerRef : null,$subscriptionRef,$status,$periodStart,$periodEnd,$cancelAtPeriodEnd,$cancelledAt,
+        ]);
+        $id = (int)$pdo->lastInsertId();
     }
 
-    $subscriptionRef = coveted_stripe_object_id($session['subscription'] ?? '');
-    $subscription = null;
-    if ($subscriptionRef !== '') {
-        $remote = coveted_stripe_api_request('GET','/subscriptions/' . rawurlencode($subscriptionRef));
-        $subscription = coveted_stripe_sync_subscription($remote,$pdo);
-    }
-    return ['subject'=>$subject,'checkout_status'=>$status,'subscription'=>$subscription];
+    $stmt = $pdo->prepare('SELECT * FROM billing_subscriptions WHERE id=? LIMIT 1');
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: [];
 }
 
-function coveted_stripe_sync_checkout_return(array $user, string $sessionRef, ?PDO $pdo = null): array
+function coveted_stripe_invoice_subscription_ref(array $invoice): string
 {
-    $pdo ??= coveted_db();
-    coveted_stripe_require_ready($pdo);
-    $sessionRef = trim($sessionRef);
-    if (!preg_match('/^cs_[A-Za-z0-9_]+$/',$sessionRef)) {
-        throw new InvalidArgumentException('Invalid Stripe Checkout Session reference.');
+    $direct = coveted_stripe_object_id($invoice['subscription'] ?? '');
+    if ($direct !== '') {
+        return $direct;
     }
-    $session = coveted_stripe_api_request('GET','/checkout/sessions/' . rawurlencode($sessionRef));
-    if ((string)($session['mode'] ?? '') !== 'subscription' || (string)($session['status'] ?? '') !== 'complete') {
-        throw new InvalidArgumentException('Stripe checkout is not complete yet.');
-    }
-    $metadata = (array)($session['metadata'] ?? []);
-    $type = strtolower(trim((string)($metadata['coveted_subject_type'] ?? '')));
-    $ref = trim((string)($metadata['coveted_subject_ref'] ?? ''));
-    $business = coveted_stripe_actor_can_manage_subject($user,$type,$ref);
-    $result = coveted_stripe_sync_checkout_session($session,$pdo);
-    $result['business'] = $business;
-    return $result;
+    $parent = (array)($invoice['parent']['subscription_details'] ?? []);
+    return coveted_stripe_object_id($parent['subscription'] ?? '');
 }
 
-function coveted_stripe_verify_webhook_signature(string $payload, string $header, ?int $now = null, int $tolerance = 300): bool
+function coveted_stripe_verify_webhook_signature(string $payload, string $header, ?int $now = null): bool
 {
     $settings = coveted_stripe_settings();
     $secret = trim((string)($settings['webhook_secret'] ?? ''));
-    if ($secret === '' || !str_starts_with($secret,'whsec_')) {
+    if ($secret === '' || $header === '') {
         return false;
     }
     $timestamp = 0;
     $signatures = [];
     foreach (explode(',',$header) as $part) {
         [$key,$value] = array_pad(explode('=',trim($part),2),2,'');
-        if ($key === 't' && ctype_digit($value)) {
+        if ($key === 't') {
             $timestamp = (int)$value;
         } elseif ($key === 'v1' && $value !== '') {
             $signatures[] = $value;
@@ -740,6 +669,7 @@ function coveted_stripe_verify_webhook_signature(string $payload, string $header
         return false;
     }
     $now ??= time();
+    $tolerance = max(60,min(900,(int)($settings['webhook_tolerance_seconds'] ?? 300)));
     if (abs($now-$timestamp) > $tolerance) {
         return false;
     }
@@ -752,92 +682,116 @@ function coveted_stripe_verify_webhook_signature(string $payload, string $header
     return false;
 }
 
-function coveted_stripe_claim_webhook(array $event, string $payload, ?PDO $pdo = null): bool
+function coveted_stripe_claim_webhook(string $eventRef, string $eventType, string $payload, ?PDO $pdo = null): array
 {
     $pdo ??= coveted_db();
-    $eventRef = trim((string)($event['id'] ?? ''));
-    $eventType = trim((string)($event['type'] ?? ''));
-    if ($eventRef === '' || $eventType === '') {
-        throw new InvalidArgumentException('Invalid Stripe webhook event.');
-    }
+    $digest = hash('sha256',$payload);
     $pdo->prepare(
-        "INSERT IGNORE INTO billing_webhook_events
-            (provider,event_ref,event_type,livemode,payload_sha256,status,attempt_count)
-         VALUES ('stripe',?,?,?,?, 'received',0)"
-    )->execute([$eventRef,$eventType,!empty($event['livemode'])?1:0,hash('sha256',$payload)]);
-
-    $claim = $pdo->prepare(
-        "UPDATE billing_webhook_events
-         SET status='processing',attempt_count=attempt_count+1,last_error=NULL,updated_at=NOW()
-         WHERE provider='stripe' AND event_ref=?
-           AND (status IN ('received','failed') OR (status='processing' AND updated_at < DATE_SUB(NOW(),INTERVAL 10 MINUTE)))"
-    );
-    $claim->execute([$eventRef]);
-    if ($claim->rowCount() === 1) {
-        return true;
-    }
-    $stmt = $pdo->prepare("SELECT status FROM billing_webhook_events WHERE provider='stripe' AND event_ref=? LIMIT 1");
+        "INSERT IGNORE INTO billing_webhook_events (provider,event_ref,event_type,payload_sha256,status,attempts)
+         VALUES ('stripe',?,?,?,'received',0)"
+    )->execute([$eventRef,$eventType,$digest]);
+    $stmt = $pdo->prepare("SELECT * FROM billing_webhook_events WHERE provider='stripe' AND event_ref=? LIMIT 1 FOR UPDATE");
     $stmt->execute([$eventRef]);
-    $status = (string)$stmt->fetchColumn();
-    if ($status === 'processed') {
-        return false;
+    $row = $stmt->fetch();
+    if (!$row || !hash_equals((string)$row['payload_sha256'],$digest)) {
+        throw new RuntimeException('Stripe webhook event reference collision detected.');
     }
-    throw new RuntimeException('Stripe webhook event is already being processed.');
-}
-
-function coveted_stripe_mark_webhook(string $eventRef, bool $success, ?string $error = null, ?PDO $pdo = null): void
-{
-    $pdo ??= coveted_db();
-    if ($success) {
-        $pdo->prepare(
-            "UPDATE billing_webhook_events
-             SET status='processed',processed_at=NOW(),last_error=NULL,updated_at=NOW()
-             WHERE provider='stripe' AND event_ref=?"
-        )->execute([$eventRef]);
-        return;
+    if ((string)$row['status'] === 'processed') {
+        return ['duplicate'=>true,'row'=>$row];
     }
-    $pdo->prepare(
-        "UPDATE billing_webhook_events
-         SET status='failed',last_error=?,updated_at=NOW()
-         WHERE provider='stripe' AND event_ref=?"
-    )->execute([mb_substr((string)$error,0,1000),$eventRef]);
-}
-
-function coveted_stripe_invoice_subscription_ref(array $invoice): string
-{
-    $direct = coveted_stripe_object_id($invoice['subscription'] ?? '');
-    if ($direct !== '') {
-        return $direct;
-    }
-    return coveted_stripe_object_id($invoice['parent']['subscription_details']['subscription'] ?? '');
+    $pdo->prepare("UPDATE billing_webhook_events SET status='processing',attempts=attempts+1,last_error=NULL,updated_at=NOW() WHERE id=?")
+        ->execute([(int)$row['id']]);
+    return ['duplicate'=>false,'row'=>$row];
 }
 
 function coveted_stripe_process_webhook(array $event, string $payload, ?PDO $pdo = null): array
 {
     $pdo ??= coveted_db();
     $eventRef = trim((string)($event['id'] ?? ''));
-    if (!coveted_stripe_claim_webhook($event,$payload,$pdo)) {
-        return ['duplicate'=>true,'event_ref'=>$eventRef];
+    $eventType = trim((string)($event['type'] ?? ''));
+    if ($eventRef === '' || $eventType === '') {
+        throw new InvalidArgumentException('Stripe webhook event is incomplete.');
     }
-    $type = (string)($event['type'] ?? '');
-    $object = (array)($event['data']['object'] ?? []);
+
+    $pdo->beginTransaction();
     try {
-        $result = null;
-        if (in_array($type,['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.expired'],true)) {
-            $result = coveted_stripe_sync_checkout_session($object,$pdo);
-        } elseif (in_array($type,['customer.subscription.created','customer.subscription.updated','customer.subscription.deleted','customer.subscription.paused','customer.subscription.resumed'],true)) {
-            $result = coveted_stripe_sync_subscription($object,$pdo);
-        } elseif (in_array($type,['invoice.paid','invoice.payment_failed'],true)) {
+        $claimed = coveted_stripe_claim_webhook($eventRef,$eventType,$payload,$pdo);
+        if ($claimed['duplicate']) {
+            $pdo->commit();
+            return ['duplicate'=>true];
+        }
+
+        $object = (array)($event['data']['object'] ?? []);
+        if ($eventType === 'checkout.session.completed') {
+            $sessionRef = coveted_stripe_object_id($object['id'] ?? '');
+            $subscriptionRef = coveted_stripe_object_id($object['subscription'] ?? '');
+            if ($sessionRef !== '' && $subscriptionRef !== '') {
+                $session = coveted_stripe_api_request('GET','/checkout/sessions/' . rawurlencode($sessionRef),['expand'=>['subscription']]);
+                $subscription = is_array($session['subscription'] ?? null)
+                    ? (array)$session['subscription']
+                    : coveted_stripe_api_request('GET','/subscriptions/' . rawurlencode($subscriptionRef));
+                coveted_stripe_sync_subscription($subscription,$pdo);
+            }
+        } elseif (in_array($eventType,['customer.subscription.created','customer.subscription.updated','customer.subscription.deleted'],true)) {
+            coveted_stripe_sync_subscription($object,$pdo);
+        } elseif (in_array($eventType,['invoice.paid','invoice.payment_failed'],true)) {
             $subscriptionRef = coveted_stripe_invoice_subscription_ref($object);
             if ($subscriptionRef !== '') {
                 $subscription = coveted_stripe_api_request('GET','/subscriptions/' . rawurlencode($subscriptionRef));
-                $result = coveted_stripe_sync_subscription($subscription,$pdo);
+                coveted_stripe_sync_subscription($subscription,$pdo);
             }
         }
-        coveted_stripe_mark_webhook($eventRef,true,null,$pdo);
-        return ['duplicate'=>false,'event_ref'=>$eventRef,'type'=>$type,'result'=>$result];
+
+        $pdo->prepare("UPDATE billing_webhook_events SET status='processed',processed_at=NOW(),updated_at=NOW() WHERE provider='stripe' AND event_ref=?")
+            ->execute([$eventRef]);
+        $pdo->commit();
+        return ['duplicate'=>false];
     } catch (Throwable $e) {
-        coveted_stripe_mark_webhook($eventRef,false,$e->getMessage(),$pdo);
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        try {
+            $pdo->prepare("UPDATE billing_webhook_events SET status='failed',last_error=?,updated_at=NOW() WHERE provider='stripe' AND event_ref=?")
+                ->execute([mb_substr($e->getMessage(),0,1000),$eventRef]);
+        } catch (Throwable) {
+        }
         throw $e;
     }
+}
+
+function coveted_stripe_sync_checkout_return(array $user, string $sessionRef, ?PDO $pdo = null): array
+{
+    $pdo ??= coveted_db();
+    coveted_stripe_require_ready($pdo);
+    $sessionRef = trim($sessionRef);
+    if ($sessionRef === '' || !str_starts_with($sessionRef,'cs_')) {
+        throw new InvalidArgumentException('Invalid Stripe Checkout Session.');
+    }
+    $session = coveted_stripe_api_request('GET','/checkout/sessions/' . rawurlencode($sessionRef),['expand'=>['subscription']]);
+    $checkoutRef = trim((string)($session['client_reference_id'] ?? $session['metadata']['coveted_checkout_ref'] ?? ''));
+    if ($checkoutRef === '') {
+        throw new InvalidArgumentException('Stripe Checkout Session is missing the Coveted checkout reference.');
+    }
+    $stmt = $pdo->prepare("SELECT * FROM billing_checkout_sessions WHERE public_id=? AND provider='stripe' LIMIT 1");
+    $stmt->execute([$checkoutRef]);
+    $checkout = $stmt->fetch();
+    if (!$checkout || !hash_equals((string)$checkout['provider_session_ref'],$sessionRef)) {
+        throw new InvalidArgumentException('Stripe Checkout Session does not match a Coveted checkout.');
+    }
+    $subjectType = (string)$checkout['subject_type'];
+    $subjectId = $subjectType === 'user' ? (int)$checkout['user_id'] : (int)$checkout['business_id'];
+    $subjectStmt = $pdo->prepare($subjectType === 'user' ? 'SELECT public_id FROM users WHERE id=? LIMIT 1' : 'SELECT public_id FROM businesses WHERE id=? LIMIT 1');
+    $subjectStmt->execute([$subjectId]);
+    $subjectRef = trim((string)$subjectStmt->fetchColumn());
+    coveted_stripe_actor_can_manage_subject($user,$subjectType,$subjectRef);
+
+    if ((string)($session['status'] ?? '') !== 'complete' || (string)($session['payment_status'] ?? '') === 'unpaid') {
+        throw new InvalidArgumentException('Stripe Checkout has not completed payment setup yet.');
+    }
+    $subscription = is_array($session['subscription'] ?? null)
+        ? (array)$session['subscription']
+        : coveted_stripe_api_request('GET','/subscriptions/' . rawurlencode(coveted_stripe_object_id($session['subscription'] ?? '')));
+    $synced = coveted_stripe_sync_subscription($subscription,$pdo);
+    $pdo->prepare("UPDATE billing_checkout_sessions SET status='completed',updated_at=NOW() WHERE id=?")->execute([(int)$checkout['id']]);
+    return ['session'=>$session,'subscription'=>$synced];
 }
