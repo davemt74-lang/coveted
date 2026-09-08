@@ -511,6 +511,13 @@ function coveted_service_assign_package(
         throw new InvalidArgumentException('Choose an active service package.');
     }
     $packageEntitlements = coveted_service_entitlements_for_package($packageId, $pdo);
+    $packageSubject = strtolower(trim((string)($packageEntitlements['billing.subject'] ?? '')));
+    if ($packageSubject === 'business' && $scope['scope_type'] !== 'business') {
+        throw new InvalidArgumentException('Business service packages must be assigned to a Partner business.');
+    }
+    if ($packageSubject === 'user' && $scope['scope_type'] === 'business') {
+        throw new InvalidArgumentException('Member service packages must be assigned to a user or user type.');
+    }
     $partnerWorkspaceValue = strtolower(trim((string)($packageEntitlements['partner.workspace'] ?? '')));
     $packageActivatesPartner = $scope['scope_type'] === 'business'
         && !in_array($partnerWorkspaceValue, ['', '0', 'false', 'off', 'no'], true);

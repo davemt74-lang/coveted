@@ -991,6 +991,12 @@ function coveted_reward_refund_claim(array $actor, string $claimRef, string $rea
         ) {
             throw new InvalidArgumentException('Only a Business Admin or System Admin can refund this claim.');
         }
+        coveted_entitlement_require_business(
+            $actor,
+            (int)$claim['business_id'],
+            'partner.offers',
+            'Your current partner package does not include business offer management.'
+        );
 
         $pdo->prepare(
             "UPDATE reward_claims
