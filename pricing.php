@@ -25,15 +25,15 @@ $ctaFor = static function (array $package) use ($user): array {
     $key = (string)$package['package_key'];
     $price = $package['monthly_price_cents'] !== null ? (int)$package['monthly_price_cents'] : null;
 
+    if ($subject === 'manual' || $price === null) {
+        return ['/request-invite.php','Contact Coveted'];
+    }
     if ($subject === 'business') {
         $target = '/partner-onboarding.php?package=' . rawurlencode($key);
         if (!$user) {
             return ['/auth.php?action=login&return=' . rawurlencode($target),'Sign in to become a partner'];
         }
         return [$target,'Choose for a partner'];
-    }
-    if ($subject === 'manual') {
-        return ['/request-invite.php','Talk with Coveted'];
     }
     if ($price === 0) {
         return [$user ? '/billing.php' : '/request-invite.php',$user ? 'View my plan' : 'Request an invite'];
