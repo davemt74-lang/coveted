@@ -39,7 +39,7 @@ $missing($deployment,'First install must use database/schema.sql only','prefligh
 
 $contains($preflight,"['--expect-empty', '--fresh']",'fresh-install preflight alias is required');
 $contains($preflight,"['--expect-installed', '--upgrade']",'upgrade preflight alias is required');
-$contains($preflight,"$root . '/database/migrations'",'live preflight must include migration-created tables');
+$contains($preflight,'$root . \'/database/migrations\'','live preflight must include migration-created tables');
 $contains($preflight,'Current release migration prerequisite','preflight must show the current release SQL prerequisite');
 $contains($preflight,'Coveted deployment preflight','preflight must no longer identify itself as first-install-only');
 $missing($preflight,'->exec($sql)','preflight must never execute migration SQL');
