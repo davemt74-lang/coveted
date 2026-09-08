@@ -49,7 +49,7 @@ $contains($ops,'coveted_stripe_sync_subscription($remote,$pdo)','manual reconcil
 $contains($ops,"'billing.subscription_admin_resync'",'manual resync must be audited to the acting Admin');
 $contains($ops,"coveted_stripe_api_request('GET','/invoices'",'invoice visibility must use Stripe read API');
 $contains($ops,'coveted_stripe_invoice_subscription_ref($invoice)','invoice results must be scoped back to the selected subscription');
-$contains($ops,"$invoiceSubscription === '' || !hash_equals($subscriptionRef,$invoiceSubscription)",'invoice history must strictly reject unscoped or mismatched subscription invoices');
+$contains($ops,'$invoiceSubscription === \'\' || !hash_equals($subscriptionRef,$invoiceSubscription)','invoice history must strictly reject unscoped or mismatched subscription invoices');
 $missing($ops,"coveted_stripe_api_request('POST'",'billing operations service must not mutate remote Stripe state');
 $missing($ops,'/refunds','billing operations service must not create refunds');
 $missing($ops,'/charges','billing operations service must not create charges');
