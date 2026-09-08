@@ -43,10 +43,13 @@ $contains($page,'Recent payment history','invoice history must be visible');
 // billing_subscriptions through the canonical Stripe sync function, but it must
 // not cancel, change prices, charge, refund or otherwise mutate Stripe.
 $contains($ops,"coveted_stripe_api_request('GET','/subscriptions/'",'manual reconciliation must fetch the live Stripe subscription');
+$contains($ops,'coveted_billing_ops_assert_resync_ownership($local,$remote,$admin)','manual reconciliation must validate ownership before local sync');
+$contains($ops,"'billing.subscription_resync_blocked'",'ownership conflicts must be audited and blocked');
 $contains($ops,'coveted_stripe_sync_subscription($remote,$pdo)','manual reconciliation must reuse canonical subscription sync');
 $contains($ops,"'billing.subscription_admin_resync'",'manual resync must be audited to the acting Admin');
 $contains($ops,"coveted_stripe_api_request('GET','/invoices'",'invoice visibility must use Stripe read API');
 $contains($ops,'coveted_stripe_invoice_subscription_ref($invoice)','invoice results must be scoped back to the selected subscription');
+$contains($ops,"$invoiceSubscription === '' || !hash_equals($subscriptionRef,$invoiceSubscription)",'invoice history must strictly reject unscoped or mismatched subscription invoices');
 $missing($ops,"coveted_stripe_api_request('POST'",'billing operations service must not mutate remote Stripe state');
 $missing($ops,'/refunds','billing operations service must not create refunds');
 $missing($ops,'/charges','billing operations service must not create charges');
