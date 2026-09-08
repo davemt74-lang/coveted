@@ -73,7 +73,8 @@ assets/
   js/coveted.js     Shared browser behavior
 
 database/
-  schema.sql        Canonical pre-install schema
+  schema.sql        Baseline schema for a fresh installation
+  migrations/       Ordered additive upgrades for deployed databases
 
 tests/
   foundation-smoke.php  MySQL-backed foundation/domain smoke test
@@ -102,13 +103,15 @@ These rules are part of the Coveted engineering standard and apply to every buil
 - Before adding a new dependency, table, column, route, helper, or file, verify that an existing structure cannot cleanly own the responsibility.
 - Every meaningful build follows: review and score → identify concrete defects → fix them at the source → run validation → rescore. Repeat until no material foundation defects remain.
 
-### Database rule before first install
+### Database deployment rule
 
-Coveted has not been installed in production yet. Until the first real deployment:
+Coveted has crossed the first-production-install boundary. Existing deployed data is authoritative and must be preserved.
 
-- `database/schema.sql` is the single database source of truth.
-- Modify the canonical schema directly instead of creating migrations.
-- Remove obsolete columns/tables rather than preserving compatibility with a database that has never been deployed.
+- `database/schema.sql` is the baseline source for a genuinely fresh installation.
+- `database/migrations/` contains ordered additive upgrades for an existing deployed database.
+- Never run migration SQL automatically from a web request or application bootstrap. Database changes remain an explicit deployment operation.
+- Before deploying new application code to an existing installation, apply every migration required by that release and run `php scripts/preflight.php --upgrade --production` against the target database.
+- A fresh installation starts with `database/schema.sql`, then applies the ordered migration files needed to bring that baseline to the current release, and finishes with `php scripts/preflight.php --expect-installed --production`.
 - Store all `DATETIME` values in UTC. PHP and the database connection both operate in UTC.
 - Store the IANA timezone on each location and snapshot it onto each event so local event time remains historically correct.
 - Event audience is explicit: `group` events may be visible to active group members; `invitation_only` events require invitation/history or management access.
@@ -116,7 +119,7 @@ Coveted has not been installed in production yet. Until the first real deploymen
 - Reward ownership may belong to the platform, a group, a business, or an artist. Authorization is enforced in the native domain service.
 - Reward issuance is idempotent where a deterministic trigger exists, and redemptions have one authoritative issuance state.
 
-After the first production install, schema changes become additive migrations and deployed data must be preserved.
+The deployment preflight is read-only. It validates runtime/configuration, migration inventory, MySQL compatibility, and the presence of baseline plus migration-created tables; it never applies or modifies schema.
 
 ### Repository hygiene
 
@@ -127,7 +130,7 @@ Do not commit:
 - versioned copies of active source files
 - local configuration or secrets
 - generated temporary files
-- unused migration files before first install
+- obsolete or superseded migration files
 - broken code kept "just in case"
 
 If code is replaced, the replacement becomes the canonical implementation and the replaced code is deleted.
