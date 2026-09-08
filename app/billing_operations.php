@@ -279,7 +279,7 @@ function coveted_billing_ops_invoices(array $local, int $limit = 20): array
             continue;
         }
         $invoiceSubscription = coveted_stripe_invoice_subscription_ref($invoice);
-        if ($invoiceSubscription !== '' && $subscriptionRef !== '' && !hash_equals($subscriptionRef,$invoiceSubscription)) {
+        if ($subscriptionRef !== '' && ($invoiceSubscription === '' || !hash_equals($subscriptionRef,$invoiceSubscription))) {
             continue;
         }
         $rows[] = [
