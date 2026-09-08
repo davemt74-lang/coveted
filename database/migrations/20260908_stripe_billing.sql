@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS billing_customers (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_billing_customer_provider_ref (provider,provider_customer_ref),
-  KEY idx_billing_customer_user_provider (user_id,provider),
-  KEY idx_billing_customer_business_provider (business_id,provider),
+  UNIQUE KEY uq_billing_customer_user_provider (provider,user_id),
+  UNIQUE KEY uq_billing_customer_business_provider (provider,business_id),
   CONSTRAINT fk_billing_customer_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_billing_customer_business FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
   CONSTRAINT chk_billing_customer_scope CHECK (
