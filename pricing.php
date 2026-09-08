@@ -38,7 +38,8 @@ $ctaFor = static function (array $package) use ($user): array {
     if ($price === 0) {
         return [$user ? '/billing.php' : '/request-invite.php',$user ? 'View my plan' : 'Request an invite'];
     }
-    $target = '/billing.php?package=' . rawurlencode($key);
+
+    $target = '/subscribe.php?package=' . rawurlencode($key);
     if (!$user) {
         return ['/auth.php?action=login&return=' . rawurlencode($target),'Sign in to subscribe'];
     }
