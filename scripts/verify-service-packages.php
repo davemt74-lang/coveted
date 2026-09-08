@@ -64,7 +64,7 @@ $contains($billing, 'coveted_service_effective_package(', 'Billing page must dis
 $contains($billing, 'Admin package override + open subscription.', 'Billing page must warn about any provider subscription still requiring management');
 $contains($billing, 'coveted_subscription_lifecycle_is_open($row)', 'Billing page must treat delinquent and paused subscriptions as open for checkout blocking');
 $contains($billing, 'Payment bypass active.', 'Billing page must explain Admin-granted access');
-$contains($billing, 'billing_subscriptions', 'Billing page must explain provider-neutral subscription records');
+$contains($billing, "Provider state is synchronized into Coveted's canonical subscription record.", 'Billing page must explain provider-neutral canonical subscription state');
 
 $contains($admin, 'coveted_require_system_admin();', 'Service Packages workspace must require System Admin');
 $contains($admin, 'coveted_require_csrf();', 'Service Packages mutations must enforce CSRF');
