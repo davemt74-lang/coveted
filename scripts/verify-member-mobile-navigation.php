@@ -42,6 +42,7 @@ $contains($js, "setAttribute('aria-expanded', 'false')", 'hamburger must expose 
 $contains($js, "setAttribute('aria-expanded', shouldOpen ? 'true' : 'false')", 'hamburger expanded state must stay synchronized');
 $contains($js, "className = 'cv-member-menu-close'", 'drawer close button is required');
 $contains($js, "className = 'cv-member-nav-backdrop'", 'modal backdrop is required');
+$contains($js, "appTopbar.querySelectorAll('details[open]')", 'opening navigation must close any open account/topbar menu');
 $contains($js, "event.key === 'Escape'", 'Escape must close the drawer');
 $contains($js, "event.key !== 'Tab'", 'drawer must implement keyboard focus containment');
 $contains($js, "nav.addEventListener('click'", 'choosing a navigation item must close the drawer');
