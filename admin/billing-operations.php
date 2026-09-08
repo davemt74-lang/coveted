@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/admin_ui.php';
 require_once dirname(__DIR__) . '/app/billing_operations.php';
+require_once dirname(__DIR__) . '/app/stripe_dunning.php';
 
 $admin = coveted_require_system_admin();
 $pdo = coveted_db();
@@ -33,8 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $ref = trim((string)($_POST['subscription_ref'] ?? ''));
         $result = coveted_billing_ops_resync_subscription($admin,$ref,$pdo);
-        $fresh = (array)$result['subscription'];
-        $_SESSION['billing_ops_notice'] = 'Subscription reconciled from Stripe. ' . count((array)$result['before']['differences']) . ' difference(s) were reviewed before sync.';
+        coveted_stripe_dunning_reconcile_subscription((array)$result['remote'],$pdo);
+        $fresh = coveted_billing_ops_subscription_by_ref((string)$result['subscription']['public_id'],$pdo)
+            ?: (array)$result['subscription'];
+        $_SESSION['billing_ops_notice'] = 'Subscription reconciled from Stripe. ' . count((array)$result['before']['differences']) . ' difference(s) were reviewed before sync, including lifecycle recovery state.';
         coveted_redirect('/admin/billing-operations.php?subscription=' . rawurlencode((string)$fresh['public_id']));
     } catch (InvalidArgumentException|RuntimeException $e) {
         $error = $e->getMessage();
@@ -46,6 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $metrics = coveted_billing_ops_metrics($pdo);
 $health = coveted_billing_ops_health_label($metrics);
+$lifecycleCounts = coveted_subscription_lifecycle_past_due_counts($pdo);
+$graceDays = coveted_subscription_lifecycle_grace_days($pdo);
 $subscriptions = [];
 $webhooks = [];
 $failedCheckouts = [];
@@ -109,6 +114,7 @@ coveted_admin_ui_start($admin,'billing-operations','Billing Operations');
         <p>Review subscription state, customer payment health, webhook processing and local-versus-Stripe drift. Coveted package entitlements remain the authorization source of truth; Stripe remains the payment provider.</p>
     </div>
     <div class="cv-action-row">
+        <a class="cv-button cv-button-soft" href="/admin/subscription-lifecycle.php">Subscription Lifecycle</a>
         <a class="cv-button cv-button-soft" href="/admin/service-packages.php">Service Packages</a>
         <a class="cv-button cv-button-soft" href="/pricing.php">Public Pricing</a>
     </div>
@@ -124,16 +130,16 @@ coveted_admin_ui_start($admin,'billing-operations','Billing Operations');
 <div class="cv-admin-metric-grid cv-admin-section-gap">
     <div><span>Billing health</span><strong><?= coveted_e((string)$health['label']) ?></strong><small><?= coveted_e((string)$health['detail']) ?></small></div>
     <div><span>Active + trial</span><strong><?= (int)$metrics['active'] + (int)$metrics['trialing'] ?></strong><small><?= (int)$metrics['active'] ?> active · <?= (int)$metrics['trialing'] ?> trial</small></div>
-    <div><span>Past due</span><strong><?= (int)$metrics['past_due'] ?></strong><small>payment follow-up</small></div>
+    <div><span>Past due · grace</span><strong><?= (int)$lifecycleCounts['past_due_grace'] ?></strong><small><?= $graceDays ?>-day policy</small></div>
+    <div><span>Past due · paused</span><strong><?= (int)$lifecycleCounts['past_due_expired'] ?></strong><small>grace exhausted</small></div>
     <div><span>Canceling</span><strong><?= (int)$metrics['scheduled_cancel'] ?></strong><small>end-of-period cancellations</small></div>
     <div><span>Webhook failures</span><strong><?= (int)$metrics['failed_webhooks_24h'] ?></strong><small>last 24 hours</small></div>
     <div><span>Stale processing</span><strong><?= (int)$metrics['stale_webhooks'] ?></strong><small>over 10 minutes</small></div>
     <div><span>Checkout failures</span><strong><?= (int)$metrics['failed_checkouts_24h'] ?></strong><small>last 24 hours</small></div>
-    <div><span>Stripe records</span><strong><?= (int)$metrics['subscriptions'] ?></strong><small>local subscriptions</small></div>
 </div>
 
 <div class="cv-alert cv-admin-section-gap">
-    <strong>Current entitlement policy:</strong> only <code>trialing</code> and <code>active</code> subscriptions with a current billing period grant paid subscription access. <code>past_due</code>, <code>paused</code>, <code>cancelled</code> and <code>expired</code> do not. Admin package assignments still override billing state.
+    <strong>Current entitlement policy:</strong> <code>trialing</code> and <code>active</code> subscriptions grant paid access during a valid period. <code>past_due</code> can retain access only during the configured <?= $graceDays ?>-day grace window. After grace, and for <code>paused</code>, <code>cancelled</code> or <code>expired</code>, subscription-backed paid entitlements are unavailable. Admin package assignments still resolve first.
 </div>
 
 <section class="cv-admin-panel cv-admin-section-gap">
@@ -160,32 +166,37 @@ coveted_admin_ui_start($admin,'billing-operations','Billing Operations');
 
     <div class="cv-admin-list cv-admin-section-gap">
         <?php if (!$subscriptions): ?><div class="cv-admin-list-row"><div class="cv-admin-list-copy"><strong>No subscriptions match this view.</strong></div></div><?php endif; ?>
-        <?php foreach ($subscriptions as $row): ?>
+        <?php foreach ($subscriptions as $row):
+            $rowLifecycle = coveted_subscription_lifecycle_access_state($row,$pdo);
+        ?>
         <a class="cv-admin-list-row" href="/admin/billing-operations.php?<?= http_build_query(array_filter(['q'=>$q,'status'=>$status,'subject'=>$subject,'subscription'=>(string)$row['public_id']],static fn($v)=>$v!=='')) ?>">
             <div class="cv-admin-list-copy">
                 <strong><?= coveted_e(coveted_billing_ops_subject_label($row)) ?></strong>
-                <small><?= coveted_e((string)$row['package_name']) ?> · <?= coveted_e($statusLabel((string)$row['status'])) ?> · <?= coveted_e((string)$row['provider_subscription_ref']) ?></small>
+                <small><?= coveted_e((string)$row['package_name']) ?> · <?= coveted_e((string)$rowLifecycle['label']) ?> · <?= coveted_e((string)$row['provider_subscription_ref']) ?></small>
             </div>
             <div class="cv-admin-list-meta">
                 <strong><?= coveted_e(coveted_service_format_price($row['monthly_price_cents'] !== null ? (int)$row['monthly_price_cents'] : null,(string)$row['currency'])) ?></strong>
-                <small><?= coveted_e($date((string)($row['current_period_end'] ?? ''))) ?></small>
+                <small><?= $rowLifecycle['grace_until'] ? 'Grace → ' . coveted_e($date((string)$rowLifecycle['grace_until'])) : coveted_e($date((string)($row['current_period_end'] ?? ''))) ?></small>
             </div>
         </a>
         <?php endforeach; ?>
     </div>
 </section>
 
-<?php if ($selected): ?>
+<?php if ($selected):
+    $selectedLifecycle = coveted_subscription_lifecycle_access_state($selected,$pdo);
+?>
 <section class="cv-admin-panel cv-admin-section-gap">
     <div class="cv-admin-panel-head">
         <div><span class="cv-eyebrow">RECONCILIATION</span><h2><?= coveted_e(coveted_billing_ops_subject_label($selected)) ?></h2></div>
-        <span class="cv-status"><?= coveted_e($statusLabel((string)$selected['status'])) ?></span>
+        <span class="cv-status"><?= coveted_e((string)$selectedLifecycle['label']) ?></span>
     </div>
     <div class="cv-admin-dashboard-grid">
         <div class="cv-admin-list-row"><div class="cv-admin-list-copy"><strong>Package</strong><small><?= coveted_e((string)$selected['package_name']) ?> · <code><?= coveted_e((string)$selected['package_key']) ?></code></small></div></div>
         <div class="cv-admin-list-row"><div class="cv-admin-list-copy"><strong>Stripe subscription</strong><small><code><?= coveted_e((string)$selected['provider_subscription_ref']) ?></code></small></div></div>
         <div class="cv-admin-list-row"><div class="cv-admin-list-copy"><strong>Stripe customer</strong><small><code><?= coveted_e((string)($selected['provider_customer_ref'] ?? '—')) ?></code></small></div></div>
         <div class="cv-admin-list-row"><div class="cv-admin-list-copy"><strong>Current period</strong><small><?= coveted_e($date((string)($selected['current_period_start'] ?? ''))) ?> → <?= coveted_e($date((string)($selected['current_period_end'] ?? ''))) ?></small></div></div>
+        <?php if ($selectedLifecycle['past_due_since']): ?><div class="cv-admin-list-row"><div class="cv-admin-list-copy"><strong>Dunning episode</strong><small>Started <?= coveted_e($date((string)$selectedLifecycle['past_due_since'])) ?><?= $selectedLifecycle['grace_until'] ? ' · grace through ' . coveted_e($date((string)$selectedLifecycle['grace_until'])) : '' ?></small></div></div><?php endif; ?>
     </div>
 
     <?php if (!coveted_stripe_checkout_ready()): ?>
