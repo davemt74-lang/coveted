@@ -64,6 +64,8 @@ $contains($workspace,'coveted_require_system_admin();','planning workspace must 
 $contains($workspace,'coveted_require_csrf();','proposal creation must enforce CSRF');
 $contains($workspace,'coveted_group_relationship_plan_guarded($admin,$groupRef,$pdo)','workspace must re-read guarded live planning evidence before proposal creation');
 $contains($workspace,'coveted_event_opportunity_by_key(','workspace must revalidate canonical Event Opportunity availability');
+$contains($workspace,'coveted_event_playbook_by_ref($admin,$playbookRef,$pdo)','workspace must validate the chosen Playbook before creating a proposal');
+$contains($workspace,"(string)\$playbook['status']!=='active'",'workspace must reject inactive Playbooks before proposal mutation');
 $contains($workspace,'coveted_event_proposal_create_from_opportunity(','workspace must use the existing canonical Event Proposal creator');
 $contains($workspace,'coveted_event_proposal_update(','new proposals may be refined only through the canonical Proposal service');
 $contains($workspace,"if(!empty(\$result['created']))",'existing Admin-edited proposals must not be silently overwritten');
