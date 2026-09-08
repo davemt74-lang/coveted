@@ -232,6 +232,44 @@ function coveted_billing_ops_reconciliation(array $local, array $remote): array
     ];
 }
 
+function coveted_billing_ops_assert_resync_ownership(array $local, array $remote, array $admin): void
+{
+    $metadata = (array)($remote['metadata'] ?? []);
+    $remoteType = strtolower(trim((string)($metadata['coveted_subject_type'] ?? '')));
+    $remoteRef = trim((string)($metadata['coveted_subject_ref'] ?? ''));
+    if ($remoteType === '' && $remoteRef === '') {
+        return;
+    }
+
+    $localType = (string)($local['subject_type'] ?? '');
+    $localRef = $localType === 'business'
+        ? trim((string)($local['business_public_id'] ?? ''))
+        : trim((string)($local['user_public_id'] ?? ''));
+    $conflict = $remoteType !== '' && !hash_equals($localType,$remoteType);
+    if (!$conflict && $remoteRef !== '' && $localRef !== '') {
+        $conflict = !hash_equals($localRef,$remoteRef);
+    }
+    if (!$conflict) {
+        return;
+    }
+
+    coveted_audit(
+        'billing.subscription_resync_blocked',
+        'billing_subscription',
+        (string)$local['public_id'],
+        [
+            'provider'=>'stripe',
+            'provider_subscription_ref'=>(string)$local['provider_subscription_ref'],
+            'local_subject_type'=>$localType,
+            'local_subject_ref'=>$localRef,
+            'remote_subject_type'=>$remoteType,
+            'remote_subject_ref'=>$remoteRef,
+        ],
+        (int)$admin['id']
+    );
+    throw new RuntimeException('Stripe ownership metadata conflicts with the Coveted billing subject. Resync was blocked for review.');
+}
+
 function coveted_billing_ops_resync_subscription(array $admin, string $ref, ?PDO $pdo = null): array
 {
     if (!coveted_is_system_admin($admin)) {
@@ -243,6 +281,7 @@ function coveted_billing_ops_resync_subscription(array $admin, string $ref, ?PDO
         throw new InvalidArgumentException('Billing subscription not found.');
     }
     $remote = coveted_billing_ops_remote_subscription($local);
+    coveted_billing_ops_assert_resync_ownership($local,$remote,$admin);
     $before = coveted_billing_ops_reconciliation($local,$remote);
     $synced = coveted_stripe_sync_subscription($remote,$pdo);
     $fresh = coveted_billing_ops_subscription_by_ref((string)$synced['public_id'],$pdo);
