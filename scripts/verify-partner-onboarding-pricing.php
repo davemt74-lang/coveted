@@ -60,8 +60,10 @@ $contains($packages,"if (str_starts_with(\$key, 'billing.') || !coveted_service_
 $contains($partners,"VALUES (?,?,?,'prospective',?)",'self-service partners must begin prospective');
 $contains($partners,'INSERT INTO business_admins (business_id,user_id)','creator must become first resource-scoped Business Admin');
 $contains($partners,"'partner.self_service_created'",'self-service partner creation must be audited');
-$contains($partners,"status='active'",'successful paid/trial business billing must activate prospective partners');
+$contains($partners,'function coveted_partner_activate_business','partner activation must have one idempotent canonical helper');
+$contains($partners,'function coveted_partner_activate_from_stripe_subscription_payload','signed subscription payloads must support retry-safe activation');
 $contains($partners,"['active','trialing']",'only paid/trial subscription states may activate a prospective partner');
+$contains($partners,"WHERE id=? AND status='prospective'",'activation must only promote prospective businesses');
 $missing($partners,'INSERT INTO user_roles','partner creation must not grant a global role');
 $missing($partners,'CREATE TABLE','partner onboarding must not perform runtime DDL');
 
@@ -75,6 +77,7 @@ $contains($onboarding,'Creating a partner does not change your global Coveted us
 $contains($pricing,'coveted_service_public_packages(null,$pdo)','public Pricing must read the live package catalog');
 $contains($pricing,"'/subscribe.php?package='",'paid member package must enter subject-aware subscription confirmation');
 $contains($pricing,"'/partner-onboarding.php?package='",'business package must enter partner onboarding');
+$contains($pricing,"\$subject === 'manual' || \$price === null",'unpriced/manual packages must stay out of self-service checkout');
 $contains($pricing,'$package[\'monthly_price_cents\']','public price must be rendered from the live package row');
 $contains($pricing,'$package[\'public_entitlements\']','public feature list must be derived from enabled package entitlements');
 $missing($pricing,'59.00','Pricing page must not hard-code Partner pricing');
@@ -92,7 +95,9 @@ $contains($billingAction,"require_once __DIR__ . '/app/public_packages.php';",'c
 $contains($billingAction,'coveted_service_package_available_to_subject($packageId,$billingSubject,$pdo)','checkout must reject cross-audience packages server-side');
 $contains($billingAction,"\$billingSubject = \$business !== null ? 'business' : 'user';",'checkout audience must be determined by the actual billing subject');
 $contains($billingReturn,'coveted_partner_activate_from_billing_result($result,$pdo);','checkout return must activate eligible prospective partners');
-$contains($webhook,'coveted_partner_activate_from_billing_result($result,$pdo);','webhook recovery must activate eligible prospective partners even without browser return');
+$contains($webhook,'coveted_partner_activate_from_stripe_subscription_payload($eventObject,$pdo);','signed subscription webhook must activate before event completion');
+$contains($webhook,"str_starts_with(\$eventType,'customer.subscription.')",'partner activation must only inspect signed subscription events');
+$missing($webhook,'coveted_partner_activate_from_billing_result($result,$pdo);','webhook must not perform a fallible activation after marking an event processed');
 
 $contains($footer,"['/pricing.php', 'Pricing']",'Pricing link must be available in the footer');
 $missing($bootstrap,'href="/pricing.php"','Pricing must not be promoted in the primary/account navigation');
