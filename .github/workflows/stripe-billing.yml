@@ -1,0 +1,41 @@
+name: Stripe Billing
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Lint Stripe Billing PHP
+        run: |
+          php -l app/stripe_billing.php
+          php -l billing.php
+          php -l billing-action.php
+          php -l billing-return.php
+          php -l api/stripe-webhook.php
+          php -l scripts/verify-stripe-billing.php
+
+      - name: Verify Stripe Billing contract
+        run: php scripts/verify-stripe-billing.php
