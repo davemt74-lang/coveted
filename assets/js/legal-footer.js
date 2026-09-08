@@ -3,6 +3,7 @@
 
     const links = [
         ['/about-script.php', 'About Script'],
+        ['/pricing.php', 'Pricing'],
         ['/privacy.php', 'Privacy'],
         ['/terms.php', 'Terms'],
     ];
