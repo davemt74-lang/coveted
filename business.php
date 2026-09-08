@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/app/campaigns.php';
 require_once __DIR__ . '/app/outcomes.php';
 require_once __DIR__ . '/app/admin_ui.php';
+require_once __DIR__ . '/app/entitlement_access.php';
 
 $user = coveted_require_user();
 $isSystemAdmin = coveted_is_system_admin($user);
@@ -49,6 +50,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $businessId = (int)$business['id'];
         $businessRef = (string)$business['public_id'];
+
+        coveted_entitlement_require_business(
+            $user,
+            $businessId,
+            'partner.workspace',
+            'Complete Partner setup or choose a package before managing this business.'
+        );
+        $actionEntitlements = [
+            'create_location' => 'partner.profile',
+            'create_claim_code' => 'partner.profile',
+            'rotate_claim_code' => 'partner.profile',
+            'create_reward' => 'partner.offers',
+            'reward_status' => 'partner.offers',
+            'create_campaign' => 'partner.campaigns',
+            'campaign_status' => 'partner.campaigns',
+            'refund_claim' => 'partner.offers',
+            'add_admin' => 'partner.workspace',
+        ];
+        if (isset($actionEntitlements[$action])) {
+            coveted_entitlement_require_business(
+                $user,
+                $businessId,
+                $actionEntitlements[$action],
+                'Your current partner package does not include this action.'
+            );
+        }
+
         $return = static function (string $targetTab, string $saved) use ($businessRef): never {
             coveted_redirect(
                 '/business.php?business=' . rawurlencode($businessRef)
@@ -231,9 +259,9 @@ if ($isSystemAdmin) {
         </form>
     <?php else: ?>
         <div class="cv-card cv-empty">
-            <h2>No business assigned.</h2>
-            <p>A Coveted System Admin must assign your account as a Business Admin before you can manage business data.</p>
-            <a class="cv-text-link" href="/profile.php">Back to Profile →</a>
+            <h2>No partner business yet.</h2>
+            <p>Create a Partner account from your existing Coveted membership, or ask a System Admin to add you to an existing business.</p>
+            <div class="cv-action-row"><a class="cv-button cv-button-primary" href="/partner-onboarding.php">Become a Partner</a><a class="cv-button cv-button-soft" href="/profile.php">Back to Profile</a></div>
         </div>
     <?php endif; ?>
     <?php
@@ -249,6 +277,41 @@ if ($isSystemAdmin) {
 $businessId = (int)$business['id'];
 $businessRef = (string)$business['public_id'];
 $permission = coveted_business_actor_permission($user, $businessId) ?? 'business_admin';
+$workspaceAllowed = coveted_entitlement_business_has($user, $businessId, 'partner.workspace');
+
+if (!$workspaceAllowed && !$isSystemAdmin) {
+    $workspaceOffer = coveted_entitlement_upgrade_offer('partner.workspace', $business);
+    ?>
+    <section class="cv-card cv-copy-card cv-narrow-form">
+        <span class="cv-eyebrow">PARTNER SETUP</span>
+        <h2>Activate the partner workspace.</h2>
+        <p><?= (string)$business['status'] === 'prospective'
+            ? 'Your business account has been created. Choose a Partner package to activate its Coveted workspace.'
+            : 'This business does not currently have a package that includes the Partner workspace.' ?></p>
+        <?php if ($workspaceOffer['description'] !== ''): ?><p><?= coveted_e($workspaceOffer['description']) ?></p><?php endif; ?>
+        <div class="cv-action-row">
+            <a class="cv-button cv-button-primary" href="<?= coveted_e($workspaceOffer['href']) ?>"><?= coveted_e($workspaceOffer['label']) ?></a>
+            <a class="cv-button cv-button-soft" href="/billing.php?business=<?= coveted_e(rawurlencode($businessRef)) ?>">Billing &amp; Plan</a>
+        </div>
+        <p class="cv-form-help">System Admin package assignments bypass payment and are resolved through the same entitlement engine.</p>
+    </section>
+    <?php
+    coveted_page_end();
+    exit;
+}
+
+$tabRequirements = [
+    'locations' => 'partner.profile',
+    'rewards' => 'partner.offers',
+    'campaigns' => 'partner.campaigns',
+    'claims' => 'partner.results.basic',
+    'insights' => 'partner.results.advanced',
+    'admins' => 'partner.workspace',
+];
+$tabEntitlement = $tabRequirements[$tab] ?? null;
+$tabLocked = $tabEntitlement !== null
+    && !coveted_entitlement_business_has($user, $businessId, $tabEntitlement);
+$tabOffer = $tabLocked ? coveted_entitlement_upgrade_offer((string)$tabEntitlement, $business) : null;
 $locations = [];
 $claimCodes = [];
 $rewards = [];
@@ -280,22 +343,22 @@ if ($tab === 'overview') {
     $overview = $overviewStmt->fetch() ?: $overview;
 }
 
-if (in_array($tab, ['locations', 'campaigns'], true)) {
+if (!$tabLocked && in_array($tab, ['locations', 'campaigns'], true)) {
     $locations = coveted_locations_for_business($businessId);
 }
-if ($tab === 'locations') {
+if (!$tabLocked && $tab === 'locations') {
     $claimCodes = coveted_claim_codes_for_business($businessId);
 }
-if (in_array($tab, ['rewards', 'campaigns'], true)) {
+if (!$tabLocked && in_array($tab, ['rewards', 'campaigns'], true)) {
     $rewards = coveted_reward_templates_for_owner('business', $businessId);
 }
-if ($tab === 'campaigns') {
+if (!$tabLocked && $tab === 'campaigns') {
     $campaigns = coveted_campaigns_for_owner('business', $businessId);
 }
-if ($tab === 'claims') {
+if (!$tabLocked && $tab === 'claims') {
     $claims = coveted_reward_claims_for_business($businessId);
 }
-if ($tab === 'insights') {
+if (!$tabLocked && $tab === 'insights') {
     try {
         $insights = coveted_business_outcomes($user, $businessId, $insightPeriod);
         $insightPeriod = (string)$insights['period']['key'];
@@ -306,7 +369,7 @@ if ($tab === 'insights') {
         $error = $error ?: 'Unable to load business insights right now.';
     }
 }
-if ($tab === 'admins') {
+if (!$tabLocked && $tab === 'admins') {
     $adminsStmt = coveted_db()->prepare(
         "SELECT u.display_name, u.email, ba.created_at
          FROM business_admins ba
@@ -333,7 +396,7 @@ if ($tab === 'admins') {
     <?php if (count($businesses) > 1): ?>
         <form class="cv-business-selector" method="get">
             <input type="hidden" name="tab" value="<?= coveted_e($tab) ?>">
-            <?php if ($tab === 'insights'): ?><input type="hidden" name="period" value="<?= coveted_e($insightPeriod) ?>"><?php endif; ?>
+            <?php if (!$tabLocked && $tab === 'insights'): ?><input type="hidden" name="period" value="<?= coveted_e($insightPeriod) ?>"><?php endif; ?>
             <label>
                 <span>Switch business</span>
                 <select name="business" data-submit-on-change>
@@ -351,6 +414,19 @@ if ($tab === 'admins') {
         <a class="cv-tab <?= $tab === $key ? 'is-active' : '' ?>" href="/business.php?business=<?= coveted_e($businessRef) ?>&amp;tab=<?= coveted_e($key) ?>"><?= coveted_e($label) ?></a>
     <?php endforeach; ?>
 </nav>
+
+<?php if ($tabLocked && $tabOffer): ?>
+    <section class="cv-card cv-copy-card cv-narrow-form">
+        <span class="cv-eyebrow">PACKAGE UPGRADE</span>
+        <h2>This capability is not included in the current partner package.</h2>
+        <p>Coveted checks the live Service Packages catalog rather than a hard-coded plan name. Upgrade to a package that currently includes <code><?= coveted_e((string)$tabEntitlement) ?></code>.</p>
+        <?php if ($tabOffer['description'] !== ''): ?><p><?= coveted_e($tabOffer['description']) ?></p><?php endif; ?>
+        <div class="cv-action-row">
+            <a class="cv-button cv-button-primary" href="<?= coveted_e($tabOffer['href']) ?>"><?= coveted_e($tabOffer['label']) ?></a>
+            <a class="cv-button cv-button-soft" href="/billing.php?business=<?= coveted_e(rawurlencode($businessRef)) ?>">Billing &amp; Plan</a>
+        </div>
+    </section>
+<?php endif; ?>
 
 <?php if ($tab === 'overview'): ?>
     <section class="cv-stat-grid cv-home-stats" aria-label="Business summary">
@@ -388,7 +464,7 @@ if ($tab === 'admins') {
     </div>
 <?php endif; ?>
 
-<?php if ($tab === 'insights' && $insights): ?>
+<?php if (!$tabLocked && $tab === 'insights' && $insights): ?>
     <?php $summary = $insights['summary']; ?>
     <div class="cv-section-head">
         <div>
@@ -499,7 +575,7 @@ if ($tab === 'admins') {
     </section>
 <?php endif; ?>
 
-<?php if ($tab === 'locations'): ?>
+<?php if (!$tabLocked && $tab === 'locations'): ?>
     <div class="cv-section-head">
         <div><span class="cv-eyebrow">LOCATIONS & CLAIM CODES</span><h2>Where benefits are verified</h2></div>
         <span class="cv-status"><?= count($locations) ?> locations · <?= count($claimCodes) ?> codes</span>
@@ -595,7 +671,7 @@ if ($tab === 'admins') {
     </section>
 <?php endif; ?>
 
-<?php if ($tab === 'rewards'): ?>
+<?php if (!$tabLocked && $tab === 'rewards'): ?>
     <div class="cv-section-head"><div><span class="cv-eyebrow">REWARDS</span><h2>Value members can receive</h2></div><span class="cv-status"><?= count($rewards) ?> total</span></div>
     <section class="cv-workspace-grid">
         <form class="cv-card cv-form" method="post">
@@ -651,7 +727,7 @@ if ($tab === 'admins') {
     </section>
 <?php endif; ?>
 
-<?php if ($tab === 'campaigns'): ?>
+<?php if (!$tabLocked && $tab === 'campaigns'): ?>
     <div class="cv-section-head"><div><span class="cv-eyebrow">CAMPAIGNS</span><h2>Rules for distribution</h2></div><span class="cv-status"><?= count($campaigns) ?> total</span></div>
     <section class="cv-workspace-grid">
         <form class="cv-card cv-form" method="post">
@@ -702,7 +778,7 @@ if ($tab === 'admins') {
     </section>
 <?php endif; ?>
 
-<?php if ($tab === 'claims'): ?>
+<?php if (!$tabLocked && $tab === 'claims'): ?>
     <div class="cv-section-head"><div><span class="cv-eyebrow">CLAIMS</span><h2>Verified redemption history</h2></div><span class="cv-status"><?= count($claims) ?> records</span></div>
     <section class="cv-card cv-table-card">
         <?php if (!$claims): ?>
@@ -741,7 +817,7 @@ if ($tab === 'admins') {
     </section>
 <?php endif; ?>
 
-<?php if ($tab === 'admins'): ?>
+<?php if (!$tabLocked && $tab === 'admins'): ?>
     <div class="cv-section-head"><div><span class="cv-eyebrow">ADMINISTRATION</span><h2>Who can manage this business</h2></div><span class="cv-status"><?= count($businessAdmins) ?> scoped admins</span></div>
     <section class="cv-workspace-grid">
         <form class="cv-card cv-form" method="post">

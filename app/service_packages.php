@@ -510,6 +510,17 @@ function coveted_service_assign_package(
     if (!$package || (int)$package['is_active'] !== 1) {
         throw new InvalidArgumentException('Choose an active service package.');
     }
+    $packageEntitlements = coveted_service_entitlements_for_package($packageId, $pdo);
+    $packageSubject = strtolower(trim((string)($packageEntitlements['billing.subject'] ?? '')));
+    if ($packageSubject === 'business' && $scope['scope_type'] !== 'business') {
+        throw new InvalidArgumentException('Business service packages must be assigned to a Partner business.');
+    }
+    if ($packageSubject === 'user' && $scope['scope_type'] === 'business') {
+        throw new InvalidArgumentException('Member service packages must be assigned to a user or user type.');
+    }
+    $partnerWorkspaceValue = strtolower(trim((string)($packageEntitlements['partner.workspace'] ?? '')));
+    $packageActivatesPartner = $scope['scope_type'] === 'business'
+        && !in_array($partnerWorkspaceValue, ['', '0', 'false', 'off', 'no'], true);
     $start = $startsAt !== null && trim($startsAt) !== '' ? coveted_utc_datetime($startsAt)->format('Y-m-d H:i:s') : null;
     $end = $endsAt !== null && trim($endsAt) !== '' ? coveted_utc_datetime($endsAt)->format('Y-m-d H:i:s') : null;
     if ($start !== null && $end !== null && strtotime($end) <= strtotime($start)) {
@@ -554,6 +565,22 @@ function coveted_service_assign_package(
             $reason !== '' ? $reason : null,
             (int)$admin['id'],
         ]);
+
+        $assignmentActiveNow = ($start === null || strtotime($start) <= time())
+            && ($end === null || strtotime($end) > time());
+        if ($packageActivatesPartner && $assignmentActiveNow && (int)($scope['business_id'] ?? 0) > 0) {
+            $activate = $pdo->prepare("UPDATE businesses SET status='active',updated_at=NOW() WHERE id=? AND status='prospective'");
+            $activate->execute([(int)$scope['business_id']]);
+            if ($activate->rowCount() === 1) {
+                coveted_audit(
+                    'partner.activated_by_admin_package',
+                    'business',
+                    (string)$scope['scope_ref'],
+                    ['package_key'=>(string)$package['package_key'],'assignment_ref'=>$publicId],
+                    (int)$admin['id']
+                );
+            }
+        }
 
         coveted_audit(
             'service_package.assigned',
