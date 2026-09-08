@@ -31,6 +31,7 @@ jobs:
       - name: Lint Member Relationship Actions PHP
         run: |
           php -l app/member_relationship_actions.php
+          php -l app/admin_ui.php
           php -l admin/member-actions.php
           php -l scripts/verify-member-relationship-actions.php
 
