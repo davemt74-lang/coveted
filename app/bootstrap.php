@@ -788,6 +788,7 @@ function coveted_page_start(string $title, string $active = '', bool $adminMode 
                 <?php if ($isSystemAdmin): ?>
                     <a href="/admin/"><strong>Admin Control Center</strong><small>Manage the entire Coveted platform</small></a>
                     <a href="/admin/onboarding.php"><strong>Admin Setup</strong><small>Review first-run setup and onboarding</small></a>
+                    <a href="/admin/service-packages.php"><strong>Service Packages</strong><small>Plans, entitlements and billing overrides</small></a>
                     <span class="cv-admin-menu-label">QUICK CREATE</span>
                     <a href="/admin/?view=users#create-user"><strong>Add User</strong><small>Create an account and assign access</small></a>
                     <a href="/admin/?view=businesses#create-business"><strong>Add Business</strong><small>Add a venue or partner</small></a>
@@ -795,6 +796,7 @@ function coveted_page_start(string $title, string $active = '', bool $adminMode 
                     <a href="/admin/?view=events#create-event"><strong>Add Event</strong><small>Plan a gathering</small></a>
                 <?php endif; ?>
                 <a href="/loyalty.php"><strong>Loyalty</strong><small>Private points, status and milestones</small></a>
+                <a href="/billing.php"><strong>Billing &amp; Plan</strong><small>Package, entitlements and billing status</small></a>
                 <a href="/profile.php"><strong>Profile</strong><small>Photo, identity and account details</small></a>
                 <form method="post" action="/auth.php?action=logout">
                     <input type="hidden" name="csrf_token" value="<?= coveted_e(coveted_csrf_token()) ?>">
