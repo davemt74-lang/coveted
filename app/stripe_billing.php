@@ -371,9 +371,8 @@ function coveted_stripe_create_checkout(array $user, int $packageId, ?array $bus
     }
 
     $current = coveted_service_subscriptions_for_subject((string)$subject['type'],(int)$subject['id'],true,$pdo);
-    $stripeCurrent = array_values(array_filter($current,static fn(array $row): bool => (string)$row['provider']==='stripe'));
-    if ($stripeCurrent) {
-        throw new InvalidArgumentException('An active Stripe subscription already exists for this billing account. Use Manage billing instead of creating a second subscription.');
+    if ($current) {
+        throw new InvalidArgumentException('An active subscription already exists for this billing account. Use Manage billing instead of creating a second subscription.');
     }
 
     $checkout = coveted_stripe_checkout_row_for_subject($subject,$packageId,$pdo);
@@ -597,13 +596,14 @@ function coveted_stripe_sync_subscription(array $subscription, ?PDO $pdo = null)
     $cancelAtPeriodEnd = !empty($subscription['cancel_at_period_end']) ? 1 : 0;
     $cancelledAt = coveted_stripe_sql_datetime($subscription['canceled_at'] ?? null);
     $price = (array)($firstItem['price'] ?? []);
+    $subscriptionMetadata = (array)($subscription['metadata'] ?? []);
     $providerMetadata = [
         'livemode'=>!empty($subscription['livemode']),
         'stripe_status'=>(string)($subscription['status'] ?? ''),
         'price_ref'=>(string)($price['id'] ?? ''),
         'product_ref'=>coveted_stripe_object_id($price['product'] ?? ''),
         'latest_invoice_ref'=>coveted_stripe_object_id($subscription['latest_invoice'] ?? ''),
-        'checkout_ref'=>(string)((array)($subscription['metadata'] ?? []))['coveted_checkout_ref'] ?? '',
+        'checkout_ref'=>(string)($subscriptionMetadata['coveted_checkout_ref'] ?? ''),
     ];
 
     $pdo->beginTransaction();
@@ -633,7 +633,7 @@ function coveted_stripe_sync_subscription(array $subscription, ?PDO $pdo = null)
                 'INSERT INTO billing_subscriptions
                     (public_id,subject_type,user_id,business_id,package_id,provider,provider_customer_ref,provider_subscription_ref,status,
                      current_period_start,current_period_end,cancel_at_period_end,cancelled_at,provider_metadata_json)
-                 VALUES (?,?,?,?,?,\'stripe\',?,?,?,?,?,?,?,?,?)'
+                 VALUES (?,?,?,?,?,\'stripe\',?,?,?,?,?,?,?,?)'
             )->execute([
                 $publicId,$subject['type'],
                 $subject['type']==='user'?(int)$subject['id']:null,
