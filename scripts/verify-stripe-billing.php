@@ -34,6 +34,9 @@ $config = $read('config-example.php');
 $contains($migration, 'CREATE TABLE IF NOT EXISTS billing_customers (', 'customer mapping table is required');
 $contains($migration, 'CREATE TABLE IF NOT EXISTS billing_checkout_sessions (', 'checkout idempotency table is required');
 $contains($migration, 'CREATE TABLE IF NOT EXISTS billing_webhook_events (', 'webhook event ledger is required');
+$contains($migration, 'UNIQUE KEY uq_billing_customer_provider_ref (provider,provider_customer_ref)', 'Stripe customer refs must be globally unique per provider');
+$contains($migration, 'UNIQUE KEY uq_billing_customer_user_provider (provider,user_id)', 'one provider customer must map to each user billing subject');
+$contains($migration, 'UNIQUE KEY uq_billing_customer_business_provider (provider,business_id)', 'one provider customer must map to each business billing subject');
 $contains($migration, 'UNIQUE KEY uq_billing_webhook_provider_event (provider,event_ref)', 'webhook events must be provider/id unique');
 $contains($migration, "status ENUM('received','processing','processed','failed')", 'webhook retry state must be explicit');
 $contains($migration, "status ENUM('creating','open','completed','expired','failed')", 'checkout lifecycle must be explicit');
@@ -82,6 +85,8 @@ $missing($adapter, 'ALTER TABLE', 'runtime Stripe schema mutation is forbidden')
 
 $contains($action, "\$_SERVER['REQUEST_METHOD'] !== 'POST'", 'billing actions must be POST-only');
 $contains($action, 'coveted_require_csrf();', 'billing actions must require CSRF');
+$contains($action, 'SELECT GET_LOCK(?,25)', 'concurrent checkout creation must be serialized per billing subject/package');
+$contains($action, 'SELECT RELEASE_LOCK(?)', 'checkout serialization lock must be explicitly released');
 $contains($action, "coveted_stripe_safe_redirect((string)\$result['session']['url'],['checkout.stripe.com'])", 'Checkout redirect must be host allowlisted');
 $contains($action, "coveted_stripe_safe_redirect((string)\$session['url'],['billing.stripe.com'])", 'Portal redirect must be host allowlisted');
 $missing($action, 'INSERT INTO billing_subscriptions', 'user action endpoint must not bypass the canonical Stripe adapter');
@@ -91,8 +96,12 @@ $contains($adapter, 'coveted_stripe_actor_can_manage_subject($user,$type,$ref)',
 $missing($return, 'INSERT INTO billing_subscriptions', 'return endpoint must not write subscription state directly');
 
 $contains($webhook, "file_get_contents('php://input')", 'webhook must verify the raw request body');
+$contains($webhook, 'strlen($payload) > 2097152', 'webhook body size must be bounded before parsing');
 $contains($webhook, "\$_SERVER['HTTP_STRIPE_SIGNATURE']", 'webhook must require Stripe-Signature');
 $contains($webhook, 'coveted_stripe_verify_webhook_signature($payload,$signature)', 'webhook endpoint must verify signature before processing');
+$contains($webhook, "str_starts_with(\$secretKey,'sk_live_')", 'webhook must derive expected live mode from the configured secret key');
+$contains($webhook, "str_starts_with(\$secretKey,'sk_test_')", 'webhook must derive expected test mode from the configured secret key');
+$contains($webhook, "(bool)(\$event['livemode'] ?? false) !== \$expectedLiveMode", 'webhook event mode must match the configured Stripe key mode');
 $contains($webhook, 'coveted_stripe_process_webhook($event,$payload,$pdo)', 'webhook endpoint must use canonical processor');
 $missing($webhook, 'coveted_require_csrf', 'Stripe webhook must not depend on browser CSRF state');
 $missing($webhook, 'coveted_require_user', 'Stripe webhook must not depend on an interactive session');
@@ -104,6 +113,7 @@ $contains($billing, 'name="action" value="checkout"', 'Billing UI must expose ho
 $contains($billing, 'name="action" value="portal"', 'Billing UI must expose Stripe Billing Portal');
 $contains($billing, '$subjectSubscriptions = coveted_service_subscriptions_for_subject($billingSubjectType,$billingSubjectId,false,$pdo);', 'checkout availability must be scoped to the exact billing subject');
 $contains($billing, '$hasOverrideAndPaid = $adminOverride !== null && $activeSubjectSubscriptions !== [];', 'billing-overlap warning must be scoped to the exact billing subject');
+$contains($billing, '$canCheckout = $isPaid && $stripeReady && $adminOverride === null && !$activeSubjectSubscriptions;', 'any active subscription must prevent duplicate checkout for that subject');
 $contains($billing, 'Paid checkout is disabled while the assignment remains active.', 'Admin bypass must disable duplicate paid checkout');
 $contains($billing, 'without exposing payment-card data to Coveted', 'hosted payment boundary must be explicit');
 $missing($billing, 'INSERT INTO billing_subscriptions', 'Billing UI must not write subscription state directly');
