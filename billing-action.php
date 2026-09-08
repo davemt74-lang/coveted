@@ -26,7 +26,28 @@ try {
         if ($packageId < 1) {
             throw new InvalidArgumentException('Choose a paid package.');
         }
-        $result = coveted_stripe_create_checkout($user,$packageId,$business,$pdo);
+
+        $subjectKey = $business !== null
+            ? 'business:' . (string)$business['public_id']
+            : 'user:' . (string)$user['public_id'];
+        $lockName = 'coveted_checkout_' . substr(hash('sha256',$subjectKey . '|' . $packageId),0,40);
+        $lock = $pdo->prepare('SELECT GET_LOCK(?,25)');
+        $lock->execute([$lockName]);
+        if ((int)$lock->fetchColumn() !== 1) {
+            throw new RuntimeException('Another checkout is already being prepared. Try again shortly.');
+        }
+
+        try {
+            $result = coveted_stripe_create_checkout($user,$packageId,$business,$pdo);
+        } finally {
+            try {
+                $release = $pdo->prepare('SELECT RELEASE_LOCK(?)');
+                $release->execute([$lockName]);
+            } catch (Throwable) {
+                // MySQL also releases named locks automatically when this request's connection closes.
+            }
+        }
+
         coveted_stripe_safe_redirect((string)$result['session']['url'],['checkout.stripe.com']);
     }
 
