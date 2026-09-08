@@ -271,6 +271,8 @@ function coveted_admin_ui_start(
                 <div class="cv-admin-nav-body">
                     <?php coveted_admin_nav_link($active, 'operations', '/admin/operations.php', 'Operations'); ?>
                     <?php coveted_admin_nav_link($active, 'event-automation', '/admin/event-automation.php', 'Event Automation'); ?>
+                    <?php coveted_admin_nav_link($active, 'service-packages', '/admin/service-packages.php', 'Service Packages'); ?>
+                    <?php coveted_admin_nav_link($active, 'billing-operations', '/admin/billing-operations.php', 'Billing Operations'); ?>
                     <?php coveted_admin_nav_link($active, 'landing', '/admin/landing.php', 'Landing Page'); ?>
                     <?php coveted_admin_nav_link($active, 'branding', '/admin/branding.php', 'Branding'); ?>
                     <?php coveted_admin_nav_link($active, 'sample-data', '/admin/sample-data.php', 'Sample Data'); ?>
