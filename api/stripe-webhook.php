@@ -22,7 +22,7 @@ if (!coveted_stripe_schema_available($pdo) || !coveted_stripe_webhook_ready()) {
 $payload = (string)file_get_contents('php://input');
 $signature = trim((string)($_SERVER['HTTP_STRIPE_SIGNATURE'] ?? ''));
 
-if ($payload === '' || !coveted_stripe_verify_webhook_signature($payload,$signature)) {
+if ($payload === '' || strlen($payload) > 2097152 || !coveted_stripe_verify_webhook_signature($payload,$signature)) {
     http_response_code(400);
     echo coveted_json(['ok'=>false,'error'=>'invalid_signature']);
     exit;
@@ -37,6 +37,15 @@ try {
     if (!str_starts_with($eventRef,'evt_')) {
         throw new InvalidArgumentException('Invalid Stripe event reference.');
     }
+
+    $stripe = coveted_stripe_settings();
+    $secretKey = trim((string)($stripe['secret_key'] ?? ''));
+    $expectedLiveMode = str_starts_with($secretKey,'sk_live_');
+    $expectedTestMode = str_starts_with($secretKey,'sk_test_');
+    if ((!$expectedLiveMode && !$expectedTestMode) || (bool)($event['livemode'] ?? false) !== $expectedLiveMode) {
+        throw new InvalidArgumentException('Stripe event mode does not match the configured secret key.');
+    }
+
     $result = coveted_stripe_process_webhook($event,$payload,$pdo);
     http_response_code(200);
     echo coveted_json(['ok'=>true,'duplicate'=>(bool)($result['duplicate'] ?? false)]);
