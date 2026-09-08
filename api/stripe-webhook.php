@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/stripe_billing.php';
+require_once dirname(__DIR__) . '/app/partner_accounts.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -44,6 +45,12 @@ try {
     $expectedTestMode = str_starts_with($secretKey,'sk_test_');
     if ((!$expectedLiveMode && !$expectedTestMode) || (bool)($event['livemode'] ?? false) !== $expectedLiveMode) {
         throw new InvalidArgumentException('Stripe event mode does not match the configured secret key.');
+    }
+
+    $eventType = (string)($event['type'] ?? '');
+    $eventObject = (array)($event['data']['object'] ?? []);
+    if (str_starts_with($eventType,'customer.subscription.')) {
+        coveted_partner_activate_from_stripe_subscription_payload($eventObject,$pdo);
     }
 
     $result = coveted_stripe_process_webhook($event,$payload,$pdo);

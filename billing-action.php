@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/app/stripe_billing.php';
+require_once __DIR__ . '/app/public_packages.php';
 
 $user = coveted_require_user();
 $pdo = coveted_db();
@@ -25,6 +26,15 @@ try {
         $packageId = (int)($_POST['package_id'] ?? 0);
         if ($packageId < 1) {
             throw new InvalidArgumentException('Choose a paid package.');
+        }
+
+        $billingSubject = $business !== null ? 'business' : 'user';
+        if (!coveted_service_package_available_to_subject($packageId,$billingSubject,$pdo)) {
+            throw new InvalidArgumentException(
+                $billingSubject === 'business'
+                    ? 'Choose a package available for partner businesses.'
+                    : 'Choose a package available for member accounts.'
+            );
         }
 
         $subjectKey = $business !== null

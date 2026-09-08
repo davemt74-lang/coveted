@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/app/stripe_billing.php';
+require_once __DIR__ . '/app/partner_accounts.php';
 
 $user = coveted_require_user();
 $pdo = coveted_db();
@@ -9,6 +10,8 @@ $sessionRef = trim((string)($_GET['session_id'] ?? ''));
 
 try {
     $result = coveted_stripe_sync_checkout_return($user,$sessionRef,$pdo);
+    coveted_partner_activate_from_billing_result($result,$pdo);
+
     $subscription = (array)($result['subscription'] ?? []);
     $package = (array)($subscription['package'] ?? []);
     $name = trim((string)($package['name'] ?? ''));

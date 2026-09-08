@@ -1,0 +1,44 @@
+name: Partner Onboarding & Pricing
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Lint partner onboarding and pricing PHP
+        run: |
+          php -l app/public_packages.php
+          php -l app/partner_accounts.php
+          php -l partner-onboarding.php
+          php -l pricing.php
+          php -l subscribe.php
+          php -l billing-action.php
+          php -l billing-return.php
+          php -l api/stripe-webhook.php
+          php -l scripts/verify-partner-onboarding-pricing.php
+
+      - name: Verify partner onboarding and pricing contract
+        run: php scripts/verify-partner-onboarding-pricing.php
