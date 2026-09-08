@@ -36,16 +36,16 @@ $contains($service,"require_once __DIR__ . '/event_management.php';",'service mu
 $contains($service,'function coveted_member_relationship_actions_sync_recommendations','bounded recommendation sync is required');
 $contains($service,'coveted_member_journey_scan_rows($pdo','recommendations must derive from bounded Member Journey scan');
 $contains($service,"'pause_invitations' => 'hold'",'pacing recommendations must default to no-contact holds');
-$contains($service,"if ((string)$action['action_type'] === 'pause_invitations' && $executionType !== 'hold')",'pacing holds must not be editable into outreach');
+$contains($service,"if ((string)\$action['action_type'] === 'pause_invitations' && \$executionType !== 'hold')",'pacing holds must not be editable into outreach');
 $contains($service,'function coveted_member_relationship_action_review','explicit review step is required');
 $contains($service,'function coveted_member_relationship_action_approve','explicit approval step is required');
-$contains($service,"(string)$action['status'] !== 'reviewed'",'approval must require reviewed state');
+$contains($service,"(string)\$action['status'] !== 'reviewed'",'approval must require reviewed state');
 $contains($service,'function coveted_member_relationship_action_execute','explicit canonical execution step is required');
-$contains($service,"(string)$action['status'] !== 'approved'",'execution must require approved state');
+$contains($service,"(string)\$action['status'] !== 'approved'",'execution must require approved state');
 $contains($service,'coveted_member_journey_metrics_row($pdo','execution must revalidate live Member Journey state');
-$contains($service,"(string)$liveDecision['action'] === 'pause_invitations'",'live pacing must block stale outreach approval');
+$contains($service,"(string)\$liveDecision['action'] === 'pause_invitations'",'live pacing must block stale outreach approval');
 $contains($service,"'event.relationship_followup'",'relationship messages must feed existing event communication-pressure evidence');
-$contains($service,"'member-relationship-action:' . (string)$action['public_id']",'notification execution must have durable dedupe key');
+$contains($service,"'member-relationship-action:' . (string)\$action['public_id']",'notification execution must have durable dedupe key');
 $contains($service,'coveted_notification_create(','message execution must use canonical notification service');
 $contains($service,'coveted_event_invite_user(','Event execution must use canonical invitation service');
 $contains($service,"'require_active_group_member'=>true",'Event execution must revalidate active group membership');
@@ -57,8 +57,8 @@ $contains($service,'function coveted_member_relationship_action_record_outcome',
 $contains($service,'function coveted_member_relationship_action_agent_context','aggregate Agent context is required');
 $contains($service,'aggregate Member Action counts and outcomes only','broad Agent context must remain identity-free');
 $contains($service,'coveted_admin_agent_tasks_sync_opportunities(','Member Action attention must feed the existing proactive task queue');
-$contains($service,"'member-action-queue-' . $maxId",'proactive queue task generations must avoid per-member identity exposure');
-$contains($service,"in_array($state, ['paused','alumni'], true)",'membership lifecycle holds must block new relationship action recommendations');
+$contains($service,"'member-action-queue-' . \$maxId",'proactive queue task generations must avoid per-member identity exposure');
+$contains($service,"in_array(\$state, ['paused','alumni'], true)",'membership lifecycle holds must block new relationship action recommendations');
 $missing($service,'CREATE TABLE','runtime schema creation is forbidden');
 $missing($service,'ALTER TABLE','runtime schema mutation is forbidden');
 $missing($service,'INSERT INTO notifications','Member Action service must not bypass canonical notification service');
@@ -69,11 +69,11 @@ $missing($service,"'score'=>",'Member Actions must not create hidden member scor
 
 $contains($workspace,'coveted_require_system_admin();','workspace must require System Admin');
 $contains($workspace,'coveted_require_csrf();','every workspace mutation must enforce CSRF');
-$contains($workspace,"$command==='refresh'",'workspace must expose deliberate Journey refresh');
+$contains($workspace,"\$command==='refresh'",'workspace must expose deliberate Journey refresh');
 $contains($workspace,'coveted_member_relationship_action_review(','workspace review must use canonical action service');
 $contains($workspace,'coveted_member_relationship_action_approve(','workspace approval must use canonical action service');
 $contains($workspace,'coveted_member_relationship_action_execute(','workspace execution must use canonical action service');
-$contains($workspace,"confirm_execute",'execution must require explicit confirmation');
+$contains($workspace,'confirm_execute','execution must require explicit confirmation');
 $contains($workspace,'coveted_member_relationship_action_record_outcome(','workspace must close the learning loop with outcomes');
 $contains($workspace,'No autonomous outreach.','workspace must explain the authority boundary');
 $contains($workspace,'Review Rewards','workspace must preserve canonical reward-system handoff');
