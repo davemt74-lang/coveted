@@ -33,13 +33,13 @@ $admin = $read('admin/subscription-lifecycle.php');
 $ops = $read('admin/billing-operations.php');
 
 // Provider-neutral lifecycle policy.
-$contains($lifecycle,"COVETED_BILLING_DEFAULT_GRACE_DAYS = 7",'default grace must be seven days');
-$contains($lifecycle,"COVETED_BILLING_MAX_GRACE_DAYS = 30",'Admin grace range must be bounded');
+$contains($lifecycle,'COVETED_BILLING_DEFAULT_GRACE_DAYS = 7','default grace must be seven days');
+$contains($lifecycle,'COVETED_BILLING_MAX_GRACE_DAYS = 30','Admin grace range must be bounded');
 $contains($lifecycle,"'billing.payment_failed'",'failure episodes must be canonical audit events');
 $contains($lifecycle,"'billing.payment_recovered'",'recovery episodes must be canonical audit events');
-$contains($lifecycle,"$status !== 'past_due'",'grace must apply only to past-due state');
-$contains($lifecycle,"$base['state'] = 'past_due_grace'",'past-due grace state must exist');
-$contains($lifecycle,"$base['state'] = 'past_due_expired'",'expired grace state must exist');
+$contains($lifecycle,'$status !== \'past_due\'','grace must apply only to past-due state');
+$contains($lifecycle,'$base[\'state\'] = \'past_due_grace\'','past-due grace state must exist');
+$contains($lifecycle,'$base[\'state\'] = \'past_due_expired\'','expired grace state must exist');
 $contains($lifecycle,"['trialing','active','past_due','paused']",'open-subscription definition must include delinquent and paused records');
 $missing($lifecycle,"provider='stripe'",'authorization lifecycle must not depend on Stripe');
 
@@ -58,7 +58,7 @@ $contains($stripeDunning,'coveted_subscription_lifecycle_record_recovery','Strip
 $contains($stripeDunning,'coveted_stripe_dunning_reconcile_subscription','manual reconciliation must repair lifecycle state');
 $missing($stripeDunning,"coveted_stripe_api_request('POST'",'dunning adapter must not mutate Stripe');
 $contains($webhook,"require_once dirname(__DIR__) . '/app/stripe_dunning.php'",'webhook must load dunning adapter');
-$contains($webhook,"if (empty($result['duplicate']))",'duplicate webhook delivery must not duplicate lifecycle events');
+$contains($webhook,'if (empty($result[\'duplicate\']))','duplicate webhook delivery must not duplicate lifecycle events');
 $contains($webhook,'coveted_stripe_dunning_record_event($event,$pdo)','successful webhook sync must record lifecycle transition');
 
 // Duplicate subscriptions must be blocked even after paid entitlement access
@@ -74,7 +74,7 @@ $contains($billing,"'past_due_expired'",'Billing page must distinguish expired g
 $contains($billing,'coveted_subscription_lifecycle_is_open($row)','package checkout UI must stay disabled for open delinquent subscriptions');
 
 // Admin policy and reconciliation.
-$contains($admin,"name=\"grace_days\"",'Admin must control grace days');
+$contains($admin,'name="grace_days"','Admin must control grace days');
 $contains($admin,'coveted_subscription_lifecycle_set_grace_days','Admin form must use canonical lifecycle setter');
 $contains($admin,'Past due · grace','Admin must expose grace queue');
 $contains($admin,'Past due · expired','Admin must expose expired queue');
