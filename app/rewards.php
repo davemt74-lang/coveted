@@ -142,6 +142,12 @@ function coveted_reward_create_template(array $actor, array $data): array
     if (!coveted_reward_actor_can_manage_owner($actor, $ownerType, $ownerId)) {
         throw new InvalidArgumentException('You cannot create rewards for that owner.');
     }
+    if ($ownerType === 'business') {
+        coveted_entitlement_require_business(
+            $actor, $ownerId, 'partner.offers',
+            'Your current partner package does not include business offers and rewards.'
+        );
+    }
 
     $title = trim((string)($data['title'] ?? ''));
     $description = trim((string)($data['description'] ?? ''));
@@ -271,6 +277,12 @@ function coveted_reward_set_status(array $actor, string $templateRef, string $st
         if (!coveted_reward_actor_can_manage_owner($actor, (string)$template['owner_type'], $ownerId)) {
             throw new InvalidArgumentException('You cannot manage this reward.');
         }
+        if ((string)$template['owner_type'] === 'business') {
+            coveted_entitlement_require_business(
+                $actor, $ownerId, 'partner.offers',
+                'Your current partner package does not include business offers and rewards.'
+            );
+        }
         if ($status === 'active' && coveted_reward_owner_status((string)$template['owner_type'], $ownerId) !== 'active') {
             throw new InvalidArgumentException('Only an active owner can publish an active reward.');
         }
@@ -305,6 +317,12 @@ function coveted_reward_replace_media(array $actor, string $templateRef, array $
     $ownerId = coveted_reward_template_owner_id($template);
     if (!coveted_reward_actor_can_manage_owner($actor, (string)$template['owner_type'], $ownerId)) {
         throw new InvalidArgumentException('You cannot edit this reward.');
+    }
+    if ((string)$template['owner_type'] === 'business') {
+        coveted_entitlement_require_business(
+            $actor, $ownerId, 'partner.offers',
+            'Your current partner package does not include business offers and rewards.'
+        );
     }
 
     if (count($items) > 100) {

@@ -92,6 +92,12 @@ function coveted_campaign_create(array $actor, array $data): array
     if (!coveted_reward_actor_can_manage_owner($actor, $ownerType, $ownerId)) {
         throw new InvalidArgumentException('You cannot create campaigns for that owner.');
     }
+    if ($ownerType === 'business') {
+        coveted_entitlement_require_business(
+            $actor, $ownerId, 'partner.campaigns',
+            'Your current partner package does not include campaign management.'
+        );
+    }
 
     $templateRef = trim((string)($data['reward_template'] ?? ''));
     $template = coveted_reward_template_by_ref($templateRef);
@@ -262,6 +268,12 @@ function coveted_campaign_set_status(array $actor, string $campaignRef, string $
         $ownerId = coveted_campaign_owner_id($campaign);
         if (!coveted_reward_actor_can_manage_owner($actor, (string)$campaign['owner_type'], $ownerId)) {
             throw new InvalidArgumentException('You cannot manage this campaign.');
+        }
+        if ((string)$campaign['owner_type'] === 'business') {
+            coveted_entitlement_require_business(
+                $actor, $ownerId, 'partner.campaigns',
+                'Your current partner package does not include campaign management.'
+            );
         }
         if ($status === 'active') {
             coveted_campaign_assert_activatable($campaign, ['status' => $campaign['reward_status']]);

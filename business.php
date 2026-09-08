@@ -259,9 +259,9 @@ if ($isSystemAdmin) {
         </form>
     <?php else: ?>
         <div class="cv-card cv-empty">
-            <h2>No business assigned.</h2>
-            <p>A Coveted System Admin must assign your account as a Business Admin before you can manage business data.</p>
-            <a class="cv-text-link" href="/profile.php">Back to Profile →</a>
+            <h2>No partner business yet.</h2>
+            <p>Create a Partner account from your existing Coveted membership, or ask a System Admin to add you to an existing business.</p>
+            <div class="cv-action-row"><a class="cv-button cv-button-primary" href="/partner-onboarding.php">Become a Partner</a><a class="cv-button cv-button-soft" href="/profile.php">Back to Profile</a></div>
         </div>
     <?php endif; ?>
     <?php
