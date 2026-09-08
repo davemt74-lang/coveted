@@ -54,12 +54,15 @@ $contains($service, 'Only a System Admin can bypass billing or assign packages.'
 $contains($service, "'billing_bypass' => true", 'Admin assignment audit must identify billing bypass');
 $contains($service, 'coveted_audit(', 'package changes must use the canonical audit trail');
 $contains($service, 'revoked_at = NOW()', 'replacing/revoking assignments must preserve historical records');
+$contains($service, "s.status IN ('trialing','active','past_due')", 'paid resolver candidates must include grace-eligible past-due subscriptions');
+$contains($service, 'coveted_subscription_lifecycle_allows_access($row, $pdo)', 'paid resolver must enforce lifecycle access policy');
 $missing($service, 'CREATE TABLE', 'runtime DDL is forbidden');
 $missing($service, 'ALTER TABLE', 'runtime schema mutation is forbidden');
 $missing($service, 'stripe', 'authorization service must not be coupled to Stripe');
 
 $contains($billing, 'coveted_service_effective_package(', 'Billing page must display canonical effective access');
-$contains($billing, 'Admin package override + active subscription.', 'Billing page must warn about double-billing overlap');
+$contains($billing, 'Admin package override + open subscription.', 'Billing page must warn about any provider subscription still requiring management');
+$contains($billing, 'coveted_subscription_lifecycle_is_open($row)', 'Billing page must treat delinquent and paused subscriptions as open for checkout blocking');
 $contains($billing, 'Payment bypass active.', 'Billing page must explain Admin-granted access');
 $contains($billing, 'billing_subscriptions', 'Billing page must explain provider-neutral subscription records');
 
