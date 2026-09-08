@@ -36,6 +36,9 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         $opportunityKey=(string)$plan['event']['opportunity_key'];
         if($opportunityKey==='' || !coveted_event_opportunity_by_key($admin,$opportunityKey,$pdo))throw new InvalidArgumentException('The recommended venue is not currently proposal-ready. Review Event Opportunities or the partner relationship first.');
         $playbookRef=trim((string)($_POST['playbook_ref']??''));
+        $playbook=$playbookRef!==''?coveted_event_playbook_by_ref($admin,$playbookRef,$pdo):null;
+        if(!$playbook || (string)$playbook['status']!=='active')throw new InvalidArgumentException('Choose an active Event Playbook before creating the proposal.');
+        $playbookRef=(string)$playbook['public_id'];
         $result=coveted_event_proposal_create_from_opportunity($admin,$opportunityKey,$playbookRef,$pdo);
         $proposalRef=(string)$result['public_id'];
         if(!empty($result['created'])){
