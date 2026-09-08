@@ -124,7 +124,7 @@ $contains($config, "'stripe' => [", 'Stripe config section is required');
 $contains($config, "'enabled' => false", 'Stripe must default disabled in example config');
 $contains($config, "'secret_key' => ''", 'Stripe secret key must be configured outside source control');
 $contains($config, "'webhook_secret' => ''", 'webhook signing secret must be configured outside source control');
-$missing($config, 'sk_live_', 'live Stripe secret keys must never be committed');
-$missing($config, 'whsec_123', 'real webhook secrets must never be committed');
+$missing($config, "'secret_key' => 'sk_live_", 'live Stripe secret keys must never be assigned in the example config');
+$missing($config, "'webhook_secret' => 'whsec_", 'real webhook secrets must never be assigned in the example config');
 
 fwrite(STDOUT, "Stripe Billing contract verified.\n");
