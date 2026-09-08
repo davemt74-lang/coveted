@@ -30,6 +30,18 @@ return [
         'user' => 'coveted_user',
         'password' => 'replace-me',
     ],
+    'billing' => [
+        'stripe' => [
+            // Hosted Stripe Checkout + Billing Portal. Coveted never receives
+            // card numbers. Keep both secrets only in the uncommitted config.php.
+            'enabled' => false,
+            'secret_key' => '',       // sk_test_... or sk_live_...
+            'webhook_secret' => '',   // whsec_... for /api/stripe-webhook.php
+            'allow_promotion_codes' => false,
+            'automatic_tax' => false,
+            'billing_address_collection' => 'auto', // auto|required
+        ],
+    ],
     'push' => [
         // Web Push stays opt-in for members. Keep the private VAPID key only in
         // the uncommitted production config.php / environment-managed secret.
