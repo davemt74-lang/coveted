@@ -48,7 +48,7 @@ $missing($lifecycle,"provider='stripe'",'authorization lifecycle must not depend
 $contains($service,"require_once __DIR__ . '/subscription_lifecycle.php'",'service package resolver must load lifecycle policy');
 $contains($service,"s.status IN ('trialing','active','past_due')",'resolver candidates must include past-due subscriptions');
 $contains($service,'coveted_subscription_lifecycle_allows_access($row, $pdo)','resolver must filter candidates through lifecycle access policy');
-$contains($service,"'subscription_state' => $subscription ? coveted_subscription_lifecycle_access_state",'effective package must expose lifecycle state');
+$contains($service,"'subscription_state' => \$subscription ? coveted_subscription_lifecycle_access_state",'effective package must expose lifecycle state');
 $missing($service,"provider='stripe'",'service authorization must remain provider-neutral');
 
 // Stripe is only a translator into canonical lifecycle events.
