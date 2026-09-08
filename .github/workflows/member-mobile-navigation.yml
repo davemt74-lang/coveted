@@ -1,0 +1,47 @@
+name: Member Mobile Navigation
+
+on:
+  push:
+    paths:
+      - 'assets/css/member-mobile-navigation-v1.css'
+      - 'assets/css/coveted.css'
+      - 'assets/js/member-mobile-navigation-v1.js'
+      - 'assets/js/member-v2.js'
+      - 'assets/js/coveted.js'
+      - 'assets/js/public-mobile-header-v2.js'
+      - 'scripts/verify-member-mobile-navigation.php'
+      - '.github/workflows/member-mobile-navigation.yml'
+  pull_request:
+    paths:
+      - 'assets/css/member-mobile-navigation-v1.css'
+      - 'assets/css/coveted.css'
+      - 'assets/js/member-mobile-navigation-v1.js'
+      - 'assets/js/member-v2.js'
+      - 'assets/js/coveted.js'
+      - 'assets/js/public-mobile-header-v2.js'
+      - 'scripts/verify-member-mobile-navigation.php'
+      - '.github/workflows/member-mobile-navigation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify PHP contract syntax
+        run: php -l scripts/verify-member-mobile-navigation.php
+      - name: Verify member mobile navigation contract
+        run: php scripts/verify-member-mobile-navigation.php
+      - name: Verify member mobile navigation JavaScript syntax
+        run: node --check assets/js/member-mobile-navigation-v1.js
+      - name: Verify canonical member loader JavaScript syntax
+        run: node --check assets/js/coveted.js
