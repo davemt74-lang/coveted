@@ -5,6 +5,7 @@ require_once __DIR__ . '/events.php';
 require_once __DIR__ . '/event_management.php';
 require_once __DIR__ . '/system_sample_data.php';
 require_once __DIR__ . '/event_learning.php';
+require_once __DIR__ . '/group_relationship_planning.php';
 
 /**
  * Event opportunities are a deterministic read model built from canonical
@@ -161,5 +162,19 @@ function coveted_event_opportunity_create_draft(array $admin,string $key,?PDO $p
 /** @return array<string,mixed> */
 function coveted_event_opportunity_agent_context(array $admin,?PDO $pdo=null):array
 {
-    $items=coveted_event_opportunities($admin,$pdo);return['total'=>count($items),'high_priority'=>count(array_filter($items,static fn(array $row):bool=>(int)$row['priority']===1)),'recommendations'=>array_slice($items,0,12),'authority'=>'Recommendations are read-only. Event Learning may refine timing, capacity, Playbook and benefit evidence from completed Event Results. Event configuration and creation remain Coveted System Admin authority; Agent actions may use only the existing allowlisted canonical create_event action when autonomous mode and user intent permit it.'];
+    $items=coveted_event_opportunities($admin,$pdo);
+    $planning=['available'=>false,'plans'=>[],'recommendations'=>[],'attention'=>0];
+    try{$planning=coveted_group_relationship_planning_agent_context($admin,20,$pdo);}catch(Throwable $e){error_log('Event Opportunity Group Relationship Planning bridge unavailable: '.$e->getMessage());}
+    $recommendations=array_merge(array_slice($items,0,12),array_slice((array)($planning['recommendations']??[]),0,12));
+    usort($recommendations,static fn(array $a,array $b):int=>((int)($a['priority']??3)<=> (int)($b['priority']??3)) ?: strcmp((string)($a['key']??''),(string)($b['key']??'')));
+    return[
+        'total'=>count($items),
+        'high_priority'=>count(array_filter($items,static fn(array $row):bool=>(int)$row['priority']===1))+(int)($planning['attention']??0),
+        'recommendations'=>array_slice($recommendations,0,20),
+        'group_relationship_planning'=>[
+            'available'=>!empty($planning['available']),'attention'=>(int)($planning['attention']??0),'plans'=>array_slice((array)($planning['plans']??[]),0,20),
+            'privacy'=>(string)($planning['privacy']??''),'authority'=>(string)($planning['authority']??''),
+        ],
+        'authority'=>'Recommendations are read-only. Event Learning may refine timing, capacity, Playbook and benefit evidence from completed Event Results. Group Relationship Planning adds aggregate Group Health, Member Journey pacing and target guest-mix evidence. Event configuration and creation remain Coveted System Admin authority; relationship plans may create only an Event Proposal for later explicit Admin approval and conversion.'
+    ];
 }
