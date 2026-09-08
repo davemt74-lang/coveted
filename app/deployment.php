@@ -84,10 +84,10 @@ function coveted_deployment_runtime_issues(string $root): array
     $errors = [];
     $warnings = [];
 
-    // The repository continuously validates PHP 8.1 and 8.2. Keep deployment
-    // requirements aligned with the compatibility contract exercised by CI.
-    if (version_compare(PHP_VERSION, '8.1.0', '<')) {
-        $errors[] = 'PHP 8.1 or newer is required; found ' . PHP_VERSION . '.';
+    // Composer is the deploy-runtime source of truth. PHP 8.1 remains covered by
+    // source-compatibility CI, while production dependencies require PHP 8.2+.
+    if (version_compare(PHP_VERSION, '8.2.0', '<')) {
+        $errors[] = 'PHP 8.2 or newer is required; found ' . PHP_VERSION . '.';
     }
 
     foreach (coveted_deployment_required_extensions() as $extension) {
