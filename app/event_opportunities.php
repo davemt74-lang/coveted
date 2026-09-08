@@ -5,7 +5,7 @@ require_once __DIR__ . '/events.php';
 require_once __DIR__ . '/event_management.php';
 require_once __DIR__ . '/system_sample_data.php';
 require_once __DIR__ . '/event_learning.php';
-require_once __DIR__ . '/group_relationship_planning.php';
+require_once __DIR__ . '/group_relationship_planning_guard.php';
 
 /**
  * Event opportunities are a deterministic read model built from canonical
@@ -164,7 +164,7 @@ function coveted_event_opportunity_agent_context(array $admin,?PDO $pdo=null):ar
 {
     $items=coveted_event_opportunities($admin,$pdo);
     $planning=['available'=>false,'plans'=>[],'recommendations'=>[],'attention'=>0];
-    try{$planning=coveted_group_relationship_planning_agent_context($admin,20,$pdo);}catch(Throwable $e){error_log('Event Opportunity Group Relationship Planning bridge unavailable: '.$e->getMessage());}
+    try{$planning=coveted_group_relationship_planning_guarded_agent_context($admin,20,$pdo);}catch(Throwable $e){error_log('Event Opportunity Group Relationship Planning bridge unavailable: '.$e->getMessage());}
     $recommendations=array_merge(array_slice($items,0,12),array_slice((array)($planning['recommendations']??[]),0,12));
     usort($recommendations,static fn(array $a,array $b):int=>((int)($a['priority']??3)<=> (int)($b['priority']??3)) ?: strcmp((string)($a['key']??''),(string)($b['key']??'')));
     return[
