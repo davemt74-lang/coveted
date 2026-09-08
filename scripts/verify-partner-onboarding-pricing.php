@@ -75,22 +75,22 @@ $contains($onboarding,'Creating a partner does not change your global Coveted us
 $contains($pricing,'coveted_service_public_packages(null,$pdo)','public Pricing must read the live package catalog');
 $contains($pricing,"'/subscribe.php?package='",'paid member package must enter subject-aware subscription confirmation');
 $contains($pricing,"'/partner-onboarding.php?package='",'business package must enter partner onboarding');
-$contains($pricing,"$package['monthly_price_cents']",'public price must be rendered from the live package row');
-$contains($pricing,"$package['public_entitlements']",'public feature list must be derived from enabled package entitlements');
+$contains($pricing,'$package[\'monthly_price_cents\']','public price must be rendered from the live package row');
+$contains($pricing,'$package[\'public_entitlements\']','public feature list must be derived from enabled package entitlements');
 $missing($pricing,'59.00','Pricing page must not hard-code Partner pricing');
 $missing($pricing,'149.00','Pricing page must not hard-code Partner Pro pricing');
 $missing($pricing,'299.00','Pricing page must not hard-code Organization pricing');
 
 $contains($subscribe,'You are purchasing <?= coveted_e((string)$package[\'name\']) ?> for <?= coveted_e($subjectLabel) ?>.','confirmation must name both package and billing subject');
 $contains($subscribe,'coveted_service_package_available_to_subject','confirmation must enforce package billing audience');
-$contains($subscribe,"$subjectType = 'business'",'business subscriptions must have a business billing subject');
-$contains($subscribe,"$subjectType = 'user'",'member subscriptions must have a user billing subject');
+$contains($subscribe,"\$subjectType = 'business'",'business subscriptions must have a business billing subject');
+$contains($subscribe,"\$subjectType = 'user'",'member subscriptions must have a user billing subject');
 $contains($subscribe,'Stripe hosts the payment form. Coveted does not receive or store your card number or CVC.','hosted payment boundary must remain explicit');
 $contains($subscribe,'name="business_ref"','business identity must be carried into checkout');
 
 $contains($billingAction,"require_once __DIR__ . '/app/public_packages.php';",'checkout action must load package audience rules');
 $contains($billingAction,'coveted_service_package_available_to_subject($packageId,$billingSubject,$pdo)','checkout must reject cross-audience packages server-side');
-$contains($billingAction,"$billingSubject = $business !== null ? 'business' : 'user';",'checkout audience must be determined by the actual billing subject');
+$contains($billingAction,"\$billingSubject = \$business !== null ? 'business' : 'user';",'checkout audience must be determined by the actual billing subject');
 $contains($billingReturn,'coveted_partner_activate_from_billing_result($result,$pdo);','checkout return must activate eligible prospective partners');
 $contains($webhook,'coveted_partner_activate_from_billing_result($result,$pdo);','webhook recovery must activate eligible prospective partners even without browser return');
 
@@ -98,9 +98,9 @@ $contains($footer,"['/pricing.php', 'Pricing']",'Pricing link must be available 
 $missing($bootstrap,'href="/pricing.php"','Pricing must not be promoted in the primary/account navigation');
 $missing($home,'<a href="/pricing.php"','Pricing must not be hard-coded into the public landing navigation/body');
 
-$contains($adminPackages,"name=\"monthly_price\"",'System Admin must control live monthly package pricing');
-$contains($adminPackages,"name=\"entitlements\"",'System Admin must control package entitlements');
-$contains($adminPackages,"name=\"is_active\"",'System Admin must control package active state');
-$contains($adminPackages,"scope_type\" value=\"business\"",'System Admin must be able to assign packages directly to partners');
+$contains($adminPackages,'name="monthly_price"','System Admin must control live monthly package pricing');
+$contains($adminPackages,'name="entitlements"','System Admin must control package entitlements');
+$contains($adminPackages,'name="is_active"','System Admin must control package active state');
+$contains($adminPackages,'scope_type" value="business"','System Admin must be able to assign packages directly to partners');
 
 fwrite(STDOUT,"Partner onboarding + dynamic pricing contract verified.\n");
