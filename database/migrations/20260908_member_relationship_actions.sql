@@ -1,0 +1,51 @@
+-- Coveted Member Relationship Action Execution
+-- Durable System Admin review/approval/execution state for Member Journey recommendations.
+
+SET NAMES utf8mb4;
+SET time_zone = '+00:00';
+
+CREATE TABLE IF NOT EXISTS member_relationship_actions (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  public_id VARCHAR(64) NOT NULL UNIQUE,
+  owner_user_id BIGINT UNSIGNED NOT NULL,
+  member_user_id BIGINT UNSIGNED NOT NULL,
+  recommendation_key CHAR(64) NOT NULL UNIQUE,
+  journey_state VARCHAR(64) NOT NULL,
+  action_type VARCHAR(64) NOT NULL,
+  priority TINYINT UNSIGNED NOT NULL DEFAULT 2,
+  status ENUM('recommended','reviewed','approved','executed','skipped','expired','outcome') NOT NULL DEFAULT 'recommended',
+  title VARCHAR(190) NOT NULL,
+  detail TEXT NULL,
+  evidence TEXT NULL,
+  draft_message VARCHAR(2000) NULL,
+  execution_type ENUM('hold','message','event_invitation') NOT NULL DEFAULT 'message',
+  target_event_id BIGINT UNSIGNED NULL,
+  source_snapshot_json JSON NULL,
+  canonical_result_type VARCHAR(64) NULL,
+  canonical_result_ref VARCHAR(64) NULL,
+  execution_error VARCHAR(1000) NULL,
+  outcome_status ENUM('positive','neutral','negative','unknown') NULL,
+  outcome_note VARCHAR(2000) NULL,
+  reviewed_by_user_id BIGINT UNSIGNED NULL,
+  approved_by_user_id BIGINT UNSIGNED NULL,
+  executed_by_user_id BIGINT UNSIGNED NULL,
+  reviewed_at DATETIME NULL,
+  approved_at DATETIME NULL,
+  execution_attempted_at DATETIME NULL,
+  executed_at DATETIME NULL,
+  skipped_at DATETIME NULL,
+  expired_at DATETIME NULL,
+  outcome_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_member_relationship_actions_owner_status (owner_user_id,status,priority,updated_at),
+  KEY idx_member_relationship_actions_member_status (member_user_id,status,updated_at),
+  KEY idx_member_relationship_actions_action_status (action_type,status,updated_at),
+  KEY idx_member_relationship_actions_event (target_event_id,status),
+  CONSTRAINT fk_member_relationship_actions_owner FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_member_relationship_actions_member FOREIGN KEY (member_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_member_relationship_actions_event FOREIGN KEY (target_event_id) REFERENCES events(id) ON DELETE SET NULL,
+  CONSTRAINT fk_member_relationship_actions_reviewer FOREIGN KEY (reviewed_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_member_relationship_actions_approver FOREIGN KEY (approved_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_member_relationship_actions_executor FOREIGN KEY (executed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
