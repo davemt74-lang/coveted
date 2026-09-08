@@ -32,9 +32,9 @@ $stripe = $read('app/stripe_billing.php');
 // Admin-only operational surface.
 $contains($page,'coveted_require_system_admin()','billing operations must require System Admin');
 $contains($page,'coveted_require_csrf()','billing repair mutations must require CSRF');
-$contains($page,"$action !== 'resync_subscription'",'Admin page must allowlist the resync action');
+$contains($page,'$action !== \'resync_subscription\'','Admin page must allowlist the resync action');
 $contains($page,'coveted_billing_ops_resync_subscription($admin,$ref,$pdo)','Admin repair must use the audited reconciliation service');
-$contains($page,"'trialing' and <code>active</code>",'current entitlement policy must be visible to Admin');
+$contains($page,'only <code>trialing</code> and <code>active</code> subscriptions','current entitlement policy must be visible to Admin');
 $contains($page,'Webhook failures','webhook failure health must be visible');
 $contains($page,'Recent failed checkouts','checkout failures must be visible');
 $contains($page,'Recent payment history','invoice history must be visible');
@@ -44,7 +44,7 @@ $contains($page,'Recent payment history','invoice history must be visible');
 // not cancel, change prices, charge, refund or otherwise mutate Stripe.
 $contains($ops,"coveted_stripe_api_request('GET','/subscriptions/'",'manual reconciliation must fetch the live Stripe subscription');
 $contains($ops,'coveted_stripe_sync_subscription($remote,$pdo)','manual reconciliation must reuse canonical subscription sync');
-$contains($ops,"coveted_audit(\n        'billing.subscription_admin_resync'",'manual resync must be audited to the acting Admin');
+$contains($ops,"'billing.subscription_admin_resync'",'manual resync must be audited to the acting Admin');
 $contains($ops,"coveted_stripe_api_request('GET','/invoices'",'invoice visibility must use Stripe read API');
 $contains($ops,'coveted_stripe_invoice_subscription_ref($invoice)','invoice results must be scoped back to the selected subscription');
 $missing($ops,"coveted_stripe_api_request('POST'",'billing operations service must not mutate remote Stripe state');
